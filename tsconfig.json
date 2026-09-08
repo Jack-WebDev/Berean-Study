@@ -1,0 +1,3 @@
+{
+  "extends": "@berean-study/config/tsconfig.base.json"
+}
