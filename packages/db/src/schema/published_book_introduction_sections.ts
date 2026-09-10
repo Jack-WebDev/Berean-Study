@@ -8,14 +8,19 @@ import { contentRevisions } from "./content_revisions";
 export const publishedBookIntroductionSections = pgTable(
 	"published_book_introduction_sections",
 	{
-		bookIntroductionSectionId: integer("book_introduction_section_id")
-			.notNull()
-			.references(() => bookIntroductionSections.id, { onDelete: "restrict" }),
+		bookIntroductionSectionId: integer(
+			"book_introduction_section_id",
+		).notNull(),
 
 		contentRevisionId: integer("content_revision_id").notNull(),
 	},
 	(table) => [
 		primaryKey({ columns: [table.bookIntroductionSectionId] }),
+		foreignKey({
+			columns: [table.bookIntroductionSectionId],
+			foreignColumns: [bookIntroductionSections.id],
+			name: "published_book_intro_sections_section_fk",
+		}).onDelete("restrict"),
 		foreignKey({
 			columns: [table.contentRevisionId, table.bookIntroductionSectionId],
 			foreignColumns: [
