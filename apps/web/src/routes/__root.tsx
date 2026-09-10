@@ -25,7 +25,17 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
 			},
 			{
 				name: "theme-color",
-				content: "#09090b",
+				content: "#f8f6f0",
+				media: "(prefers-color-scheme: light)",
+			},
+			{
+				name: "theme-color",
+				content: "#151b26",
+				media: "(prefers-color-scheme: dark)",
+			},
+			{
+				name: "color-scheme",
+				content: "light dark",
 			},
 			{
 				name: "description",
@@ -41,6 +51,11 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
 				rel: "stylesheet",
 				href: appCss,
 			},
+			{
+				rel: "icon",
+				type: "image/png",
+				href: "/favicon.png",
+			},
 		],
 	}),
 
@@ -49,7 +64,7 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
 
 function RootDocument() {
 	return (
-		<html lang="en" className="dark" suppressHydrationWarning>
+		<html lang="en" suppressHydrationWarning>
 			<head>
 				<HeadContent />
 			</head>
