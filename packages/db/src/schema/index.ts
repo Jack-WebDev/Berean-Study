@@ -8,6 +8,8 @@ export * from "./citations";
 export * from "./content_revisions";
 export * from "./contributors";
 export * from "./credited_people";
+export * from "./editorial_assignments";
+export * from "./editorial_checklists";
 export * from "./literary_units";
 export * from "./passage_commentaries";
 export * from "./passage_commentary_sections";
