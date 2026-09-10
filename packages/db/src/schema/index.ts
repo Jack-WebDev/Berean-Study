@@ -27,6 +27,8 @@ export * from "./source_credits";
 export * from "./source_excerpts";
 export * from "./source_links";
 export * from "./sources";
+export * from "./theme_passages";
+export * from "./themes";
 export * from "./translations";
 export * from "./verse_commentaries";
 export * from "./verse_commentary_sections";
