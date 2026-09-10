@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
 	check,
 	index,
@@ -8,6 +8,7 @@ import {
 	text,
 } from "drizzle-orm/pg-core";
 import { lexemes } from "./lexemes";
+import { sourceTextEditions } from "./source_text_editions";
 import { verses } from "./verses";
 
 /**
@@ -21,6 +22,12 @@ export const wordOccurrences = pgTable(
 		verseId: integer("verse_id")
 			.notNull()
 			.references(() => verses.id, {
+				onDelete: "restrict",
+			}),
+
+		sourceTextEditionId: integer("source_text_edition_id")
+			.notNull()
+			.references(() => sourceTextEditions.id, {
 				onDelete: "restrict",
 			}),
 
@@ -46,8 +53,10 @@ export const wordOccurrences = pgTable(
 	},
 	(table) => [
 		primaryKey({
-			columns: [table.verseId, table.position],
+			columns: [table.sourceTextEditionId, table.verseId, table.position],
 		}),
+
+		index("word_occurrences_verse_id_idx").on(table.verseId),
 
 		index("word_occurrences_lexeme_id_idx").on(table.lexemeId),
 
@@ -55,4 +64,22 @@ export const wordOccurrences = pgTable(
 
 		check("word_occurrences_form_not_blank", sql`btrim(${table.form}) <> ''`),
 	],
+);
+
+export const wordOccurrencesRelations = relations(
+	wordOccurrences,
+	({ one }) => ({
+		verse: one(verses, {
+			fields: [wordOccurrences.verseId],
+			references: [verses.id],
+		}),
+		sourceTextEdition: one(sourceTextEditions, {
+			fields: [wordOccurrences.sourceTextEditionId],
+			references: [sourceTextEditions.id],
+		}),
+		lexeme: one(lexemes, {
+			fields: [wordOccurrences.lexemeId],
+			references: [lexemes.id],
+		}),
+	}),
 );

@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
 	check,
 	index,
@@ -26,18 +26,26 @@ export const verseTexts = pgTable(
 				onDelete: "restrict",
 			}),
 
-		text: text(),
+		text: text().notNull(),
 	},
 	(table) => [
 		primaryKey({
 			columns: [table.translationId, table.verseId],
 		}),
 
-		check(
-			"verse_texts_text_not_empty_check",
-			sql`${table.text} IS NULL OR btrim(${table.text}) <> ''`,
-		),
+		check("verse_texts_text_not_empty_check", sql`btrim(${table.text}) <> ''`),
 
 		index("verse_texts_verse_id_idx").on(table.verseId),
 	],
 );
+
+export const verseTextsRelations = relations(verseTexts, ({ one }) => ({
+	translation: one(translations, {
+		fields: [verseTexts.translationId],
+		references: [translations.id],
+	}),
+	verse: one(verses, {
+		fields: [verseTexts.verseId],
+		references: [verses.id],
+	}),
+}));

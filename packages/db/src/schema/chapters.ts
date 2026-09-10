@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
 	check,
 	index,
@@ -9,6 +9,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { books } from "./books";
+import { verses } from "./verses";
 import { versificationSystems } from "./versification_systems";
 
 export const chapters = pgTable(
@@ -41,3 +42,11 @@ export const chapters = pgTable(
 		check("chapters_number_positive_check", sql`${table.number} > 0`),
 	],
 );
+
+export const chaptersRelations = relations(chapters, ({ one, many }) => ({
+	book: one(books, {
+		fields: [chapters.bookId],
+		references: [books.id],
+	}),
+	verses: many(verses),
+}));

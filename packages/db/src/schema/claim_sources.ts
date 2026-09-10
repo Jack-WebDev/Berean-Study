@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { check, integer, pgTable, primaryKey, text } from "drizzle-orm/pg-core";
+import { check, index, integer, pgTable, text } from "drizzle-orm/pg-core";
 
 import { claims } from "./claims";
 import { sources } from "./sources";
@@ -7,13 +7,15 @@ import { sources } from "./sources";
 export const claimSources = pgTable(
 	"claim_sources",
 	{
-		claimId: integer()
+		id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+
+		claimId: integer("claim_id")
 			.notNull()
 			.references(() => claims.id, {
 				onDelete: "cascade",
 			}),
 
-		sourceId: integer()
+		sourceId: integer("source_id")
 			.notNull()
 			.references(() => sources.id, {
 				onDelete: "restrict",
@@ -24,9 +26,9 @@ export const claimSources = pgTable(
 		locator: text(),
 	},
 	(table) => [
-		primaryKey({
-			columns: [table.claimId, table.sourceId],
-		}),
+		index("claim_sources_claim_id_idx").on(table.claimId),
+
+		index("claim_sources_source_id_idx").on(table.sourceId),
 
 		check(
 			"claim_sources_relationship_check",

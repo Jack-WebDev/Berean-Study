@@ -1,5 +1,9 @@
-import { sql } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import { check, integer, pgTable, text, unique } from "drizzle-orm/pg-core";
+
+import { bookIntroductions } from "./book_introductions";
+import { chapters } from "./chapters";
+import { passages } from "./passages";
 
 export const books = pgTable(
 	"books",
@@ -24,3 +28,9 @@ export const books = pgTable(
 		check("books_slug_not_empty_check", sql`btrim(${table.slug}) <> ''`),
 	],
 );
+
+export const booksRelations = relations(books, ({ many, one }) => ({
+	chapters: many(chapters),
+	passages: many(passages),
+	introduction: one(bookIntroductions),
+}));

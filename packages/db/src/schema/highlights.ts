@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
 	check,
 	foreignKey,
+	index,
 	integer,
 	pgTable,
 	text,
@@ -41,6 +42,11 @@ export const highlights = pgTable(
 			table.verseId,
 			table.startOffset,
 			table.endOffset,
+		),
+
+		index("highlights_translation_verse_idx").on(
+			table.translationId,
+			table.verseId,
 		),
 
 		check("highlights_start_offset_check", sql`${table.startOffset} >= 0`),

@@ -1,7 +1,9 @@
-import { sql } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import { check, integer, pgTable, text, unique } from "drizzle-orm/pg-core";
 
 import { bookIntroductions } from "./book_introductions";
+import { contentRevisions } from "./content_revisions";
+import { publishedBookIntroductionSections } from "./published_book_introduction_sections";
 
 export const bookIntroductionSections = pgTable(
 	"book_introduction_sections",
@@ -53,4 +55,18 @@ export const bookIntroductionSections = pgTable(
 			sql`${table.position} > 0`,
 		),
 	],
+);
+
+export const bookIntroductionSectionsRelations = relations(
+	bookIntroductionSections,
+	({ one, many }) => ({
+		introduction: one(bookIntroductions, {
+			fields: [bookIntroductionSections.bookId],
+			references: [bookIntroductions.bookId],
+		}),
+		revisions: many(contentRevisions, {
+			relationName: "bookIntroductionSectionRevisions",
+		}),
+		published: one(publishedBookIntroductionSections),
+	}),
 );

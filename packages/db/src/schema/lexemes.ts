@@ -1,6 +1,7 @@
-import { sql } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import { check, index, integer, pgTable, text } from "drizzle-orm/pg-core";
 import { languages } from "./languages";
+import { wordOccurrences } from "./word_occurances";
 /**
  * Dictionary-form words from the biblical source languages.
  *
@@ -26,3 +27,11 @@ export const lexemes = pgTable(
 		check("lexemes_lemma_not_blank", sql`btrim(${table.lemma}) <> ''`),
 	],
 );
+
+export const lexemesRelations = relations(lexemes, ({ one, many }) => ({
+	language: one(languages, {
+		fields: [lexemes.languageId],
+		references: [languages.id],
+	}),
+	wordOccurrences: many(wordOccurrences),
+}));

@@ -1,5 +1,7 @@
-import { sql } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import { check, integer, pgTable, text } from "drizzle-orm/pg-core";
+
+import { citations } from "./citations";
 
 export const sources = pgTable(
 	"sources",
@@ -18,3 +20,7 @@ export const sources = pgTable(
 		check("sources_type_not_empty_check", sql`btrim(${table.type}) <> ''`),
 	],
 );
+
+export const sourcesRelations = relations(sources, ({ many }) => ({
+	citations: many(citations),
+}));

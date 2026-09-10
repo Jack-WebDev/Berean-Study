@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
 	check,
 	integer,
@@ -6,6 +6,9 @@ import {
 	text,
 	uniqueIndex,
 } from "drizzle-orm/pg-core";
+
+import { lexemes } from "./lexemes";
+import { sourceTextEditions } from "./source_text_editions";
 
 export const languages = pgTable(
 	"languages",
@@ -32,3 +35,8 @@ export const languages = pgTable(
 		check("languages_name_not_blank", sql`btrim(${table.name}) <> ''`),
 	],
 );
+
+export const languagesRelations = relations(languages, ({ many }) => ({
+	lexemes: many(lexemes),
+	sourceTextEditions: many(sourceTextEditions),
+}));
