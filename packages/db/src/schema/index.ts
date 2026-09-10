@@ -5,6 +5,7 @@ export * from "./canon_books";
 export * from "./canon_traditions";
 export * from "./chapters";
 export * from "./citations";
+export * from "./content_issues";
 export * from "./content_revisions";
 export * from "./contributors";
 export * from "./credited_people";
