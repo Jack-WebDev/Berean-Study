@@ -10,6 +10,7 @@ export * from "./contributors";
 export * from "./credited_people";
 export * from "./editorial_assignments";
 export * from "./editorial_checklists";
+export * from "./editorial_checks";
 export * from "./literary_units";
 export * from "./passage_commentaries";
 export * from "./passage_commentary_sections";
