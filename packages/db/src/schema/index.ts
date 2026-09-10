@@ -4,6 +4,7 @@ export * from "./book_introductions";
 export * from "./books";
 export * from "./canon_books";
 export * from "./canon_traditions";
+export * from "./canonical_relationships";
 export * from "./chapters";
 export * from "./citations";
 export * from "./content_issues";
