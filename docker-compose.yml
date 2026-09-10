@@ -1,0 +1,33 @@
+name: berean-study
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: berean-study-postgres
+    restart: unless-stopped
+    ports:
+      - "5436:5432"
+    environment:
+      POSTGRES_USER: berean_study
+      POSTGRES_PASSWORD: berean_study
+      POSTGRES_DB: berean_study
+    volumes:
+      - berean_study_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U berean_study -d berean_study"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mail:
+    restart: unless-stopped
+    image: 'axllent/mailpit:latest'
+    ports:
+      - '1025:1025'
+      - '8025:8025'
+    volumes:
+      - 'berean_study_mail_data:/mail'
+
+volumes:
+  berean_study_postgres_data:
+  berean_study_mail_data:
