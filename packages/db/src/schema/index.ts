@@ -11,6 +11,7 @@ export * from "./content_issues_comments";
 export * from "./content_revisions";
 export * from "./contributors";
 export * from "./credited_people";
+export * from "./cross_references";
 export * from "./editorial_assignments";
 export * from "./editorial_checklists";
 export * from "./editorial_checks";
