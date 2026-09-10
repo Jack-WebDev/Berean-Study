@@ -16,6 +16,7 @@ export * from "./cross_references";
 export * from "./editorial_assignments";
 export * from "./editorial_checklists";
 export * from "./editorial_checks";
+export * from "./interpretative_questions";
 export * from "./literary_units";
 export * from "./passage_commentaries";
 export * from "./passage_commentary_sections";
