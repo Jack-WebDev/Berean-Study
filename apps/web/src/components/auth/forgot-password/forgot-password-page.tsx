@@ -17,8 +17,8 @@ export default function ForgotPasswordPage() {
 									Forgot your password?
 								</h1>
 								<p className="mx-auto mt-3 max-w-sm text-[15px] text-muted-foreground leading-6">
-									Enter your email and we’ll send you a link to reset your
-									password.
+									Enter your email and we’ll send you a one-time code to reset
+									your password.
 								</p>
 							</div>
 							<ForgotPasswordForm />

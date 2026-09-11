@@ -2,24 +2,26 @@ import { Button } from "@berean-study/ui/components/button";
 import { Input } from "@berean-study/ui/components/input";
 import { Label } from "@berean-study/ui/components/label";
 import { useForm } from "@tanstack/react-form";
+import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import z from "zod";
 import { authClient } from "@/lib/auth-client";
 
 export default function ForgotPasswordForm() {
+	const navigate = useNavigate({ from: "/forgot-password" });
 	const form = useForm({
 		defaultValues: { email: "" },
 		onSubmit: async ({ value }) => {
-			await authClient.requestPasswordReset(
+			await authClient.emailOtp.requestPasswordReset(
 				{
 					email: value.email,
-					redirectTo: `${window.location.origin}/reset-password`,
 				},
 				{
 					onSuccess: () => {
 						toast.success(
-							"If an account exists for that email, a reset link is on its way.",
+							"If an account exists for that email, a reset code is on its way.",
 						);
+						navigate({ to: "/reset-password", search: { email: value.email } });
 					},
 					onError: (error) => {
 						toast.error(error.error.message || error.error.statusText);
@@ -77,7 +79,7 @@ export default function ForgotPasswordForm() {
 						disabled={!canSubmit || isSubmitting}
 						className="mt-1 h-12 w-full rounded-xl font-medium text-sm shadow-none"
 					>
-						{isSubmitting ? "Sending reset link..." : "Email reset link"}
+						{isSubmitting ? "Sending code..." : "Email reset code"}
 					</Button>
 				)}
 			</form.Subscribe>

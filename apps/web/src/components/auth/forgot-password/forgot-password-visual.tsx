@@ -22,7 +22,7 @@ export default function ForgotPasswordVisual() {
 				</h2>
 				<p className="mt-5 max-w-sm text-muted-foreground text-sm leading-6">
 					Enter the email associated with your account and we’ll send you a
-					secure password reset link.
+					secure password reset code.
 				</p>
 			</div>
 		</aside>
