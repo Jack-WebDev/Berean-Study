@@ -15,6 +15,7 @@
 		"db:migrate:deploy": "drizzle-kit migrate",
 		"db:studio": "drizzle-kit studio",
 		"db:migrate": "drizzle-kit migrate",
+		"db:seed": "tsx src/seeds/main.ts",
 		"db:start": "docker compose up -d",
 		"db:watch": "docker compose up",
 		"db:stop": "docker compose stop",
@@ -22,6 +23,7 @@
 	},
 	"dependencies": {
 		"@berean-study/env": "workspace:*",
+		"@faker-js/faker": "^10.6.0",
 		"dotenv": "catalog:",
 		"drizzle-orm": "^0.45.2",
 		"pg": "^8.22.0",
@@ -31,6 +33,7 @@
 		"@berean-study/config": "workspace:*",
 		"@types/pg": "^8.20.0",
 		"drizzle-kit": "^0.31.10",
+		"tsx": "^4.23.13",
 		"typescript": "catalog:"
 	}
 }
