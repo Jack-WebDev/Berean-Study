@@ -79,8 +79,6 @@ function RootDocument() {
 					Skip to content
 				</Link>
 				<div className="grid min-h-svh grid-rows-[auto_1fr]">
-					<Header />
-
 					<main id="main-content" className="min-h-0" tabIndex={-1}>
 						<Outlet />
 					</main>

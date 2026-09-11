@@ -1,6 +1,6 @@
 import { Button } from "@berean-study/ui/components/button";
 import { Link } from "@tanstack/react-router";
-import { SearchIcon } from "lucide-react";
+import { ArrowUpRightIcon, SearchIcon } from "lucide-react";
 
 import { DesktopNavigation } from "./navigation/desktop-navigation";
 import { MobileNavigation } from "./navigation/mobile-navigation";
@@ -20,25 +20,32 @@ export default function Header() {
 							alt="Berean Study"
 							width={2172}
 							height={724}
-							className="h-8 w-auto mix-blend-multiply sm:h-10"
+							className="h-12 w-auto mix-blend-multiply sm:h-10"
 						/>
 					</Link>
 
 					<DesktopNavigation />
 
-					<Button
-						render={<Link to="/" hash="search" />}
-						aria-label="Search"
-						variant="ghost"
-						size="icon"
-						className="ml-auto size-10 rounded-full active:bg-muted md:hover:bg-muted"
-					>
-						<SearchIcon
-							aria-hidden="true"
-							data-icon="inline-start"
-							strokeWidth={1.7}
-						/>
-					</Button>
+					<div className="ml-auto flex items-center gap-1 sm:gap-2">
+						<Button
+							render={<Link to="/login" />}
+							variant="ghost"
+							className="h-12 rounded-xl px-3.5 font-semibold text-foreground text-sm hover:bg-muted"
+						>
+							Log in
+						</Button>
+						<Button
+							render={<Link to="/register" />}
+							className="h-12 rounded-xl px-3.5 font-semibold text-sm shadow-md shadow-primary/20 transition-transform hover:bg-primary sm:px-4"
+						>
+							Create account
+							<ArrowUpRightIcon
+								aria-hidden="true"
+								className="size-3.5"
+								strokeWidth={2}
+							/>
+						</Button>
+					</div>
 				</div>
 			</header>
 
