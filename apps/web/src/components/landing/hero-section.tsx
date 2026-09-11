@@ -46,19 +46,6 @@ export function HeroSection() {
 					</div>
 
 					<SearchBar />
-
-					<Link
-						to="/"
-						hash="browse"
-						className="group mt-5 inline-flex min-h-11 items-center gap-2 font-medium text-sm text-white md:mt-6 md:text-foreground"
-					>
-						Browse Scripture
-						<ArrowRightIcon
-							aria-hidden="true"
-							className="size-4 transition-transform md:group-hover:translate-x-1"
-							strokeWidth={1.6}
-						/>
-					</Link>
 				</div>
 			</div>
 		</section>

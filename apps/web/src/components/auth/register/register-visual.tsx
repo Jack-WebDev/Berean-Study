@@ -32,7 +32,7 @@ export default function RegisterVisual() {
 				aria-hidden="true"
 				className="absolute inset-0 bg-gradient-to-r from-background/95 via-background/75 to-background/20"
 			/>
-			<div className="relative z-10 flex h-full max-w-md flex-col justify-center p-10 lg:p-12">
+			<div className="relative z-10 flex h-full max-w-lg flex-col justify-center p-10 lg:p-12">
 				<p className="font-serif text-4xl leading-[1.05] tracking-[-0.035em]">
 					Join a community committed to careful Bible study.
 				</p>
