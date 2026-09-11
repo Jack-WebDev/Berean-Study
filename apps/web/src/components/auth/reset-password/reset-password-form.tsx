@@ -25,8 +25,9 @@ export default function ResetPasswordForm({ email }: { email: string }) {
 						toast.success("Your password has been reset. Sign in to continue.");
 						navigate({ to: "/login" });
 					},
-					onError: (error) =>
-						toast.error(error.error.message || error.error.statusText),
+					onError: (error) => {
+						toast.error(error.error.message || error.error.statusText);
+					},
 				},
 			);
 		},
@@ -238,9 +239,9 @@ function PasswordField({
 					className="absolute inset-y-0 right-0 grid w-12 place-items-center text-muted-foreground hover:text-foreground"
 				>
 					{visible ? (
-						<EyeOffIcon aria-hidden="true" className="size-[18px]" />
+						<EyeOffIcon aria-hidden="true" className="size-4.5" />
 					) : (
-						<EyeIcon aria-hidden="true" className="size-[18px]" />
+						<EyeIcon aria-hidden="true" className="size-4.5" />
 					)}
 				</button>
 			</div>

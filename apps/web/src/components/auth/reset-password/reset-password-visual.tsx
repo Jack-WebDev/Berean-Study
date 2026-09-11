@@ -9,7 +9,7 @@ export default function ResetPasswordVisual() {
 			/>
 			<div
 				aria-hidden="true"
-				className="absolute inset-0 bg-gradient-to-r from-background/95 via-background/70 to-transparent"
+				className="absolute inset-0 bg-linear-to-r from-background/95 via-background/70 to-transparent"
 			/>
 			<div className="relative z-10 flex h-full max-w-md flex-col justify-center p-10 lg:p-12">
 				<div className="grid size-12 place-items-center rounded-full bg-primary/10 text-primary">

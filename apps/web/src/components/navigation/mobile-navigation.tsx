@@ -8,7 +8,7 @@ export function MobileNavigation() {
 			aria-label="Mobile navigation"
 			className="fixed inset-x-0 bottom-0 z-50 border-border/70 border-t bg-background/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden"
 		>
-			<div className="grid h-16 grid-cols-4">
+			<div className="grid h-16 grid-cols-2">
 				{navigationItems.map((item) => {
 					const Icon = item.icon;
 

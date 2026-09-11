@@ -105,13 +105,13 @@ export default function LoginForm() {
 								{showPassword ? (
 									<EyeOffIcon
 										aria-hidden="true"
-										className="size-[18px]"
+										className="size-4.5"
 										strokeWidth={1.6}
 									/>
 								) : (
 									<EyeIcon
 										aria-hidden="true"
-										className="size-[18px]"
+										className="size-4.5"
 										strokeWidth={1.6}
 									/>
 								)}

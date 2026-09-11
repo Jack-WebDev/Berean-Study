@@ -1,6 +1,6 @@
 export default function LoginVisual() {
 	return (
-		<aside className="relative hidden min-h-[42rem] overflow-hidden md:block">
+		<aside className="relative hidden min-h-168 overflow-hidden md:block">
 			<img
 				src="/auth/auth-login.png"
 				alt=""
@@ -9,10 +9,10 @@ export default function LoginVisual() {
 
 			<div
 				aria-hidden="true"
-				className="absolute inset-0 bg-gradient-to-t from-[#0b1924]/80 via-[#0b1924]/20 to-black/5"
+				className="absolute inset-0 bg-linear-to-t from-black/80 via-black/20 to-black/5"
 			/>
 
-			<div className="absolute inset-x-0 bottom-0 z-10 p-10 text-white lg:p-12">
+			<div className="relative z-10 flex h-full max-w-md flex-col justify-center p-10 text-white lg:p-12">
 				<p className="max-w-xs font-serif text-4xl leading-[1.05] tracking-[-0.035em]">
 					Study deeper.
 					<br />
