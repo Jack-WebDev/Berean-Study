@@ -1,6 +1,9 @@
 import { Button } from "@berean-study/ui/components/button";
 import { Link } from "@tanstack/react-router";
-import { BookOpenIcon, InfoIcon, LibraryIcon, SearchIcon } from "lucide-react";
+import { SearchIcon } from "lucide-react";
+
+import { DesktopNavigation } from "./navigation/desktop-navigation";
+import { MobileNavigation } from "./navigation/mobile-navigation";
 
 export default function Header() {
 	return (
@@ -21,15 +24,7 @@ export default function Header() {
 						/>
 					</Link>
 
-					<nav
-						aria-label="Primary navigation"
-						className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-9 md:flex"
-					>
-						<DesktopLink hash="browse">Read</DesktopLink>
-						<DesktopLink hash="search">Search</DesktopLink>
-						<DesktopLink hash="library">Library</DesktopLink>
-						<DesktopLink hash="about">About</DesktopLink>
-					</nav>
+					<DesktopNavigation />
 
 					<Button
 						render={<Link to="/" hash="search" />}
@@ -47,60 +42,7 @@ export default function Header() {
 				</div>
 			</header>
 
-			<MobileTabBar />
+			<MobileNavigation />
 		</>
-	);
-}
-
-function DesktopLink({ children, hash }: { children: string; hash: string }) {
-	return (
-		<Link
-			to="/"
-			hash={hash}
-			className="rounded-md px-1 py-2 text-muted-foreground text-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-		>
-			{children}
-		</Link>
-	);
-}
-
-function MobileTabBar() {
-	return (
-		<nav
-			aria-label="Mobile navigation"
-			className="fixed inset-x-0 bottom-0 z-50 border-border/70 border-t bg-background/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden"
-		>
-			<div className="grid h-16 grid-cols-4">
-				<MobileTab hash="browse" icon={BookOpenIcon} label="Read" />
-
-				<MobileTab hash="search" icon={SearchIcon} label="Search" />
-
-				<MobileTab hash="library" icon={LibraryIcon} label="Library" />
-
-				<MobileTab hash="about" icon={InfoIcon} label="About" />
-			</div>
-		</nav>
-	);
-}
-
-function MobileTab({
-	hash,
-	icon: Icon,
-	label,
-}: {
-	hash: string;
-	icon: typeof BookOpenIcon;
-	label: string;
-}) {
-	return (
-		<Link
-			to="/"
-			hash={hash}
-			className="flex min-w-0 flex-col items-center justify-center gap-1 text-muted-foreground transition-colors active:text-primary"
-		>
-			<Icon aria-hidden="true" className="size-5" strokeWidth={1.7} />
-
-			<span className="font-medium text-[11px]">{label}</span>
-		</Link>
 	);
 }
