@@ -1,11 +1,18 @@
 import { Button } from "@berean-study/ui/components/button";
+import { Skeleton } from "@berean-study/ui/components/skeleton";
 import { Link } from "@tanstack/react-router";
-import { ArrowUpRightIcon, SearchIcon } from "lucide-react";
+import { ArrowUpRightIcon } from "lucide-react";
+
+import { authClient } from "@/lib/auth-client";
 
 import { DesktopNavigation } from "./navigation/desktop-navigation";
 import { MobileNavigation } from "./navigation/mobile-navigation";
+import UserMenu from "./user-menu";
 
 export default function Header() {
+	const { data: session, isPending } = authClient.useSession();
+	const isAuthenticated = Boolean(session);
+
 	return (
 		<>
 			<header className="sticky top-0 z-50 border-border/70 border-b bg-background/90 backdrop-blur-xl">
@@ -24,32 +31,40 @@ export default function Header() {
 						/>
 					</Link>
 
-					<DesktopNavigation />
+					<DesktopNavigation isAuthenticated={isAuthenticated} />
 
 					<div className="ml-auto flex items-center gap-1 sm:gap-2">
-						<Button
-							render={<Link to="/login" />}
-							variant="ghost"
-							className="h-12 rounded-xl px-3.5 font-semibold text-foreground text-sm hover:bg-muted"
-						>
-							Log in
-						</Button>
-						<Button
-							render={<Link to="/register" />}
-							className="h-12 rounded-xl px-3.5 font-semibold text-sm shadow-md shadow-primary/20 transition-transform hover:bg-primary sm:px-4"
-						>
-							Create account
-							<ArrowUpRightIcon
-								aria-hidden="true"
-								className="size-3.5"
-								strokeWidth={2}
-							/>
-						</Button>
+						{isPending ? (
+							<Skeleton className="h-9 w-24" />
+						) : isAuthenticated ? (
+							<UserMenu />
+						) : (
+							<>
+								<Button
+									render={<Link to="/login" />}
+									variant="ghost"
+									className="h-12 rounded-xl px-3.5 font-semibold text-foreground text-sm hover:bg-muted"
+								>
+									Log in
+								</Button>
+								<Button
+									render={<Link to="/register" />}
+									className="h-12 rounded-xl px-3.5 font-semibold text-sm shadow-md shadow-primary/20 transition-transform hover:bg-primary sm:px-4"
+								>
+									Create account
+									<ArrowUpRightIcon
+										aria-hidden="true"
+										className="size-3.5"
+										strokeWidth={2}
+									/>
+								</Button>
+							</>
+						)}
 					</div>
 				</div>
 			</header>
 
-			<MobileNavigation />
+			<MobileNavigation isAuthenticated={isAuthenticated} />
 		</>
 	);
 }
