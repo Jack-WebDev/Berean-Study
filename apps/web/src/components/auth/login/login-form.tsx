@@ -20,7 +20,7 @@ export default function LoginForm() {
 				{ email: value.email, password: value.password },
 				{
 					onSuccess: () => {
-						navigate({ to: "/dashboard" });
+						navigate({ to: "/home" });
 						toast.success("Sign in successful");
 					},
 					onError: (error) => {
