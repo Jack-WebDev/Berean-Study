@@ -1,5 +1,5 @@
 {
-	"id": "fdab0234-9270-4cc5-9159-ad5b0a9f2df8",
+	"id": "39907d0f-f379-4b9b-8a67-7005fd0b813e",
 	"prevId": "00000000-0000-0000-0000-000000000000",
 	"version": "7",
 	"dialect": "postgresql",
@@ -4429,8 +4429,8 @@
 			},
 			"indexes": {},
 			"foreignKeys": {
-				"published_book_introduction_sections_book_introduction_section_id_book_introduction_sections_id_fk": {
-					"name": "published_book_introduction_sections_book_introduction_section_id_book_introduction_sections_id_fk",
+				"published_book_intro_sections_section_fk": {
+					"name": "published_book_intro_sections_section_fk",
 					"tableFrom": "published_book_introduction_sections",
 					"tableTo": "book_introduction_sections",
 					"columnsFrom": ["book_introduction_section_id"],
