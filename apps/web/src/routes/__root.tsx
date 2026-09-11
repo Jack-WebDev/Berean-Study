@@ -2,6 +2,7 @@ import { Toaster } from "@berean-study/ui/components/sonner";
 import {
 	createRootRouteWithContext,
 	HeadContent,
+	Link,
 	Outlet,
 	Scripts,
 } from "@tanstack/react-router";
@@ -70,10 +71,17 @@ function RootDocument() {
 			</head>
 
 			<body className="min-h-svh bg-background text-foreground antialiased">
+				<Link
+					to="/"
+					hash="main-content"
+					className="sr-only fixed top-4 left-4 z-50 rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground text-sm focus:not-sr-only focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+				>
+					Skip to content
+				</Link>
 				<div className="grid min-h-svh grid-rows-[auto_1fr]">
 					<Header />
 
-					<main className="min-h-0">
+					<main id="main-content" className="min-h-0" tabIndex={-1}>
 						<Outlet />
 					</main>
 				</div>
