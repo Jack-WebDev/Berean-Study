@@ -1,7 +1,7 @@
 import { KeyRoundIcon } from "lucide-react";
 export default function ResetPasswordVisual() {
 	return (
-		<aside className="relative hidden min-h-[42rem] overflow-hidden md:block">
+		<aside className="relative hidden min-h-168 overflow-hidden md:block">
 			<img
 				src="/auth/auth-reset-password.png"
 				alt=""
@@ -11,7 +11,7 @@ export default function ResetPasswordVisual() {
 				aria-hidden="true"
 				className="absolute inset-0 bg-linear-to-r from-background/95 via-background/70 to-transparent"
 			/>
-			<div className="relative z-10 flex h-full max-w-md flex-col justify-center p-10 lg:p-12">
+			<div className="relative z-10 flex h-full max-w-zl flex-col justify-center p-10 lg:p-12">
 				<div className="grid size-12 place-items-center rounded-full bg-primary/10 text-primary">
 					<KeyRoundIcon
 						aria-hidden="true"
@@ -20,9 +20,7 @@ export default function ResetPasswordVisual() {
 					/>
 				</div>
 				<h2 className="mt-7 font-serif text-4xl leading-[1.05] tracking-[-0.035em]">
-					Choose a new
-					<br />
-					password.
+					Choose a new password.
 				</h2>
 				<p className="mt-5 max-w-sm text-muted-foreground text-sm leading-6">
 					Use a password that is secure, memorable, and unique to your Berean

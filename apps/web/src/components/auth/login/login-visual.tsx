@@ -9,17 +9,17 @@ export default function LoginVisual() {
 
 			<div
 				aria-hidden="true"
-				className="absolute inset-0 bg-linear-to-t from-black/80 via-black/20 to-black/5"
+				className="absolute inset-0 bg-linear-to-t from-black/80 via-black/40 to-black/5"
 			/>
 
-			<div className="relative z-10 flex h-full max-w-md flex-col justify-center p-10 text-white lg:p-12">
-				<p className="max-w-xs font-serif text-4xl leading-[1.05] tracking-[-0.035em]">
+			<div className="relative z-10 flex h-full max-w-xl flex-col justify-center p-10 text-white lg:p-12">
+				<p className="font-serif text-4xl leading-[1.05] tracking-[-0.035em]">
 					Study deeper.
 					<br />
 					Read with confidence.
 				</p>
 
-				<p className="mt-5 max-w-xs text-sm text-white/75 leading-6">
+				<p className="mt-5 text-sm text-white/90 leading-6">
 					Clear context. Multiple perspectives. Trusted sources.
 				</p>
 
