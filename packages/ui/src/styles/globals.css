@@ -57,6 +57,10 @@
 
 	--sidebar-border: oklch(0.89 0.015 85);
 	--sidebar-ring: oklch(0.48 0.075 255);
+
+	/* Landing-page brand role: scoped to the marketing surface below. */
+	--brand: oklch(0.42 0.06 155);
+	--brand-foreground: oklch(0.985 0.005 85);
 }
 
 .dark {
@@ -106,10 +110,22 @@
 
 	--sidebar-border: oklch(0.31 0.025 255);
 	--sidebar-ring: oklch(0.68 0.06 245);
+
+	--brand: oklch(0.7 0.06 155);
+	--brand-foreground: oklch(0.17 0.025 255);
+}
+
+.landing {
+	--primary: var(--brand);
+	--primary-foreground: var(--brand-foreground);
+	--ring: var(--brand);
 }
 
 @theme inline {
-	--font-sans: "Inter Variable", sans-serif;
+	--font-sans: "DM Sans", system-ui, sans-serif;
+	--font-serif: "Libre Baskerville", Georgia, serif;
+	--color-brand-foreground: var(--brand-foreground);
+	--color-brand: var(--brand);
 	--color-sidebar-ring: var(--sidebar-ring);
 	--color-sidebar-border: var(--sidebar-border);
 	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
