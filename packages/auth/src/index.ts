@@ -3,13 +3,15 @@ import * as schema from "@berean-study/db/schema/auth";
 import { env } from "@berean-study/env/server";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { emailOTP } from "better-auth/plugins";
+import { emailOTP } from "better-auth/plugins/email-otp";
+import { twoFactor } from "better-auth/plugins/two-factor";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
 
 export function createAuth() {
 	const db = createDb();
 
 	return betterAuth({
+		appName: "Berean Study",
 		database: drizzleAdapter(db, {
 			provider: "pg",
 
@@ -23,6 +25,11 @@ export function createAuth() {
 		},
 		secret: env.BETTER_AUTH_SECRET,
 		baseURL: env.BETTER_AUTH_URL,
+		user: {
+			deleteUser: {
+				enabled: true,
+			},
+		},
 		plugins: [
 			emailOTP({
 				expiresIn: 60 * 10,
@@ -54,6 +61,9 @@ export function createAuth() {
 						throw new Error("Unable to send password reset code.");
 					}
 				},
+			}),
+			twoFactor({
+				issuer: "Berean Study",
 			}),
 			tanstackStartCookies(),
 		],
