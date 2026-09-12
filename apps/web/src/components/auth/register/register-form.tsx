@@ -18,7 +18,7 @@ export default function RegisterForm() {
 				{ email: value.email, name: value.name, password: value.password },
 				{
 					onSuccess: () => {
-						navigate({ to: "/dashboard" });
+						navigate({ to: "/home" });
 						toast.success("Sign up successful");
 					},
 					onError: (error) => {

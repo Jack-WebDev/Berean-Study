@@ -6,7 +6,7 @@ import { ArrowUpRightIcon } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 
 import { DesktopNavigation } from "./navigation/desktop-navigation";
-import { MobileNavigation } from "./navigation/mobile-navigation";
+import { PublicMobileNavigation } from "./navigation/mobile-navigation";
 import UserMenu from "./user-menu";
 
 export default function Header() {
@@ -27,11 +27,19 @@ export default function Header() {
 							alt="Berean Study"
 							width={2172}
 							height={724}
-							className="h-12 w-auto mix-blend-multiply sm:h-10"
+							className="h-12 w-auto mix-blend-multiply dark:hidden"
+						/>
+						<img
+							src="/logo-dark.png"
+							alt=""
+							aria-hidden="true"
+							width={2172}
+							height={724}
+							className="hidden h-12 w-auto dark:block"
 						/>
 					</Link>
 
-					<DesktopNavigation isAuthenticated={isAuthenticated} />
+					<DesktopNavigation />
 
 					<div className="ml-auto flex items-center gap-1 sm:gap-2">
 						{isPending ? (
@@ -63,8 +71,7 @@ export default function Header() {
 					</div>
 				</div>
 			</header>
-
-			<MobileNavigation isAuthenticated={isAuthenticated} />
+			<PublicMobileNavigation />
 		</>
 	);
 }

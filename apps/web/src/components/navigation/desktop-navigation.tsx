@@ -1,23 +1,12 @@
-import {
-	authenticatedNavigationItems,
-	publicNavigationItems,
-} from "./navigation-items";
+import { publicNavigationItems } from "./navigation-items";
 
-export function DesktopNavigation({
-	isAuthenticated = false,
-}: {
-	isAuthenticated?: boolean;
-}) {
-	const navigationItems = isAuthenticated
-		? authenticatedNavigationItems
-		: publicNavigationItems;
-
+export function DesktopNavigation() {
 	return (
 		<nav
 			aria-label="Primary navigation"
 			className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-9 md:flex"
 		>
-			{navigationItems.map((item) => (
+			{publicNavigationItems.map((item) => (
 				<a
 					key={item.href}
 					href={item.href}
