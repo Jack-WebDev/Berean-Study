@@ -1,9 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/_auth/account/reading/")({
-	component: RouteComponent,
-});
+import { ReadingPage } from "@/components/account/reading/reading-page";
 
-function RouteComponent() {
-	return <div>Hello "/_auth/account/reading/"!</div>;
-}
+export const Route = createFileRoute("/_auth/account/reading/")({
+	component: ReadingPage,
+	staticData: {
+		title: "Reading",
+		description: "Personalize your reading experience.",
+	},
+});
