@@ -4,6 +4,8 @@ DROP INDEX IF EXISTS "word_occurrences_verse_id_idx";
 --> statement-breakpoint
 DROP INDEX IF EXISTS "verse_texts_verse_id_idx";
 --> statement-breakpoint
+DROP INDEX IF EXISTS "user_roles_role_id_idx";
+--> statement-breakpoint
 DROP INDEX IF EXISTS "translations_versification_system_id_idx";
 --> statement-breakpoint
 DROP INDEX IF EXISTS "theme_relationships_target_theme_id_idx";
@@ -26,6 +28,10 @@ DROP INDEX IF EXISTS "source_excerpts_source_id_idx";
 --> statement-breakpoint
 DROP INDEX IF EXISTS "source_credits_credited_person_id_idx";
 --> statement-breakpoint
+DROP INDEX IF EXISTS "roles_name_unique";
+--> statement-breakpoint
+DROP INDEX IF EXISTS "role_permissions_permission_id_idx";
+--> statement-breakpoint
 DROP INDEX IF EXISTS "research_notes_passage_id_idx";
 --> statement-breakpoint
 DROP INDEX IF EXISTS "research_notes_book_id_idx";
@@ -43,6 +49,8 @@ DROP INDEX IF EXISTS "place_passages_passage_id_idx";
 DROP INDEX IF EXISTS "person_relationships_target_person_id_idx";
 --> statement-breakpoint
 DROP INDEX IF EXISTS "person_passages_passage_id_idx";
+--> statement-breakpoint
+DROP INDEX IF EXISTS "permissions_key_unique";
 --> statement-breakpoint
 DROP INDEX IF EXISTS "passages_book_id_idx";
 --> statement-breakpoint
@@ -134,6 +142,10 @@ ALTER TABLE "verse_texts" DROP CONSTRAINT IF EXISTS "verse_texts_verse_id_verses
 --> statement-breakpoint
 ALTER TABLE "verse_texts" DROP CONSTRAINT IF EXISTS "verse_texts_translation_id_translations_id_fk";
 --> statement-breakpoint
+ALTER TABLE "user_roles" DROP CONSTRAINT IF EXISTS "user_roles_role_id_roles_id_fk";
+--> statement-breakpoint
+ALTER TABLE "user_roles" DROP CONSTRAINT IF EXISTS "user_roles_user_id_user_id_fk";
+--> statement-breakpoint
 ALTER TABLE "user_preferences" DROP CONSTRAINT IF EXISTS "user_preferences_preferred_translation_id_translations_id_fk";
 --> statement-breakpoint
 ALTER TABLE "user_preferences" DROP CONSTRAINT IF EXISTS "user_preferences_preferred_canon_tradition_id_canon_traditions_id_fk";
@@ -175,6 +187,10 @@ ALTER TABLE "source_excerpts" DROP CONSTRAINT IF EXISTS "source_excerpts_source_
 ALTER TABLE "source_credits" DROP CONSTRAINT IF EXISTS "source_credits_credited_person_id_credited_people_id_fk";
 --> statement-breakpoint
 ALTER TABLE "source_credits" DROP CONSTRAINT IF EXISTS "source_credits_source_id_sources_id_fk";
+--> statement-breakpoint
+ALTER TABLE "role_permissions" DROP CONSTRAINT IF EXISTS "role_permissions_permission_id_permissions_id_fk";
+--> statement-breakpoint
+ALTER TABLE "role_permissions" DROP CONSTRAINT IF EXISTS "role_permissions_role_id_roles_id_fk";
 --> statement-breakpoint
 ALTER TABLE "research_notes" DROP CONSTRAINT IF EXISTS "research_notes_passage_id_passages_id_fk";
 --> statement-breakpoint
@@ -364,6 +380,8 @@ DROP TABLE IF EXISTS "verses";
 --> statement-breakpoint
 DROP TABLE IF EXISTS "verse_texts";
 --> statement-breakpoint
+DROP TABLE IF EXISTS "user_roles";
+--> statement-breakpoint
 DROP TABLE IF EXISTS "user_preferences";
 --> statement-breakpoint
 DROP TABLE IF EXISTS "translations";
@@ -394,6 +412,10 @@ DROP TABLE IF EXISTS "source_excerpts";
 --> statement-breakpoint
 DROP TABLE IF EXISTS "source_credits";
 --> statement-breakpoint
+DROP TABLE IF EXISTS "roles";
+--> statement-breakpoint
+DROP TABLE IF EXISTS "role_permissions";
+--> statement-breakpoint
 DROP TABLE IF EXISTS "research_notes";
 --> statement-breakpoint
 DROP TABLE IF EXISTS "research_note_sources";
@@ -423,6 +445,8 @@ DROP TABLE IF EXISTS "person_relationships";
 DROP TABLE IF EXISTS "person_passages";
 --> statement-breakpoint
 DROP TABLE IF EXISTS "person_aliases";
+--> statement-breakpoint
+DROP TABLE IF EXISTS "permissions";
 --> statement-breakpoint
 DROP TABLE IF EXISTS "passages";
 --> statement-breakpoint
