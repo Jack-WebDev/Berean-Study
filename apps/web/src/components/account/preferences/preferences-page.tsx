@@ -1,9 +1,15 @@
 import { Button } from "@berean-study/ui/components/button";
 import { CheckIcon } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { DisplayPreferences } from "./display-preferences";
+import {
+	applyDisplaySettings,
+	defaultDisplaySettings,
+	readDisplaySettings,
+	saveDisplaySettings,
+} from "./display-settings";
 import { PreferencesSidebar } from "./preferences-sidebar";
 import { ScripturePreferences } from "./scripture-preferences";
 import type {
@@ -19,9 +25,31 @@ export function PreferencesPage() {
 	const [translation, setTranslation] = useState<Translation>(
 		"English Standard Version (ESV)",
 	);
-	const [theme, setTheme] = useState<Theme>("light");
-	const [textSize, setTextSize] = useState<TextSize>("default");
-	const [readingWidth, setReadingWidth] = useState<ReadingWidth>("default");
+	const [theme, setTheme] = useState<Theme>(defaultDisplaySettings.theme);
+	const [textSize, setTextSize] = useState<TextSize>(
+		defaultDisplaySettings.textSize,
+	);
+	const [readingWidth, setReadingWidth] = useState<ReadingWidth>(
+		defaultDisplaySettings.readingWidth,
+	);
+	const [hasLoadedDisplaySettings, setHasLoadedDisplaySettings] =
+		useState(false);
+
+	useEffect(() => {
+		const settings = readDisplaySettings();
+		setTheme(settings.theme);
+		setTextSize(settings.textSize);
+		setReadingWidth(settings.readingWidth);
+		setHasLoadedDisplaySettings(true);
+	}, []);
+
+	useEffect(() => {
+		if (!hasLoadedDisplaySettings) return;
+
+		const settings = { theme, textSize, readingWidth };
+		applyDisplaySettings(settings);
+		saveDisplaySettings(settings);
+	}, [hasLoadedDisplaySettings, readingWidth, textSize, theme]);
 
 	return (
 		<div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_20rem]">

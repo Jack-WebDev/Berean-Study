@@ -6,7 +6,12 @@ import {
 	Outlet,
 	Scripts,
 } from "@tanstack/react-router";
+import { useEffect } from "react";
 
+import {
+	applyDisplaySettings,
+	readDisplaySettings,
+} from "@/components/account/preferences/display-settings";
 import appCss from "../index.css?url";
 
 // biome-ignore lint/complexity/noBannedTypes: biome-ignore lint: false positive
@@ -69,6 +74,22 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
 });
 
 function RootDocument() {
+	useEffect(() => {
+		const syncDisplaySettings = () =>
+			applyDisplaySettings(readDisplaySettings());
+
+		syncDisplaySettings();
+		window.addEventListener("storage", syncDisplaySettings);
+
+		const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+		mediaQuery.addEventListener("change", syncDisplaySettings);
+
+		return () => {
+			window.removeEventListener("storage", syncDisplaySettings);
+			mediaQuery.removeEventListener("change", syncDisplaySettings);
+		};
+	}, []);
+
 	return (
 		<html lang="en" suppressHydrationWarning>
 			<head>

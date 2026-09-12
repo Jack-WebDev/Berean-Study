@@ -5,6 +5,32 @@ html {
 	scroll-behavior: smooth;
 	-webkit-tap-highlight-color: transparent;
 	touch-action: manipulation;
+	--reading-text-size: 1rem;
+	--reading-width: 65ch;
+}
+
+html[data-text-size="small"] {
+	--reading-text-size: 0.875rem;
+}
+
+html[data-text-size="large"] {
+	--reading-text-size: 1.125rem;
+}
+
+html[data-reading-width="narrow"] {
+	--reading-width: 45ch;
+}
+
+html[data-reading-width="wide"] {
+	--reading-width: 85ch;
+}
+
+.reading-preferences {
+	font-size: var(--reading-text-size);
+}
+
+.reading-preferences :is(p, li, blockquote) {
+	font-size: var(--reading-text-size);
 }
 
 @media (max-width: 639px) {
