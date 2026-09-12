@@ -6,9 +6,7 @@ import {
 	Outlet,
 	Scripts,
 } from "@tanstack/react-router";
-import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 
-import Header from "../components/header";
 import appCss from "../index.css?url";
 
 // biome-ignore lint/complexity/noBannedTypes: biome-ignore lint: false positive
@@ -56,6 +54,13 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
 				rel: "icon",
 				type: "image/png",
 				href: "/favicon.png",
+				media: "(prefers-color-scheme: light)",
+			},
+			{
+				rel: "icon",
+				type: "image/png",
+				href: "/favicon-dark.png",
+				media: "(prefers-color-scheme: dark)",
 			},
 		],
 	}),
@@ -85,10 +90,6 @@ function RootDocument() {
 				</div>
 
 				<Toaster richColors closeButton />
-
-				{import.meta.env.DEV && (
-					<TanStackRouterDevtools position="bottom-left" />
-				)}
 
 				<Scripts />
 			</body>

@@ -11,20 +11,24 @@ export default function ResetPasswordPage({ email }: Props) {
 			<div className="grid h-screen w-full overflow-auto md:grid-cols-[0.95fr_1.05fr]">
 				<ResetPasswordVisual />
 				<section className="flex min-h-full items-center justify-center px-5 py-10 sm:px-8 md:px-10 md:py-14 lg:px-16">
-					<div className="w-full max-w-md">
+					<div className="w-full max-w-lg">
 						<div className="mb-8 flex justify-center md:mb-9">
 							<Link to="/" aria-label="Berean Study home">
 								<img
 									src="/logo.png"
 									alt="Berean Study"
-									width={2172}
-									height={724}
-									className="h-9 w-auto mix-blend-multiply md:h-10"
+									className="mx-auto h-auto w-1/2 mix-blend-multiply dark:hidden"
+								/>
+								<img
+									src="/logo-dark.png"
+									alt=""
+									aria-hidden="true"
+									className="mx-auto hidden h-auto w-1/2 dark:block"
 								/>
 							</Link>
 						</div>
 						<div className="text-center">
-							<h1 className="text-balance font-serif text-[2.25rem] leading-none tracking-[-0.04em] md:text-[2.55rem]">
+							<h1 className="text-balance font-serif text-[2.25rem] leading-none tracking-[-0.04em]">
 								Choose a new password.
 							</h1>
 							<p className="mt-3 text-[15px] text-muted-foreground leading-6">
@@ -55,9 +59,13 @@ function UnavailableResetCode() {
 					<img
 						src="/logo.png"
 						alt="Berean Study"
-						width={2172}
-						height={724}
-						className="h-9 w-auto mix-blend-multiply"
+						className="mx-auto h-auto w-1/2 mix-blend-multiply dark:hidden"
+					/>
+					<img
+						src="/logo-dark.png"
+						alt=""
+						aria-hidden="true"
+						className="mx-auto hidden h-auto w-1/2 dark:block"
 					/>
 				</Link>
 				<h1 className="mt-12 text-balance font-serif text-[2.25rem] leading-none tracking-[-0.04em]">

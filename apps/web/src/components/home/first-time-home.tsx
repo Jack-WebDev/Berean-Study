@@ -42,7 +42,7 @@ export function FirstTimeHome() {
 						Always rooted in the text.
 					</p>
 
-					<div className="mt-12 w-full max-w-[620px] rounded-[28px] border border-border bg-card/94 p-7 text-left shadow-xl backdrop-blur-xl md:p-9">
+					<div className="mt-12 w-full max-w-155 rounded-[28px] border border-border bg-card/94 p-7 text-left shadow-xl backdrop-blur-xl md:p-9">
 						<h2 className="text-center font-serif text-2xl text-foreground">
 							Where would you like to begin?
 						</h2>
@@ -51,7 +51,7 @@ export function FirstTimeHome() {
 								href="/bible"
 								className="group flex items-center gap-5 rounded-2xl bg-primary px-6 py-5 text-primary-foreground transition hover:bg-primary/90"
 							>
-								<div className="grid size-11 shrink-0 place-items-center">
+								<div className="hidden size-11 shrink-0 place-items-center md:grid">
 									<BookOpen className="size-7" strokeWidth={1.6} />
 								</div>
 								<div className="min-w-0 flex-1">
@@ -67,7 +67,7 @@ export function FirstTimeHome() {
 								type="button"
 								className="group flex w-full items-center gap-5 rounded-2xl border border-border bg-card px-6 py-5 text-left transition hover:bg-muted"
 							>
-								<div className="grid size-11 shrink-0 place-items-center">
+								<div className="hidden size-11 shrink-0 place-items-center md:grid">
 									<Search className="size-7" strokeWidth={1.6} />
 								</div>
 								<div className="min-w-0 flex-1">

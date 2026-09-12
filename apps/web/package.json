@@ -9,6 +9,7 @@
 	},
 	"dependencies": {
 		"@berean-study/auth": "workspace:*",
+		"@berean-study/db": "workspace:*",
 		"@berean-study/env": "workspace:*",
 		"@berean-study/ui": "workspace:*",
 		"@tailwindcss/vite": "^4.3.3",

@@ -48,9 +48,13 @@ function Brand() {
 				<img
 					src="/logo.png"
 					alt="Berean Study"
-					width={2172}
-					height={724}
-					className="h-9 w-auto mix-blend-multiply md:h-10"
+					className="mx-auto h-auto w-1/2 mix-blend-multiply dark:hidden"
+				/>
+				<img
+					src="/logo-dark.png"
+					alt=""
+					aria-hidden="true"
+					className="mx-auto hidden h-auto w-1/2 dark:block"
 				/>
 			</Link>
 		</div>

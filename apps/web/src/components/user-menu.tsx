@@ -10,15 +10,16 @@ import {
 } from "@berean-study/ui/components/dropdown-menu";
 import { Skeleton } from "@berean-study/ui/components/skeleton";
 import { Link, useNavigate } from "@tanstack/react-router";
+import { ChevronRightIcon } from "lucide-react";
 
 import { authClient } from "@/lib/auth-client";
 
-export default function UserMenu() {
+export default function UserMenu({ sidebar = false }: { sidebar?: boolean }) {
 	const navigate = useNavigate();
 	const { data: session, isPending } = authClient.useSession();
 
 	if (isPending) {
-		return <Skeleton className="h-9 w-24" />;
+		return <Skeleton className={sidebar ? "h-11 w-full" : "h-9 w-24"} />;
 	}
 
 	if (!session) {
@@ -31,8 +32,34 @@ export default function UserMenu() {
 
 	return (
 		<DropdownMenu>
-			<DropdownMenuTrigger render={<Button variant="outline" />}>
-				{session.user.name}
+			<DropdownMenuTrigger
+				render={
+					<Button
+						className={
+							sidebar
+								? "h-11 w-full justify-start rounded-lg px-1.5 text-sm hover:bg-sidebar-accent"
+								: undefined
+						}
+						variant={sidebar ? "ghost" : "outline"}
+					/>
+				}
+			>
+				{sidebar && (
+					<span className="grid size-8 place-items-center rounded-full bg-primary font-semibold text-primary-foreground text-xs">
+						{session.user.name
+							.split(" ")
+							.map((part) => part[0])
+							.join("")
+							.slice(0, 2)
+							.toUpperCase()}
+					</span>
+				)}
+				<span
+					className={sidebar ? "min-w-0 flex-1 truncate text-left" : undefined}
+				>
+					{session.user.name}
+				</span>
+				{sidebar && <ChevronRightIcon aria-hidden="true" className="size-4" />}
 			</DropdownMenuTrigger>
 			<DropdownMenuContent className="bg-card">
 				<DropdownMenuGroup>

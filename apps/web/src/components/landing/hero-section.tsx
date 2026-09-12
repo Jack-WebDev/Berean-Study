@@ -1,4 +1,3 @@
-import { Link } from "@tanstack/react-router";
 import { ArrowRightIcon, SearchIcon } from "lucide-react";
 
 export function HeroSection() {

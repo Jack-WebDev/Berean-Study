@@ -87,6 +87,9 @@ importers:
       '@berean-study/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@berean-study/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@berean-study/env':
         specifier: workspace:*
         version: link:../../packages/env
