@@ -26,9 +26,10 @@ export const permissions = pgTable(
 		check(
 			"permissions_key_valid",
 			sql`
-                btrim(${table.key}) <> ''
-                AND ${table.key} = lower(${table.key})
-            `,
+				${table.key} = lower(${table.key})
+				AND ${table.key} = btrim(${table.key})
+				AND ${table.key} <> ''
+			`,
 		),
 
 		check("permissions_name_not_blank", sql`btrim(${table.name}) <> ''`),

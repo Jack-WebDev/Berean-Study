@@ -479,6 +479,22 @@ CREATE TABLE "passages" (
 	CONSTRAINT "passages_title_not_empty_check" CHECK ("passages"."title" IS NULL OR btrim("passages"."title") <> '')
 );
 --> statement-breakpoint
+CREATE TABLE "permissions" (
+	"id" integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY (sequence name "permissions_id_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 START WITH 1 CACHE 1),
+	"key" text NOT NULL,
+	"name" text NOT NULL,
+	"category" text NOT NULL,
+	"description" text,
+	CONSTRAINT "permissions_key_valid" CHECK (
+				"permissions"."key" = lower("permissions"."key")
+				AND "permissions"."key" = btrim("permissions"."key")
+				AND "permissions"."key" <> ''
+			),
+	CONSTRAINT "permissions_name_not_blank" CHECK (btrim("permissions"."name") <> ''),
+	CONSTRAINT "permissions_category_not_blank" CHECK (btrim("permissions"."category") <> ''),
+	CONSTRAINT "permissions_description_not_blank" CHECK ("permissions"."description" IS NULL OR btrim("permissions"."description") <> '')
+);
+--> statement-breakpoint
 CREATE TABLE "person_aliases" (
 	"person_id" integer NOT NULL,
 	"alias" text NOT NULL,
@@ -584,6 +600,21 @@ CREATE TABLE "research_notes" (
 	"content" text NOT NULL,
 	CONSTRAINT "research_notes_target_check" CHECK (num_nonnulls("research_notes"."book_id", "research_notes"."passage_id") = 1),
 	CONSTRAINT "research_notes_content_not_empty_check" CHECK (btrim("research_notes"."content") <> '')
+);
+--> statement-breakpoint
+CREATE TABLE "role_permissions" (
+	"role_id" integer NOT NULL,
+	"permission_id" integer NOT NULL,
+	CONSTRAINT "role_permissions_role_id_permission_id_pk" PRIMARY KEY("role_id","permission_id")
+);
+--> statement-breakpoint
+CREATE TABLE "roles" (
+	"id" integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY (sequence name "roles_id_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 START WITH 1 CACHE 1),
+	"name" text NOT NULL,
+	"description" text,
+	"auto_assign" boolean DEFAULT false NOT NULL,
+	CONSTRAINT "roles_name_not_blank" CHECK (btrim("roles"."name") <> ''),
+	CONSTRAINT "roles_description_not_blank" CHECK ("roles"."description" IS NULL OR btrim("roles"."description") <> '')
 );
 --> statement-breakpoint
 CREATE TABLE "source_credits" (
@@ -728,6 +759,12 @@ CREATE TABLE "user_preferences" (
 	"preferred_translation_id" integer
 );
 --> statement-breakpoint
+CREATE TABLE "user_roles" (
+	"user_id" text NOT NULL,
+	"role_id" integer NOT NULL,
+	CONSTRAINT "user_roles_user_id_role_id_pk" PRIMARY KEY("user_id","role_id")
+);
+--> statement-breakpoint
 CREATE TABLE "verse_texts" (
 	"translation_id" integer NOT NULL,
 	"verse_id" integer NOT NULL,
@@ -855,6 +892,8 @@ ALTER TABLE "research_note_sources" ADD CONSTRAINT "research_note_sources_resear
 ALTER TABLE "research_note_sources" ADD CONSTRAINT "research_note_sources_source_id_sources_id_fk" FOREIGN KEY ("source_id") REFERENCES "public"."sources"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "research_notes" ADD CONSTRAINT "research_notes_book_id_books_id_fk" FOREIGN KEY ("book_id") REFERENCES "public"."books"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "research_notes" ADD CONSTRAINT "research_notes_passage_id_passages_id_fk" FOREIGN KEY ("passage_id") REFERENCES "public"."passages"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "role_permissions" ADD CONSTRAINT "role_permissions_role_id_roles_id_fk" FOREIGN KEY ("role_id") REFERENCES "public"."roles"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "role_permissions" ADD CONSTRAINT "role_permissions_permission_id_permissions_id_fk" FOREIGN KEY ("permission_id") REFERENCES "public"."permissions"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "source_credits" ADD CONSTRAINT "source_credits_source_id_sources_id_fk" FOREIGN KEY ("source_id") REFERENCES "public"."sources"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "source_credits" ADD CONSTRAINT "source_credits_credited_person_id_credited_people_id_fk" FOREIGN KEY ("credited_person_id") REFERENCES "public"."credited_people"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "source_excerpts" ADD CONSTRAINT "source_excerpts_source_id_sources_id_fk" FOREIGN KEY ("source_id") REFERENCES "public"."sources"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
@@ -876,6 +915,8 @@ ALTER TABLE "translations" ADD CONSTRAINT "translations_versification_system_id_
 ALTER TABLE "user_preferences" ADD CONSTRAINT "user_preferences_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "user_preferences" ADD CONSTRAINT "user_preferences_preferred_canon_tradition_id_canon_traditions_id_fk" FOREIGN KEY ("preferred_canon_tradition_id") REFERENCES "public"."canon_traditions"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "user_preferences" ADD CONSTRAINT "user_preferences_preferred_translation_id_translations_id_fk" FOREIGN KEY ("preferred_translation_id") REFERENCES "public"."translations"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "user_roles" ADD CONSTRAINT "user_roles_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "user_roles" ADD CONSTRAINT "user_roles_role_id_roles_id_fk" FOREIGN KEY ("role_id") REFERENCES "public"."roles"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "verse_texts" ADD CONSTRAINT "verse_texts_translation_id_translations_id_fk" FOREIGN KEY ("translation_id") REFERENCES "public"."translations"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "verse_texts" ADD CONSTRAINT "verse_texts_verse_id_verses_id_fk" FOREIGN KEY ("verse_id") REFERENCES "public"."verses"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "verses" ADD CONSTRAINT "verses_chapter_id_chapters_id_fk" FOREIGN KEY ("chapter_id") REFERENCES "public"."chapters"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
@@ -921,6 +962,7 @@ CREATE INDEX "notes_user_id_passage_id_idx" ON "notes" USING btree ("user_id","p
 CREATE INDEX "passage_ranges_start_verse_id_idx" ON "passage_ranges" USING btree ("start_verse_id");--> statement-breakpoint
 CREATE INDEX "passage_ranges_end_verse_id_idx" ON "passage_ranges" USING btree ("end_verse_id");--> statement-breakpoint
 CREATE INDEX "passages_book_id_idx" ON "passages" USING btree ("book_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "permissions_key_unique" ON "permissions" USING btree ("key");--> statement-breakpoint
 CREATE INDEX "person_passages_passage_id_idx" ON "person_passages" USING btree ("passage_id");--> statement-breakpoint
 CREATE INDEX "person_relationships_target_person_id_idx" ON "person_relationships" USING btree ("target_person_id");--> statement-breakpoint
 CREATE INDEX "place_passages_passage_id_idx" ON "place_passages" USING btree ("passage_id");--> statement-breakpoint
@@ -930,6 +972,8 @@ CREATE INDEX "reading_history_user_visited_at_idx" ON "reading_history" USING bt
 CREATE INDEX "research_note_sources_source_id_idx" ON "research_note_sources" USING btree ("source_id");--> statement-breakpoint
 CREATE INDEX "research_notes_book_id_idx" ON "research_notes" USING btree ("book_id") WHERE "research_notes"."book_id" IS NOT NULL;--> statement-breakpoint
 CREATE INDEX "research_notes_passage_id_idx" ON "research_notes" USING btree ("passage_id") WHERE "research_notes"."passage_id" IS NOT NULL;--> statement-breakpoint
+CREATE INDEX "role_permissions_permission_id_idx" ON "role_permissions" USING btree ("permission_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "roles_name_unique" ON "roles" USING btree (lower("name"));--> statement-breakpoint
 CREATE INDEX "source_credits_credited_person_id_idx" ON "source_credits" USING btree ("credited_person_id");--> statement-breakpoint
 CREATE INDEX "source_excerpts_source_id_idx" ON "source_excerpts" USING btree ("source_id");--> statement-breakpoint
 CREATE INDEX "source_text_editions_versification_system_id_idx" ON "source_text_editions" USING btree ("versification_system_id");--> statement-breakpoint
@@ -941,6 +985,7 @@ CREATE UNIQUE INDEX "textual_variants_note_position_unique" ON "textual_variants
 CREATE INDEX "theme_passages_passage_id_idx" ON "theme_passages" USING btree ("passage_id");--> statement-breakpoint
 CREATE INDEX "theme_relationships_target_theme_id_idx" ON "theme_relationships" USING btree ("target_theme_id");--> statement-breakpoint
 CREATE INDEX "translations_versification_system_id_idx" ON "translations" USING btree ("versification_system_id");--> statement-breakpoint
+CREATE INDEX "user_roles_role_id_idx" ON "user_roles" USING btree ("role_id");--> statement-breakpoint
 CREATE INDEX "verse_texts_verse_id_idx" ON "verse_texts" USING btree ("verse_id");--> statement-breakpoint
 CREATE INDEX "word_occurrences_verse_id_idx" ON "word_occurrences" USING btree ("verse_id");--> statement-breakpoint
 CREATE INDEX "word_occurrences_lexeme_id_idx" ON "word_occurrences" USING btree ("lexeme_id");
