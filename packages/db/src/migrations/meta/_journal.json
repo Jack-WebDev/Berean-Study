@@ -15,6 +15,13 @@
 			"when": 1789198775914,
 			"tag": "0001_add-passage-ranges-validation",
 			"breakpoints": true
+		},
+		{
+			"idx": 2,
+			"version": "7",
+			"when": 1789230597661,
+			"tag": "0002_shiny_vengeance",
+			"breakpoints": true
 		}
 	]
 }
