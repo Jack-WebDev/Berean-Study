@@ -10,6 +10,7 @@ import { useEffect } from "react";
 
 import {
 	applyDisplaySettings,
+	displaySettingsInitializer,
 	readDisplaySettings,
 } from "@/components/account/preferences/display-settings";
 import appCss from "../index.css?url";
@@ -93,6 +94,7 @@ function RootDocument() {
 	return (
 		<html lang="en" suppressHydrationWarning>
 			<head>
+				<script>{displaySettingsInitializer}</script>
 				<HeadContent />
 			</head>
 

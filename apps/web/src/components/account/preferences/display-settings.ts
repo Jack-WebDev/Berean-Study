@@ -2,6 +2,29 @@ import type { ReadingWidth, TextSize, Theme } from "./types";
 
 const STORAGE_KEY = "berean-study.display-preferences.v1";
 
+export const displaySettingsInitializer = `(() => {
+	try {
+		const value = JSON.parse(localStorage.getItem("${STORAGE_KEY}") || "{}");
+		const theme = ["light", "dark", "system"].includes(value.theme)
+			? value.theme
+			: "light";
+		const textSize = ["small", "default", "large"].includes(value.textSize)
+			? value.textSize
+			: "default";
+		const readingWidth = ["narrow", "default", "wide"].includes(value.readingWidth)
+			? value.readingWidth
+			: "default";
+		const isDark =
+			theme === "dark" ||
+			(theme === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
+		const root = document.documentElement;
+		root.classList.toggle("dark", isDark);
+		root.dataset.theme = theme;
+		root.dataset.textSize = textSize;
+		root.dataset.readingWidth = readingWidth;
+	} catch {}
+})();`;
+
 export type DisplaySettings = {
 	theme: Theme;
 	textSize: TextSize;
