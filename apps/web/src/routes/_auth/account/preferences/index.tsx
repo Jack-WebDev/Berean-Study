@@ -1,9 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/_auth/account/preferences/")({
-	component: RouteComponent,
-});
+import { PreferencesPage } from "@/components/account/preferences/preferences-page";
 
-function RouteComponent() {
-	return <div>Hello "/account/preferences/"!</div>;
-}
+export const Route = createFileRoute("/_auth/account/preferences/")({
+	component: PreferencesPage,
+	staticData: {
+		title: "Preferences",
+		description: "Customize your Bible and reading experience.",
+	},
+});

@@ -16,9 +16,15 @@ import {
 	SidebarSeparator,
 } from "@berean-study/ui/components/sidebar";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { InfoIcon, SearchIcon, SunIcon } from "lucide-react";
+import { InfoIcon, MoonIcon, SearchIcon, SunIcon } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 
+import {
+	applyDisplaySettings,
+	type DisplaySettings,
+	readDisplaySettings,
+	saveDisplaySettings,
+} from "./account/preferences/display-settings";
 import { MobileNavigation } from "./navigation/mobile-navigation";
 import {
 	accessibleNavigationItems,
@@ -222,6 +228,23 @@ const desktopPrimaryNavigationItems = [
 ] as const satisfies readonly NavigationItem[];
 
 function ApplicationToolbar({ onOpenSearch }: { onOpenSearch: () => void }) {
+	const [isDark, setIsDark] = useState(false);
+
+	useEffect(() => {
+		setIsDark(document.documentElement.classList.contains("dark"));
+	}, []);
+
+	const toggleAppearance = () => {
+		const settings = readDisplaySettings();
+		const theme: DisplaySettings["theme"] =
+			document.documentElement.classList.contains("dark") ? "light" : "dark";
+		const nextSettings = { ...settings, theme };
+
+		applyDisplaySettings(nextSettings);
+		saveDisplaySettings(nextSettings);
+		setIsDark(theme === "dark");
+	};
+
 	return (
 		<header className="hidden h-13 shrink-0 items-center border-border/60 border-b px-6 md:flex">
 			<Button
@@ -237,14 +260,18 @@ function ApplicationToolbar({ onOpenSearch }: { onOpenSearch: () => void }) {
 				<Kbd>⌘K</Kbd>
 			</Button>
 			<Button
-				aria-label="Change appearance"
+				aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
 				className="absolute right-5 rounded-md text-foreground/80"
-				onClick={() => document.documentElement.classList.toggle("dark")}
+				onClick={toggleAppearance}
 				size="icon"
 				type="button"
 				variant="ghost"
 			>
-				<SunIcon aria-hidden="true" data-icon="inline-start" />
+				{isDark ? (
+					<SunIcon aria-hidden="true" data-icon="inline-start" />
+				) : (
+					<MoonIcon aria-hidden="true" data-icon="inline-start" />
+				)}
 			</Button>
 		</header>
 	);

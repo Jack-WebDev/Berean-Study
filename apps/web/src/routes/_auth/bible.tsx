@@ -12,6 +12,7 @@ function BiblePage() {
 		<DestinationPage
 			description="Choose a testament to begin reading Scripture."
 			icon={BookOpenIcon}
+			readingPreferences
 			title="Bible"
 		/>
 	);

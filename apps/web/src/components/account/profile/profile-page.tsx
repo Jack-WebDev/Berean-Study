@@ -1,4 +1,3 @@
-import { UserRoundIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -13,40 +12,13 @@ import type { ProfileUser } from "./types";
 export function ProfilePage() {
 	const { data: session, isPending } = authClient.useSession();
 
-	return (
-		<div className="min-h-full bg-background px-4 py-5 sm:px-8 sm:py-6 lg:px-10">
-			<div className="mx-auto w-full max-w-7xl">
-				<header>
-					<h1 className="font-serif text-3xl tracking-tight sm:text-4xl">
-						Account
-					</h1>
-					<p className="mt-1.5 text-muted-foreground text-sm">
-						Manage your personal account details.
-					</p>
-				</header>
-
-				<div className="mt-8 grid gap-6 lg:grid-cols-[9.5rem_minmax(0,1fr)] lg:gap-7">
-					<nav aria-label="Account sections" className="lg:pt-3">
-						<div
-							aria-current="page"
-							className="flex items-center gap-3 border-accent border-l-2 bg-secondary/55 px-3 py-3 font-medium text-sm"
-						>
-							<UserRoundIcon aria-hidden="true" className="size-4" />
-							Profile
-						</div>
-					</nav>
-
-					{isPending || !session ? (
-						<ProfileSkeleton />
-					) : (
-						<ProfileContent
-							key={`${session.user.id}:${session.user.name}`}
-							user={session.user}
-						/>
-					)}
-				</div>
-			</div>
-		</div>
+	return isPending || !session ? (
+		<ProfileSkeleton />
+	) : (
+		<ProfileContent
+			key={`${session.user.id}:${session.user.name}`}
+			user={session.user}
+		/>
 	);
 }
 
