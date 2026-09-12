@@ -18,20 +18,11 @@ import {
 } from "lucide-react";
 
 import { authClient } from "@/lib/auth-client";
+import { getInitials } from "@/lib/format";
 
 type UserMenuProps = {
 	sidebar?: boolean;
 };
-
-function getInitials(name: string) {
-	return name
-		.trim()
-		.split(/\s+/)
-		.map((part) => part[0])
-		.join("")
-		.slice(0, 2)
-		.toUpperCase();
-}
 
 export default function UserMenu({ sidebar = false }: UserMenuProps) {
 	const navigate = useNavigate();
@@ -114,7 +105,10 @@ export default function UserMenu({ sidebar = false }: UserMenuProps) {
 
 					<DropdownMenuSeparator />
 
-					<DropdownMenuItem className="gap-3 rounded-lg px-3 py-2.5">
+					<DropdownMenuItem
+						className="gap-3 rounded-lg px-3 py-2.5"
+						render={<Link to="/account/profile" />}
+					>
 						<UserIcon
 							aria-hidden="true"
 							className="size-4 text-muted-foreground"
