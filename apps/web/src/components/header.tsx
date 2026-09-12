@@ -1,13 +1,12 @@
 import { Button } from "@berean-study/ui/components/button";
 import { Skeleton } from "@berean-study/ui/components/skeleton";
 import { Link } from "@tanstack/react-router";
-import { ArrowUpRightIcon } from "lucide-react";
+import { ArrowRightIcon, ArrowUpRightIcon } from "lucide-react";
 
 import { authClient } from "@/lib/auth-client";
 
 import { DesktopNavigation } from "./navigation/desktop-navigation";
 import { PublicMobileNavigation } from "./navigation/mobile-navigation";
-import UserMenu from "./user-menu";
 
 export default function Header() {
 	const { data: session, isPending } = authClient.useSession();
@@ -45,7 +44,17 @@ export default function Header() {
 						{isPending ? (
 							<Skeleton className="h-9 w-24" />
 						) : isAuthenticated ? (
-							<UserMenu />
+							<Button
+								render={<Link to="/home" />}
+								className="h-10 rounded-xl px-3.5 font-semibold text-sm shadow-md shadow-primary/20 transition-transform hover:bg-primary"
+							>
+								Go back home
+								<ArrowRightIcon
+									aria-hidden="true"
+									className="size-3.5"
+									strokeWidth={2}
+								/>
+							</Button>
 						) : (
 							<>
 								<Button

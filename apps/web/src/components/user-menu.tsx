@@ -10,80 +10,165 @@ import {
 } from "@berean-study/ui/components/dropdown-menu";
 import { Skeleton } from "@berean-study/ui/components/skeleton";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ChevronRightIcon } from "lucide-react";
+import {
+	ChevronsUpDownIcon,
+	LogOutIcon,
+	SettingsIcon,
+	UserIcon,
+} from "lucide-react";
 
 import { authClient } from "@/lib/auth-client";
 
-export default function UserMenu({ sidebar = false }: { sidebar?: boolean }) {
+type UserMenuProps = {
+	sidebar?: boolean;
+};
+
+function getInitials(name: string) {
+	return name
+		.trim()
+		.split(/\s+/)
+		.map((part) => part[0])
+		.join("")
+		.slice(0, 2)
+		.toUpperCase();
+}
+
+export default function UserMenu({ sidebar = false }: UserMenuProps) {
 	const navigate = useNavigate();
 	const { data: session, isPending } = authClient.useSession();
 
 	if (isPending) {
-		return <Skeleton className={sidebar ? "h-11 w-full" : "h-9 w-24"} />;
+		return (
+			<Skeleton
+				className={sidebar ? "h-14 w-full rounded-xl" : "size-10 rounded-full"}
+			/>
+		);
 	}
 
 	if (!session) {
 		return (
-			<Link to="/login">
-				<Button variant="outline">Sign In</Button>
-			</Link>
+			<Button render={<Link to="/login" />} size="sm" variant="outline">
+				Sign In
+			</Button>
 		);
 	}
+
+	const initials = getInitials(session.user.name);
 
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger
 				render={
 					<Button
+						aria-label="Open account menu"
 						className={
 							sidebar
-								? "h-11 w-full justify-start rounded-lg px-1.5 text-sm hover:bg-sidebar-accent"
-								: undefined
+								? "h-auto w-full justify-start gap-3 rounded-xl px-2.5 py-2 text-left hover:bg-sidebar-accent"
+								: "size-10 rounded-full border-0 p-0 shadow-none hover:bg-transparent"
 						}
-						variant={sidebar ? "ghost" : "outline"}
+						variant={sidebar ? "ghost" : "ghost"}
 					/>
 				}
 			>
+				<UserAvatar initials={initials} />
+
 				{sidebar && (
-					<span className="grid size-8 place-items-center rounded-full bg-primary font-semibold text-primary-foreground text-xs">
-						{session.user.name
-							.split(" ")
-							.map((part) => part[0])
-							.join("")
-							.slice(0, 2)
-							.toUpperCase()}
-					</span>
+					<>
+						<div className="min-w-0 flex-1">
+							<p className="truncate font-medium text-sm">
+								{session.user.name}
+							</p>
+							<p className="truncate text-muted-foreground text-xs">
+								{session.user.email}
+							</p>
+						</div>
+
+						<ChevronsUpDownIcon
+							aria-hidden="true"
+							className="size-4 shrink-0 text-muted-foreground"
+						/>
+					</>
 				)}
-				<span
-					className={sidebar ? "min-w-0 flex-1 truncate text-left" : undefined}
-				>
-					{session.user.name}
-				</span>
-				{sidebar && <ChevronRightIcon aria-hidden="true" className="size-4" />}
 			</DropdownMenuTrigger>
-			<DropdownMenuContent className="bg-card">
+
+			<DropdownMenuContent
+				align="end"
+				className="w-72 rounded-xl p-1.5"
+				sideOffset={8}
+			>
 				<DropdownMenuGroup>
-					<DropdownMenuLabel>My Account</DropdownMenuLabel>
+					<DropdownMenuLabel className="p-3 font-normal">
+						<div className="flex items-center gap-3">
+							<UserAvatar initials={initials} size="lg" />
+
+							<div className="min-w-0">
+								<p className="truncate font-semibold text-sm">
+									{session.user.name}
+								</p>
+								<p className="truncate text-muted-foreground text-xs">
+									{session.user.email}
+								</p>
+							</div>
+						</div>
+					</DropdownMenuLabel>
+
 					<DropdownMenuSeparator />
-					<DropdownMenuItem>{session.user.email}</DropdownMenuItem>
-					<DropdownMenuItem
-						variant="destructive"
-						onClick={() => {
-							authClient.signOut({
-								fetchOptions: {
-									onSuccess: () => {
-										navigate({
-											to: "/",
-										});
-									},
-								},
-							});
-						}}
-					>
-						Sign Out
+
+					<DropdownMenuItem className="gap-3 rounded-lg px-3 py-2.5">
+						<UserIcon
+							aria-hidden="true"
+							className="size-4 text-muted-foreground"
+						/>
+						Account
+					</DropdownMenuItem>
+
+					<DropdownMenuItem className="gap-3 rounded-lg px-3 py-2.5">
+						<SettingsIcon
+							aria-hidden="true"
+							className="size-4 text-muted-foreground"
+						/>
+						Settings
 					</DropdownMenuItem>
 				</DropdownMenuGroup>
+
+				<DropdownMenuSeparator />
+
+				<DropdownMenuItem
+					className="gap-3 rounded-lg px-3 py-2.5"
+					variant="destructive"
+					onClick={() => {
+						authClient.signOut({
+							fetchOptions: {
+								onSuccess: () => {
+									navigate({ to: "/" });
+								},
+							},
+						});
+					}}
+				>
+					<LogOutIcon aria-hidden="true" className="size-4" />
+					Sign Out
+				</DropdownMenuItem>
 			</DropdownMenuContent>
 		</DropdownMenu>
+	);
+}
+
+function UserAvatar({
+	initials,
+	size = "default",
+}: {
+	initials: string;
+	size?: "default" | "lg";
+}) {
+	return (
+		<span
+			className={[
+				"grid shrink-0 place-items-center rounded-full bg-primary font-semibold text-primary-foreground",
+				size === "lg" ? "size-11 text-sm" : "size-9 text-xs",
+			].join(" ")}
+		>
+			{initials}
+		</span>
 	);
 }
