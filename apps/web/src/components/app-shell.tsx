@@ -34,6 +34,7 @@ import {
 	primaryNavigationItems,
 	secondaryNavigationItems,
 } from "./navigation/navigation-items";
+import { NotificationMenu } from "./notification-menu";
 import { GlobalSearchDialog } from "./search/global-search-dialog";
 import UserMenu from "./user-menu";
 
@@ -259,20 +260,23 @@ function ApplicationToolbar({ onOpenSearch }: { onOpenSearch: () => void }) {
 				</span>
 				<Kbd>⌘K</Kbd>
 			</Button>
-			<Button
-				aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-				className="absolute right-5 rounded-md text-foreground/80"
-				onClick={toggleAppearance}
-				size="icon"
-				type="button"
-				variant="ghost"
-			>
-				{isDark ? (
-					<SunIcon aria-hidden="true" data-icon="inline-start" />
-				) : (
-					<MoonIcon aria-hidden="true" data-icon="inline-start" />
-				)}
-			</Button>
+			<div className="absolute right-5 flex items-center gap-1">
+				<NotificationMenu />
+				<Button
+					aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+					className="rounded-md text-foreground/80"
+					onClick={toggleAppearance}
+					size="icon"
+					type="button"
+					variant="ghost"
+				>
+					{isDark ? (
+						<SunIcon aria-hidden="true" data-icon="inline-start" />
+					) : (
+						<MoonIcon aria-hidden="true" data-icon="inline-start" />
+					)}
+				</Button>
+			</div>
 		</header>
 	);
 }

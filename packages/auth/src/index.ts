@@ -12,7 +12,10 @@ import {
 	sendEmailVerificationOtp,
 	sendWelcomeEmailSafely,
 } from "./lifecycle-emails";
-import { notifySecuritySignIn } from "./security-notifications";
+import {
+	notifySecurityEvent,
+	notifySecuritySignIn,
+} from "./security-notifications";
 
 export function createAuth() {
 	const db = createDb();
@@ -30,6 +33,9 @@ export function createAuth() {
 			minPasswordLength: 12,
 			resetPasswordTokenExpiresIn: 60 * 30,
 			revokeSessionsOnPasswordReset: true,
+			onPasswordReset: async ({ user }) => {
+				await notifySecurityEvent(db, user.id, "password_reset");
+			},
 		},
 		secret: env.BETTER_AUTH_SECRET,
 		baseURL: env.BETTER_AUTH_URL,
@@ -48,10 +54,45 @@ export function createAuth() {
 			},
 		},
 		databaseHooks: {
+			account: {
+				update: {
+					after: async (account, context) => {
+						if (context?.path !== "/change-password") return;
+						await notifySecurityEvent(db, account.userId, "password_changed");
+					},
+				},
+			},
 			session: {
 				create: {
-					after: async (session) => {
+					after: async (session, context) => {
+						if (
+							context?.path === "/change-password" ||
+							context?.path === "/two-factor/verify-totp" ||
+							context?.path === "/two-factor/disable"
+						) {
+							return;
+						}
 						await notifySecuritySignIn(db, session);
+					},
+				},
+				delete: {
+					after: async (session, context) => {
+						if (context?.path !== "/revoke-session") return;
+						await notifySecurityEvent(db, session.userId, "session_revoked");
+					},
+				},
+			},
+			user: {
+				update: {
+					after: async (user, context) => {
+						const event =
+							context?.path === "/two-factor/verify-totp"
+								? "two_factor_enabled"
+								: context?.path === "/two-factor/disable"
+									? "two_factor_disabled"
+									: null;
+
+						if (event) await notifySecurityEvent(db, user.id, event);
 					},
 				},
 			},
