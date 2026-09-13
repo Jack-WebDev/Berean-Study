@@ -9,6 +9,11 @@ import { toast } from "sonner";
 import z from "zod";
 import { authClient } from "@/lib/auth-client";
 import { useFormDraft } from "../../form-drafts";
+import {
+	isWeakPassword,
+	minimumPasswordLength,
+	PasswordStrengthIndicator,
+} from "../password-strength";
 export default function RegisterForm() {
 	const navigate = useNavigate({ from: "/" });
 	const [showPassword, setShowPassword] = useState(false);
@@ -37,7 +42,12 @@ export default function RegisterForm() {
 			onSubmit: z.object({
 				name: z.string().min(2, "Name must be at least 2 characters"),
 				email: z.email("Enter a valid email address"),
-				password: z.string().min(8, "Password must be at least 8 characters"),
+				password: z
+					.string()
+					.min(
+						minimumPasswordLength,
+						`Password must be at least ${minimumPasswordLength} characters`,
+					),
 			}),
 		},
 	});
@@ -135,6 +145,7 @@ export default function RegisterForm() {
 								)}
 							</button>
 						</div>
+						<PasswordStrengthIndicator password={field.state.value} />
 					</Field>
 				)}
 			</form.Field>
@@ -142,12 +153,13 @@ export default function RegisterForm() {
 				selector={(state) => ({
 					canSubmit: state.canSubmit,
 					isSubmitting: state.isSubmitting,
+					password: state.values.password,
 				})}
 			>
-				{({ canSubmit, isSubmitting }) => (
+				{({ canSubmit, isSubmitting, password }) => (
 					<Button
 						type="submit"
-						disabled={!canSubmit || isSubmitting}
+						disabled={!canSubmit || isSubmitting || isWeakPassword(password)}
 						className="mt-1 h-12 w-full rounded-xl font-medium text-sm shadow-none"
 					>
 						{isSubmitting ? "Creating account..." : "Create account"}

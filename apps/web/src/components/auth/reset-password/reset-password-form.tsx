@@ -9,6 +9,11 @@ import { toast } from "sonner";
 import z from "zod";
 import { authClient } from "@/lib/auth-client";
 import { useFormDraft } from "../../form-drafts";
+import {
+	isWeakPassword,
+	minimumPasswordLength,
+	PasswordStrengthIndicator,
+} from "../password-strength";
 
 export default function ResetPasswordForm({ email }: { email: string }) {
 	const navigate = useNavigate({ from: "/reset-password" });
@@ -43,7 +48,12 @@ export default function ResetPasswordForm({ email }: { email: string }) {
 					otp: z
 						.string()
 						.regex(/^\d{6}$/, "Enter the 6-digit code from your email"),
-					password: z.string().min(8, "Password must be at least 8 characters"),
+					password: z
+						.string()
+						.min(
+							minimumPasswordLength,
+							`Password must be at least ${minimumPasswordLength} characters`,
+						),
 					confirmPassword: z.string(),
 				})
 				.refine((value) => value.password === value.confirmPassword, {
@@ -106,6 +116,7 @@ export default function ResetPasswordForm({ email }: { email: string }) {
 						field={field}
 						label="New password"
 						placeholder="Create a new password"
+						showStrength
 						disabled={!otpVerified}
 						visible={showPassword}
 						onToggle={() => setShowPassword((value) => !value)}
@@ -134,12 +145,18 @@ export default function ResetPasswordForm({ email }: { email: string }) {
 				selector={(state) => ({
 					canSubmit: state.canSubmit,
 					isSubmitting: state.isSubmitting,
+					password: state.values.password,
 				})}
 			>
-				{({ canSubmit, isSubmitting }) => (
+				{({ canSubmit, isSubmitting, password }) => (
 					<Button
 						type="submit"
-						disabled={!canSubmit || isSubmitting || !otpVerified}
+						disabled={
+							!canSubmit ||
+							isSubmitting ||
+							!otpVerified ||
+							isWeakPassword(password)
+						}
 						className="mt-1 h-12 w-full rounded-xl font-medium text-sm shadow-none"
 					>
 						{isSubmitting ? "Resetting password..." : "Reset password"}
@@ -217,6 +234,7 @@ function CodeField({
 function PasswordField({
 	field,
 	label,
+	showStrength = false,
 	disabled,
 	onToggle,
 	onValueChange,
@@ -226,6 +244,7 @@ function PasswordField({
 	field: Field;
 	disabled: boolean;
 	label: string;
+	showStrength?: boolean;
 	onToggle: () => void;
 	onValueChange: (value: string) => void;
 	placeholder: string;
@@ -267,6 +286,9 @@ function PasswordField({
 					)}
 				</button>
 			</div>
+			{showStrength ? (
+				<PasswordStrengthIndicator password={field.state.value} />
+			) : null}
 			{field.state.meta.errors[0]?.message ? (
 				<p role="alert" className="text-destructive text-xs leading-5">
 					{field.state.meta.errors[0].message}
