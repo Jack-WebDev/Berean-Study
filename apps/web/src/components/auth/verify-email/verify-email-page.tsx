@@ -7,9 +7,12 @@ import { toast } from "sonner";
 
 import { authClient } from "@/lib/auth-client";
 
+import { useFormDraft } from "../../form-drafts";
+
 export function VerifyEmailPage({ email }: { email: string }) {
 	const navigate = useNavigate({ from: "/verify-email" });
-	const [code, setCode] = useState("");
+	const [draft, setDraft] = useFormDraft("auth.verify-email", { code: "" });
+	const code = draft.code;
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [isResending, setIsResending] = useState(false);
 
@@ -72,7 +75,7 @@ export function VerifyEmailPage({ email }: { email: string }) {
 							inputMode="numeric"
 							maxLength={6}
 							onChange={(event) =>
-								setCode(event.target.value.replace(/\D/g, ""))
+								setDraft({ code: event.target.value.replace(/\D/g, "") })
 							}
 							value={code}
 						/>

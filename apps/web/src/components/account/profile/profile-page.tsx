@@ -3,6 +3,8 @@ import { toast } from "sonner";
 
 import { authClient } from "@/lib/auth-client";
 
+import { useFormDraft } from "../../form-drafts";
+
 import { PersonalInformationForm } from "./personal-information-form";
 import { ProfileIdentity } from "./profile-identity";
 import { ProfileSkeleton } from "./profile-skeleton";
@@ -23,7 +25,7 @@ export function ProfilePage() {
 }
 
 function ProfileContent({ user }: { user: ProfileUser }) {
-	const [name, setName] = useState(user.name);
+	const [name, setName] = useFormDraft("account.profile.name", user.name);
 	const [savedName, setSavedName] = useState(user.name);
 	const [error, setError] = useState<string | null>(null);
 	const [isSaving, setIsSaving] = useState(false);

@@ -3,7 +3,7 @@ import { Input } from "@berean-study/ui/components/input";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
-
+import { useFormDraft } from "@/components/form-drafts";
 import { authClient } from "@/lib/auth-client";
 
 export const Route = createFileRoute("/two-factor")({
@@ -11,7 +11,8 @@ export const Route = createFileRoute("/two-factor")({
 });
 
 function TwoFactorVerificationPage() {
-	const [code, setCode] = useState("");
+	const [draft, setDraft] = useFormDraft("auth.two-factor", { code: "" });
+	const code = draft.code;
 	const [isVerifying, setIsVerifying] = useState(false);
 
 	async function verify(event: React.FormEvent<HTMLFormElement>) {
@@ -48,7 +49,9 @@ function TwoFactorVerificationPage() {
 					className="h-11 rounded-lg text-center text-base tracking-[0.4em]"
 					inputMode="numeric"
 					maxLength={6}
-					onChange={(event) => setCode(event.target.value.replace(/\D/g, ""))}
+					onChange={(event) =>
+						setDraft({ code: event.target.value.replace(/\D/g, "") })
+					}
 					placeholder="000000"
 					required
 					value={code}
