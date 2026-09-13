@@ -8,6 +8,8 @@ import { emailOTP } from "better-auth/plugins/email-otp";
 import { twoFactor } from "better-auth/plugins/two-factor";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
 
+import { notifySecuritySignIn } from "./security-notifications";
+
 export function createAuth() {
 	const db = createDb();
 
@@ -29,6 +31,15 @@ export function createAuth() {
 		user: {
 			deleteUser: {
 				enabled: true,
+			},
+		},
+		databaseHooks: {
+			session: {
+				create: {
+					after: async (session) => {
+						await notifySecuritySignIn(db, session);
+					},
+				},
 			},
 		},
 		plugins: [

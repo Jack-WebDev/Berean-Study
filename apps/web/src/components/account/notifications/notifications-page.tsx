@@ -1,3 +1,8 @@
+import {
+	defaultNotificationPreferences,
+	type NotificationPreferenceKey,
+	type NotificationPreferences,
+} from "@berean-study/db/notification-preferences";
 import { Button } from "@berean-study/ui/components/button";
 import { Label } from "@berean-study/ui/components/label";
 import {
@@ -24,14 +29,20 @@ import {
 	ShieldCheckIcon,
 	SmartphoneIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+
+import {
+	getNotificationPreferences,
+	updateNotificationPreferences,
+} from "@/functions/notification-preferences";
 
 type Frequency = "all" | "important" | "minimal";
 
 type NotificationSetting = {
 	description: string;
 	icon: LucideIcon;
-	key: string;
+	key: NotificationPreferenceKey;
 	label: string;
 };
 
@@ -135,22 +146,33 @@ const notificationGroups: readonly {
 	},
 ];
 
-const initialSettings = {
-	email: true,
-	push: false,
-	comments: true,
-	updates: true,
-	resources: false,
-	replies: true,
-	mentions: true,
-	reports: true,
-	security: true,
-	account: true,
-};
-
 export function NotificationsPage() {
-	const [settings, setSettings] = useState(initialSettings);
+	const [settings, setSettings] = useState<NotificationPreferences>(
+		defaultNotificationPreferences,
+	);
 	const [frequency, setFrequency] = useState<Frequency>("important");
+
+	useEffect(() => {
+		void getNotificationPreferences()
+			.then(setSettings)
+			.catch(() => toast.error("Unable to load notification preferences."));
+	}, []);
+
+	async function handleSettingChange(
+		key: NotificationPreferenceKey,
+		checked: boolean,
+	) {
+		const previousSettings = settings;
+		const nextSettings = { ...settings, [key]: checked };
+		setSettings(nextSettings);
+
+		try {
+			await updateNotificationPreferences({ data: nextSettings });
+		} catch {
+			setSettings(previousSettings);
+			toast.error("Unable to save notification preferences.");
+		}
+	}
 
 	return (
 		<div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_16rem]">
@@ -159,9 +181,7 @@ export function NotificationsPage() {
 					<NotificationPanel
 						group={group}
 						key={group.title}
-						onSettingChange={(key, checked) =>
-							setSettings((current) => ({ ...current, [key]: checked }))
-						}
+						onSettingChange={handleSettingChange}
 						settings={settings}
 					/>
 				))}
@@ -181,11 +201,8 @@ function NotificationPanel({
 	onSettingChange,
 }: {
 	group: (typeof notificationGroups)[number];
-	settings: typeof initialSettings;
-	onSettingChange: (
-		key: keyof typeof initialSettings,
-		checked: boolean,
-	) => void;
+	settings: NotificationPreferences;
+	onSettingChange: (key: NotificationPreferenceKey, checked: boolean) => void;
 }) {
 	const Icon = group.icon;
 
@@ -208,7 +225,7 @@ function NotificationPanel({
 			<div className="divide-y divide-border/60">
 				{group.settings.map((setting) => {
 					const SettingIcon = setting.icon;
-					const checked = settings[setting.key as keyof typeof settings];
+					const checked = settings[setting.key];
 
 					return (
 						<Label
@@ -231,10 +248,7 @@ function NotificationPanel({
 							<Switch
 								checked={checked}
 								onCheckedChange={(nextChecked) =>
-									onSettingChange(
-										setting.key as keyof typeof initialSettings,
-										nextChecked,
-									)
+									onSettingChange(setting.key, nextChecked)
 								}
 							/>
 						</Label>
