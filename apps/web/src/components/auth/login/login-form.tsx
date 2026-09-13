@@ -10,11 +10,17 @@ import z from "zod";
 
 import { authClient } from "@/lib/auth-client";
 
+import { useFormDraft } from "../../form-drafts";
+
 export default function LoginForm() {
 	const navigate = useNavigate({ from: "/" });
 	const [showPassword, setShowPassword] = useState(false);
+	const [draft, setDraft] = useFormDraft("auth.login", {
+		email: "",
+		password: "",
+	});
 	const form = useForm({
-		defaultValues: { email: "", password: "" },
+		defaultValues: draft,
 		onSubmit: async ({ value }) => {
 			await authClient.signIn.email(
 				{ email: value.email, password: value.password },
@@ -61,7 +67,11 @@ export default function LoginForm() {
 							placeholder="you@example.com"
 							value={field.state.value}
 							onBlur={field.handleBlur}
-							onChange={(event) => field.handleChange(event.target.value)}
+							onChange={(event) => {
+								const email = event.target.value;
+								field.handleChange(email);
+								setDraft((current) => ({ ...current, email }));
+							}}
 							className="h-12 rounded-xl bg-background px-4 text-[15px] shadow-none"
 						/>
 					</FormField>
@@ -92,7 +102,11 @@ export default function LoginForm() {
 								placeholder="Enter your password"
 								value={field.state.value}
 								onBlur={field.handleBlur}
-								onChange={(event) => field.handleChange(event.target.value)}
+								onChange={(event) => {
+									const password = event.target.value;
+									field.handleChange(password);
+									setDraft((current) => ({ ...current, password }));
+								}}
 								className="h-12 rounded-xl bg-background px-4 pr-12 text-[15px] shadow-none"
 							/>
 

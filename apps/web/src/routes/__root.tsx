@@ -13,6 +13,7 @@ import {
 	displaySettingsInitializer,
 	readDisplaySettings,
 } from "@/components/account/preferences/display-settings";
+import { FormDraftsProvider } from "@/components/form-drafts";
 import appCss from "../index.css?url";
 
 // biome-ignore lint/complexity/noBannedTypes: biome-ignore lint: false positive
@@ -106,11 +107,13 @@ function RootDocument() {
 				>
 					Skip to content
 				</Link>
-				<div className="grid min-h-svh grid-rows-[auto_1fr]">
-					<main id="main-content" className="min-h-0" tabIndex={-1}>
-						<Outlet />
-					</main>
-				</div>
+				<FormDraftsProvider>
+					<div className="grid min-h-svh grid-rows-[auto_1fr]">
+						<main id="main-content" className="min-h-0" tabIndex={-1}>
+							<Outlet />
+						</main>
+					</div>
+				</FormDraftsProvider>
 
 				<Toaster richColors closeButton />
 

@@ -3,6 +3,7 @@ import { CheckIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { useFormDraft } from "../../form-drafts";
 import { DisplayPreferences } from "./display-preferences";
 import {
 	applyDisplaySettings,
@@ -12,17 +13,15 @@ import {
 } from "./display-settings";
 import { PreferencesSidebar } from "./preferences-sidebar";
 import { ScripturePreferences } from "./scripture-preferences";
-import type {
-	ReadingWidth,
-	TextSize,
-	Theme,
-	Tradition,
-	Translation,
-} from "./types";
+import type { ReadingWidth, TextSize, Theme } from "./types";
 
 export function PreferencesPage() {
-	const [tradition, setTradition] = useState<Tradition>("protestant");
-	const [translation, setTranslation] = useState<Translation>(
+	const [tradition, setTradition] = useFormDraft(
+		"account.preferences.tradition",
+		"protestant",
+	);
+	const [translation, setTranslation] = useFormDraft(
+		"account.preferences.translation",
 		"English Standard Version (ESV)",
 	);
 	const [theme, setTheme] = useState<Theme>(defaultDisplaySettings.theme);

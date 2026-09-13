@@ -27,6 +27,7 @@ export function createAuth() {
 		trustedOrigins: [env.BETTER_AUTH_URL],
 		emailAndPassword: {
 			enabled: true,
+			minPasswordLength: 12,
 			resetPasswordTokenExpiresIn: 60 * 30,
 			revokeSessionsOnPasswordReset: true,
 		},

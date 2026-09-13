@@ -6,11 +6,15 @@ import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import z from "zod";
 import { authClient } from "@/lib/auth-client";
+import { useFormDraft } from "../../form-drafts";
 
 export default function ForgotPasswordForm() {
 	const navigate = useNavigate({ from: "/forgot-password" });
+	const [draft, setDraft] = useFormDraft("auth.forgot-password", {
+		email: "",
+	});
 	const form = useForm({
-		defaultValues: { email: "" },
+		defaultValues: draft,
 		onSubmit: async ({ value }) => {
 			await authClient.emailOtp.requestPasswordReset(
 				{
@@ -56,7 +60,11 @@ export default function ForgotPasswordForm() {
 							placeholder="you@example.com"
 							value={field.state.value}
 							onBlur={field.handleBlur}
-							onChange={(event) => field.handleChange(event.target.value)}
+							onChange={(event) => {
+								const email = event.target.value;
+								field.handleChange(email);
+								setDraft({ email });
+							}}
 							className="h-12 rounded-xl bg-background px-4 text-[15px] shadow-none"
 						/>
 						{field.state.meta.errors[0]?.message ? (
