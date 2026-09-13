@@ -38,6 +38,8 @@ export * from "./languages";
 export * from "./lexemes";
 export * from "./literary_units";
 export * from "./manuscripts";
+export * from "./note_collections";
+export * from "./note_tags";
 export * from "./notes";
 export * from "./notifications";
 export * from "./original_language_notes";

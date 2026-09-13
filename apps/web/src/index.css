@@ -33,6 +33,586 @@ html[data-reading-width="wide"] {
 	font-size: var(--reading-text-size);
 }
 
+/* The note composer deliberately uses a denser, paper-like workspace. */
+.note-composer-layout {
+	display: grid;
+	align-items: start;
+	gap: 1rem;
+	grid-template-columns: minmax(13rem, 19rem) minmax(28rem, 1fr) minmax(
+			16rem,
+			22.5rem
+		);
+}
+
+.note-context-column,
+.note-actions-column,
+.note-study-context {
+	display: flex;
+	flex-direction: column;
+	gap: 0.8rem;
+}
+
+.note-editor-card,
+.note-passage-card,
+.note-side-card,
+.note-context-card {
+	border: 1px solid color-mix(in oklab, var(--border), transparent 25%);
+	border-radius: 0.65rem;
+	background: var(--card);
+	box-shadow: 0 4px 14px color-mix(in oklab, var(--foreground), transparent 95%);
+}
+
+.note-editor-card {
+	padding: 1.25rem;
+}
+.note-side-card,
+.note-passage-card {
+	padding: 1rem;
+}
+.note-side-card h2,
+.note-passage-card h2,
+.note-context-card [data-slot="card-title"] {
+	display: flex;
+	align-items: center;
+	gap: 0.65rem;
+	font-family: var(--font-serif);
+	font-weight: 700;
+	font-size: 0.9rem;
+	color: var(--foreground);
+}
+.note-side-card h2 svg,
+.note-passage-card h2 svg {
+	width: 1rem;
+	height: 1rem;
+}
+.note-context-card {
+	border-radius: 0.65rem;
+}
+.note-context-card [data-slot="card-header"] {
+	padding: 1rem 1rem 0;
+}
+.note-context-card [data-slot="card-content"] {
+	padding: 0.65rem 1rem 1rem;
+}
+.note-field-label {
+	display: block;
+	font-weight: 600;
+	font-size: 0.75rem;
+	color: var(--foreground);
+}
+.note-field-label span {
+	color: #d13b42;
+}
+.note-title-input {
+	height: 2.65rem;
+	margin-top: 0.45rem;
+	border-radius: 0.45rem;
+	padding-inline: 0.85rem;
+	font-size: 0.9rem;
+}
+.note-mode-toggle {
+	display: flex;
+	overflow: hidden;
+	border-radius: 0.45rem;
+	background: var(--muted);
+	padding: 0.15rem;
+	font-size: 0.72rem;
+}
+.note-mode-toggle button {
+	padding: 0.35rem 0.8rem;
+	border-radius: 0.3rem;
+	color: var(--muted-foreground);
+}
+.note-mode-toggle .is-active {
+	background: var(--card);
+	color: var(--foreground);
+	box-shadow: 0 1px 3px #00000010;
+	font-weight: 600;
+}
+.note-rich-editor {
+	overflow: hidden;
+	border: 1px solid var(--border);
+	border-radius: 0.45rem;
+}
+.note-toolbar {
+	display: flex;
+	align-items: center;
+	gap: 0.15rem;
+	min-height: 2.75rem;
+	padding: 0.4rem 0.55rem;
+	border-bottom: 1px solid var(--border);
+	color: var(--foreground);
+}
+.note-toolbar button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.35rem;
+	min-width: 1.8rem;
+	height: 1.7rem;
+	padding: 0.25rem;
+	border-radius: 0.25rem;
+	font-size: 0.72rem;
+}
+.note-toolbar button:first-child {
+	min-width: 6.5rem;
+	justify-content: space-between;
+	padding-inline: 0.55rem;
+	border: 1px solid var(--border);
+}
+.note-toolbar svg {
+	width: 0.9rem;
+	height: 0.9rem;
+}
+.note-toolbar > span {
+	width: 1px;
+	height: 1.5rem;
+	margin-inline: 0.25rem;
+	background: var(--border);
+}
+.note-content-input {
+	min-height: 24.6rem;
+	resize: vertical;
+	border: 0;
+	padding: 1.25rem;
+	font-family: var(--font-serif);
+	font-size: 0.92rem;
+	line-height: 1.65;
+}
+.note-content-input:focus-visible {
+	border: 0;
+	box-shadow: none;
+}
+.note-content-input::placeholder {
+	color: color-mix(in oklab, var(--muted-foreground), transparent 20%);
+	opacity: 1;
+}
+.note-passage-quote {
+	margin-top: 1.2rem;
+	border-left: 4px solid var(--primary);
+	border-radius: 0.25rem;
+	background: color-mix(in oklab, var(--primary), transparent 94%);
+	padding: 1rem 1.25rem;
+	font-family: var(--font-serif);
+	font-size: 0.8rem;
+	font-style: italic;
+	line-height: 1.7;
+	color: var(--foreground);
+}
+.note-passage-quote span {
+	display: block;
+	margin-top: 0.4rem;
+	font-family: var(--font-sans);
+	font-size: 0.62rem;
+	font-style: normal;
+	font-weight: 600;
+	letter-spacing: 0.1em;
+	color: var(--muted-foreground);
+}
+.note-passage-reference {
+	margin-top: 0.85rem;
+	color: var(--primary);
+	font-family: var(--font-serif);
+	font-weight: 700;
+	font-size: 0.9rem;
+}
+.note-passage-copy,
+.note-side-card > p {
+	margin: 0.55rem 0 0.85rem;
+	font-family: var(--font-serif);
+	font-size: 0.8rem;
+	line-height: 1.55;
+	color: var(--muted-foreground);
+}
+.note-passage-card select,
+.note-side-card select {
+	border-radius: 0.4rem;
+}
+.note-browse-scripture,
+.note-more-prompts {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.45rem;
+	margin-top: 0.75rem;
+	color: var(--primary);
+	font-size: 0.72rem;
+	font-weight: 600;
+}
+.note-tag-list {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.35rem;
+	margin-top: 0.6rem;
+}
+.note-tag-list button {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.45rem;
+	border-radius: 999px;
+	background: color-mix(in oklab, var(--primary), transparent 91%);
+	padding: 0.28rem 0.6rem;
+	color: var(--primary);
+	font-size: 0.68rem;
+}
+.note-add-tag {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35rem;
+	margin-top: 0.7rem;
+	border: 1px solid var(--border);
+	border-radius: 0.4rem;
+	padding: 0.3rem 0.55rem;
+	font-size: 0.7rem;
+}
+.note-add-tag svg {
+	width: 0.8rem;
+	height: 0.8rem;
+}
+.note-prompts {
+	display: flex;
+	flex-direction: column;
+	gap: 0.4rem;
+	margin-top: 0.7rem;
+}
+.note-prompts button {
+	display: flex;
+	align-items: center;
+	gap: 0.55rem;
+	border-radius: 0.35rem;
+	background: var(--muted);
+	padding: 0.55rem 0.65rem;
+	text-align: left;
+	font-size: 0.7rem;
+	color: var(--foreground);
+}
+.note-prompts svg {
+	flex: none;
+	width: 0.85rem;
+	height: 0.85rem;
+	color: var(--muted-foreground);
+}
+.note-details dl {
+	display: flex;
+	flex-direction: column;
+	gap: 0.45rem;
+	margin-top: 0.7rem;
+	font-size: 0.7rem;
+}
+.note-details dl div {
+	display: flex;
+	justify-content: space-between;
+	gap: 0.5rem;
+	color: var(--muted-foreground);
+}
+.note-details dd {
+	display: flex;
+	align-items: center;
+	gap: 0.35rem;
+	color: var(--foreground);
+}
+.note-details i {
+	width: 0.45rem;
+	height: 0.45rem;
+	border-radius: 999px;
+	background: #f6c54c;
+}
+.note-details dl div:last-child i {
+	background: #5ecf88;
+}
+.note-save-actions {
+	display: flex;
+	flex-direction: column;
+	gap: 0.45rem;
+}
+.note-save-actions > button {
+	width: 100%;
+	justify-content: center;
+	border-radius: 0.45rem;
+}
+.note-primary-save {
+	background: #12385e;
+	color: white;
+}
+
+@media (max-width: 1279px) {
+	.note-composer-layout {
+		grid-template-columns: minmax(13rem, 17rem) minmax(28rem, 1fr);
+	}
+	.note-actions-column {
+		grid-column: 1 / -1;
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+	.note-save-actions {
+		grid-column: 1 / -1;
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+	}
+}
+
+@media (max-width: 860px) {
+	.note-composer-layout,
+	.note-actions-column {
+		display: flex;
+		flex-direction: column;
+	}
+	.note-save-actions {
+		display: flex;
+	}
+	.note-content-input {
+		min-height: 19rem;
+	}
+}
+
+/* Notes library: master/detail composition used by the study workspace. */
+.notes-library-surface {
+	overflow: hidden;
+	border: 1px solid color-mix(in oklab, var(--border), transparent 20%);
+	border-radius: 0.7rem;
+	background: var(--card);
+	box-shadow: 0 4px 16px color-mix(in oklab, var(--foreground), transparent 96%);
+}
+.notes-filter-bar {
+	display: grid;
+	grid-template-columns: minmax(15rem, 1fr) auto;
+	gap: 0.7rem;
+	align-items: center;
+	padding: 0.55rem 0.75rem;
+	border-bottom: 1px solid var(--border);
+}
+.notes-filter-bar > label {
+	grid-row: 1;
+}
+.notes-filter-bar > div:last-child {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(7rem, 1fr));
+	gap: 0.5rem;
+}
+.notes-filter-bar [data-slot="input-group"] {
+	min-width: 18rem;
+}
+.notes-library-grid {
+	display: grid;
+	min-height: 39rem;
+	grid-template-columns: minmax(17rem, 0.78fr) minmax(29rem, 1.65fr) minmax(
+			15rem,
+			0.72fr
+		);
+}
+.notes-list-pane {
+	min-width: 0;
+	border-right: 1px solid var(--border);
+}
+.notes-list-item.is-selected {
+	border-left: 3px solid var(--primary);
+	background: color-mix(in oklab, var(--primary), transparent 91%);
+	padding-left: calc(1rem - 3px);
+}
+.notes-list-title {
+	font-family: var(--font-serif);
+	font-size: 0.78rem;
+	font-weight: 700;
+}
+.notes-detail-pane {
+	min-width: 0;
+	overflow-y: auto;
+	border-right: 1px solid var(--border);
+}
+.notes-insights-rail {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+	padding: 0.8rem;
+	background: color-mix(in oklab, var(--background), var(--card) 60%);
+}
+.notes-rail-card {
+	border: 1px solid color-mix(in oklab, var(--border), transparent 20%);
+	border-radius: 0.6rem;
+	background: var(--card);
+	padding: 0.9rem;
+	box-shadow: 0 2px 8px color-mix(in oklab, var(--foreground), transparent 97%);
+}
+.notes-rail-card h2 {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	margin-bottom: 0.7rem;
+	font-family: var(--font-serif);
+	font-size: 0.9rem;
+	font-weight: 700;
+}
+.notes-rail-card h2 svg {
+	width: 1rem;
+	height: 1rem;
+}
+.notes-rail-card dl {
+	display: flex;
+	flex-direction: column;
+	gap: 0.55rem;
+	font-size: 0.67rem;
+}
+.notes-rail-card dl div {
+	display: flex;
+	justify-content: space-between;
+	gap: 0.65rem;
+}
+.notes-rail-card dt {
+	display: flex;
+	align-items: center;
+	gap: 0.4rem;
+	color: var(--muted-foreground);
+}
+.notes-rail-card dt svg {
+	width: 0.8rem;
+	height: 0.8rem;
+}
+.notes-rail-card dd {
+	text-align: right;
+	color: var(--foreground);
+}
+.notes-quick-actions {
+	display: flex;
+	flex-direction: column;
+	gap: 0.55rem;
+}
+.notes-quick-actions button {
+	display: flex;
+	align-items: center;
+	gap: 0.6rem;
+	text-align: left;
+	font-size: 0.72rem;
+}
+.notes-quick-actions svg {
+	width: 0.9rem;
+	height: 0.9rem;
+}
+.notes-favorite-tags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.35rem;
+	margin-top: 0.75rem;
+}
+.notes-favorite-tags span,
+.notes-note-tags span {
+	border-radius: 999px;
+	background: color-mix(in oklab, var(--primary), transparent 92%);
+	padding: 0.24rem 0.55rem;
+	color: var(--primary);
+	font-size: 0.66rem;
+}
+.notes-scripture-reminder {
+	margin-top: auto;
+	border-radius: 0.6rem;
+	background: color-mix(in oklab, #f4d981, var(--card) 72%);
+	padding: 1.4rem 0.8rem;
+	text-align: center;
+	font-family: var(--font-serif);
+	font-size: 0.74rem;
+	font-style: italic;
+	line-height: 1.55;
+}
+.notes-scripture-reminder span {
+	display: block;
+	margin-top: 0.35rem;
+	font-family: var(--font-sans);
+	font-size: 0.58rem;
+	font-style: normal;
+	letter-spacing: 0.1em;
+	color: var(--muted-foreground);
+}
+.notes-note-detail {
+	display: flex;
+	min-width: 0;
+	flex: 1;
+	flex-direction: column;
+	gap: 1rem;
+	padding: 1.4rem 1.6rem;
+}
+.notes-note-header {
+	border-bottom: 1px solid var(--border);
+	padding-bottom: 1rem;
+}
+.notes-note-header > div:first-child {
+	float: right;
+	margin: 0 0 0.8rem 0.8rem;
+}
+.notes-note-title {
+	clear: none;
+	font-family: var(--font-serif);
+	font-size: clamp(1.35rem, 2vw, 1.8rem);
+	line-height: 1.3;
+	font-weight: 700;
+}
+.notes-note-passage {
+	display: flex;
+	align-items: center;
+	gap: 0.45rem;
+	margin-top: 0.6rem;
+	color: var(--primary);
+	font-size: 0.75rem;
+	font-weight: 600;
+}
+.notes-note-passage svg {
+	width: 0.9rem;
+	height: 0.9rem;
+}
+.notes-note-tags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.35rem;
+	margin-top: 0.8rem;
+}
+.notes-note-content {
+	font-size: 0.82rem;
+	line-height: 1.65;
+	color: var(--foreground);
+}
+.notes-note-content::first-line {
+	font-family: var(--font-serif);
+	font-size: 1.05rem;
+	font-weight: 700;
+}
+.notes-note-detail > section {
+	border-top: 1px solid var(--border);
+	padding-top: 1rem;
+}
+
+@media (max-width: 1150px) {
+	.notes-library-grid {
+		grid-template-columns: minmax(16rem, 0.8fr) minmax(27rem, 1.7fr);
+	}
+	.notes-insights-rail {
+		grid-column: 1 / -1;
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+	}
+	.notes-scripture-reminder {
+		margin-top: 0;
+	}
+}
+@media (max-width: 780px) {
+	.notes-filter-bar,
+	.notes-library-grid,
+	.notes-insights-rail {
+		display: flex;
+		flex-direction: column;
+	}
+	.notes-filter-bar > div:last-child {
+		display: grid;
+		width: 100%;
+		grid-template-columns: repeat(2, 1fr);
+	}
+	.notes-filter-bar [data-slot="input-group"] {
+		min-width: 0;
+	}
+	.notes-list-pane,
+	.notes-detail-pane {
+		width: 100%;
+		border-right: 0;
+		border-bottom: 1px solid var(--border);
+	}
+}
+
 @media (max-width: 639px) {
 	.mobile-safe-x {
 		padding-right: max(1.25rem, env(safe-area-inset-right));
@@ -51,4 +631,48 @@ html[data-reading-width="wide"] {
 		scroll-behavior: auto;
 		transition: none;
 	}
+}
+
+/*
+ * iOS controls use generous, consistent corners. Keep circular affordances
+ * (switches, radio buttons, avatars, and explicit pill buttons) untouched.
+ * This lives at the app boundary so every shared UI primitive and every
+ * native control in the web app receives the same treatment.
+ */
+:root {
+	--ios-control-radius: 0.875rem;
+}
+
+:where(
+	button:not(.rounded-full),
+	input:not([type="radio"]):not([type="checkbox"]):not(.rounded-full),
+	select,
+	textarea,
+	[data-slot="button"],
+	[data-slot="input"],
+	[data-slot="textarea"],
+	[data-slot="input-group"],
+	[data-slot="select-trigger"],
+	[data-slot="native-select"],
+	[data-slot="combobox-trigger"],
+	[data-slot="toggle"],
+	[data-slot="toggle-group"],
+	[data-slot="toggle-group-item"],
+	[data-slot="tabs-list"],
+	[data-slot="tabs-trigger"],
+	[data-slot="checkbox"],
+	[data-slot="slider-track"],
+	[data-slot="slider-thumb"],
+	[data-slot="select-content"],
+	[data-slot="combobox-content"],
+	[data-slot="dropdown-menu-content"],
+	[data-slot="dropdown-menu-sub-content"],
+	[data-slot="context-menu-content"],
+	[data-slot="context-menu-sub-content"],
+	[data-slot="popover-content"],
+	[data-slot="dialog-content"],
+	[data-slot="sheet-content"],
+	[data-slot="drawer-popup"]
+) {
+	border-radius: var(--ios-control-radius);
 }

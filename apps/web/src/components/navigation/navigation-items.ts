@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 
 export type NavigationItem = {
+	children?: readonly NavigationItem[];
 	href: string;
 	icon: LucideIcon;
 	label: string;
@@ -35,7 +36,12 @@ export const primaryNavigationItems = [
 		label: "Browse Scripture",
 		mobileLabel: "Browse",
 	},
-	{ href: "/library", icon: LibraryIcon, label: "Library" },
+	{
+		children: [{ href: "/library/notes", icon: FileTextIcon, label: "Notes" }],
+		href: "/library",
+		icon: LibraryIcon,
+		label: "Library",
+	},
 	{ href: "/search", icon: SearchIcon, label: "Search" },
 ] as const satisfies readonly NavigationItem[];
 

@@ -7,13 +7,16 @@ import {
 } from "@berean-study/ui/components/empty";
 import { cn } from "@berean-study/ui/lib/utils";
 import type { LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
 
 export function DestinationPage({
+	children,
 	description,
 	icon: Icon,
 	readingPreferences = false,
 	title,
 }: {
+	children?: ReactNode;
 	description: string;
 	icon: LucideIcon;
 	readingPreferences?: boolean;
@@ -41,6 +44,7 @@ export function DestinationPage({
 						<EmptyDescription>{description}</EmptyDescription>
 					</EmptyHeader>
 				</Empty>
+				{children}
 			</div>
 		</div>
 	);
