@@ -5,7 +5,7 @@ import { cn } from "cn";
 import type * as React from "react";
 
 type LabelProps = React.ComponentProps<"label"> & {
-	htmlFor: string;
+	htmlFor?: string;
 };
 
 function Label({ className, htmlFor, ...props }: LabelProps) {

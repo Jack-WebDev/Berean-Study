@@ -12,6 +12,7 @@
 	"scripts": {},
 	"dependencies": {
 		"@berean-study/db": "workspace:*",
+		"@berean-study/emailkit": "workspace:*",
 		"@berean-study/env": "workspace:*",
 		"better-auth": "catalog:",
 		"dotenv": "catalog:",

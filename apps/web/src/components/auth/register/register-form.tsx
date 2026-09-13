@@ -18,8 +18,8 @@ export default function RegisterForm() {
 				{ email: value.email, name: value.name, password: value.password },
 				{
 					onSuccess: () => {
-						navigate({ to: "/home" });
-						toast.success("Sign up successful");
+						navigate({ to: "/verify-email", search: { email: value.email } });
+						toast.success("Check your email for a verification code.");
 					},
 					onError: (error) => {
 						toast.error(error.error.message || error.error.statusText);
