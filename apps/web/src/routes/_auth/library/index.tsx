@@ -3,7 +3,7 @@ import { LibraryIcon } from "lucide-react";
 
 import { DestinationPage } from "@/components/application/destination-page";
 
-export const Route = createFileRoute("/_auth/library")({
+export const Route = createFileRoute("/_auth/library/")({
 	component: LibraryPage,
 });
 

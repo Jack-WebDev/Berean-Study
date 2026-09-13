@@ -12,6 +12,9 @@ import {
 	SidebarMenu,
 	SidebarMenuButton,
 	SidebarMenuItem,
+	SidebarMenuSub,
+	SidebarMenuSubButton,
+	SidebarMenuSubItem,
 	SidebarProvider,
 	SidebarSeparator,
 } from "@berean-study/ui/components/sidebar";
@@ -203,6 +206,27 @@ function NavigationMenu({
 							<Icon aria-hidden="true" />
 							<span>{item.label}</span>
 						</SidebarMenuButton>
+						{item.children ? (
+							<SidebarMenuSub>
+								{item.children.map((child) => {
+									const ChildIcon = child.icon;
+									const isChildActive = isCurrentLocation(pathname, child.href);
+
+									return (
+										<SidebarMenuSubItem key={child.href}>
+											<SidebarMenuSubButton
+												aria-current={isChildActive ? "page" : undefined}
+												isActive={isChildActive}
+												render={<a href={child.href} />}
+											>
+												<ChildIcon aria-hidden="true" />
+												<span>{child.label}</span>
+											</SidebarMenuSubButton>
+										</SidebarMenuSubItem>
+									);
+								})}
+							</SidebarMenuSub>
+						) : null}
 					</SidebarMenuItem>
 				);
 			})}
