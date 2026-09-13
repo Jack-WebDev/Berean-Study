@@ -7,7 +7,11 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { emailOTP } from "better-auth/plugins/email-otp";
 import { twoFactor } from "better-auth/plugins/two-factor";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
-
+import {
+	sendAccountDeletedEmailSafely,
+	sendEmailVerificationOtp,
+	sendWelcomeEmailSafely,
+} from "./lifecycle-emails";
 import { notifySecuritySignIn } from "./security-notifications";
 
 export function createAuth() {
@@ -31,6 +35,15 @@ export function createAuth() {
 		user: {
 			deleteUser: {
 				enabled: true,
+				afterDelete: async (user) => {
+					await sendAccountDeletedEmailSafely(user);
+				},
+			},
+		},
+		emailVerification: {
+			sendOnSignUp: true,
+			afterEmailVerification: async (user) => {
+				await sendWelcomeEmailSafely(user);
 			},
 		},
 		databaseHooks: {
@@ -46,7 +59,13 @@ export function createAuth() {
 			emailOTP({
 				expiresIn: 60 * 10,
 				storeOTP: "hashed",
+				overrideDefaultEmailVerification: true,
 				async sendVerificationOTP({ email, otp, type }) {
+					if (type === "email-verification") {
+						await sendEmailVerificationOtp(email, otp);
+						return;
+					}
+
 					if (type !== "forget-password") return;
 
 					if (!env.RESEND_FROM_EMAIL) {

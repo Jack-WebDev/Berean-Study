@@ -21,7 +21,7 @@ export default function VerifyEmailOtp({
 		<EmailShell
 			preview="Your Berean Study verification code"
 			title="Verify your email"
-			intro="Use this code to confirm your email. It expires in 5 minutes."
+			intro="Use this code to confirm your email. It expires in 10 minutes."
 			supportEmail={supportEmail}
 		>
 			<EmailGreeting recipientName={recipientName} />
