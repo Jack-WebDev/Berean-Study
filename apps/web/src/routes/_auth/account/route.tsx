@@ -5,6 +5,7 @@ import {
 	useMatches,
 } from "@tanstack/react-router";
 import {
+	BellIcon,
 	BookOpenIcon,
 	LockKeyholeIcon,
 	Settings2Icon,
@@ -30,6 +31,11 @@ const accountLinks = [
 		icon: BookOpenIcon,
 		label: "Reading",
 		to: "/account/reading" as const,
+	},
+	{
+		icon: BellIcon,
+		label: "Notifications",
+		to: "/account/notifications" as const,
 	},
 	{
 		icon: LockKeyholeIcon,

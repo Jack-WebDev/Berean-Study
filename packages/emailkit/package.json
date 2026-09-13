@@ -1,0 +1,55 @@
+{
+	"name": "@berean-study/emailkit",
+	"private": true,
+	"version": "1.0.0",
+	"type": "module",
+	"description": "Emailkit for Berean Study",
+	"main": "dist/index.mjs",
+	"types": "dist/index.d.mts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.mts",
+			"import": "./dist/index.mjs"
+		},
+		"./index": {
+			"types": "./dist/index.d.mts",
+			"import": "./dist/index.mjs"
+		},
+		"./client": {
+			"types": "./dist/client.d.mts",
+			"import": "./dist/client.mjs"
+		},
+		"./mailer": {
+			"types": "./src/mailer.ts",
+			"import": "./src/mailer.ts"
+		},
+		"./package.json": "./package.json"
+	},
+	"scripts": {
+		"email": "email dev --dir src/templates",
+		"build": "tsdown",
+		"lint": "biome check --write",
+		"check-types": "tsc -p tsconfig.json --noEmit",
+		"clean": "rimraf dist .turbo && rm -rf node_modules"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC",
+	"packageManager": "pnpm@10.18.3",
+	"dependencies": {
+		"@react-email/components": "1.0.9",
+		"@react-email/render": "1.4.0",
+		"nodemailer": "7.0.12",
+		"react": "catalog:",
+		"react-dom": "catalog:",
+		"resend": "6.5.2"
+	},
+	"devDependencies": {
+		"@react-email/preview-server": "5.2.9",
+		"@types/nodemailer": "7.0.4",
+		"@types/react": "catalog:",
+		"react-email": "5.2.9",
+		"rimraf": "catalog:",
+		"tsdown": "catalog:"
+	}
+}

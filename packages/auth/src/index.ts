@@ -1,5 +1,6 @@
 import { createDb } from "@berean-study/db";
 import * as schema from "@berean-study/db/schema/auth";
+import { sendPasswordResetEmail } from "@berean-study/emailkit";
 import { env } from "@berean-study/env/server";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
@@ -37,29 +38,17 @@ export function createAuth() {
 				async sendVerificationOTP({ email, otp, type }) {
 					if (type !== "forget-password") return;
 
-					if (!env.RESEND_API_KEY || !env.RESEND_FROM_EMAIL) {
+					if (!env.RESEND_FROM_EMAIL) {
 						throw new Error(
-							"RESEND_API_KEY and RESEND_FROM_EMAIL must be configured to send password reset codes.",
+							"RESEND_FROM_EMAIL must be configured to send password reset codes.",
 						);
 					}
 
-					const response = await fetch("https://api.resend.com/emails", {
-						method: "POST",
-						headers: {
-							Authorization: `Bearer ${env.RESEND_API_KEY}`,
-							"Content-Type": "application/json",
-						},
-						body: JSON.stringify({
-							from: env.RESEND_FROM_EMAIL,
-							to: [email],
-							subject: "Your Berean Study password reset code",
-							html: `<p>Your password reset code is:</p><p style="font-size: 24px; font-weight: 700; letter-spacing: 0.2em">${otp}</p><p>This code expires in 10 minutes.</p>`,
-						}),
+					await sendPasswordResetEmail({
+						to: email,
+						from: env.RESEND_FROM_EMAIL,
+						otpCode: otp,
 					});
-
-					if (!response.ok) {
-						throw new Error("Unable to send password reset code.");
-					}
 				},
 			}),
 			twoFactor({
