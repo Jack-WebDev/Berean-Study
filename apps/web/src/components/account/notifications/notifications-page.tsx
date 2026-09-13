@@ -1,33 +1,17 @@
 import {
 	defaultNotificationPreferences,
-	type NotificationPreferenceKey,
 	type NotificationPreferences,
 } from "@berean-study/db/notification-preferences";
 import { Button } from "@berean-study/ui/components/button";
 import { Label } from "@berean-study/ui/components/label";
-import {
-	RadioGroup,
-	RadioGroupItem,
-} from "@berean-study/ui/components/radio-group";
 import { Separator } from "@berean-study/ui/components/separator";
 import { Switch } from "@berean-study/ui/components/switch";
-import type { LucideIcon } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import {
-	ArrowRightIcon,
-	AtSignIcon,
-	BellIcon,
 	BellRingIcon,
-	BookMarkedIcon,
-	BookOpenIcon,
-	CircleHelpIcon,
-	Clock3Icon,
-	LightbulbIcon,
+	CheckIcon,
 	MailIcon,
-	MessageCircleIcon,
-	MessagesSquareIcon,
-	RefreshCwIcon,
 	ShieldCheckIcon,
-	SmartphoneIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -36,338 +20,317 @@ import {
 	getNotificationPreferences,
 	updateNotificationPreferences,
 } from "@/functions/notification-preferences";
+import {
+	getNotificationInbox,
+	markAllNotificationsRead,
+	markNotificationRead,
+} from "@/functions/notifications";
 
-type Frequency = "all" | "important" | "minimal";
-
-type NotificationSetting = {
-	description: string;
-	icon: LucideIcon;
-	key: NotificationPreferenceKey;
-	label: string;
-};
-
-const notificationGroups: readonly {
-	description: string;
-	icon: LucideIcon;
-	settings: readonly NotificationSetting[];
-	title: string;
-}[] = [
-	{
-		description:
-			"Manage how and when you receive notifications from Berean Study.",
-		icon: BellRingIcon,
-		title: "Notification preferences",
-		settings: [
-			{
-				description: "Receive notifications at test@mail.com",
-				icon: MailIcon,
-				key: "email",
-				label: "Email",
-			},
-			{
-				description: "Receive notifications in your browser or on your device",
-				icon: SmartphoneIcon,
-				key: "push",
-				label: "Push notifications",
-			},
-		],
-	},
-	{
-		description: "Stay informed about new and updated content.",
-		icon: BookOpenIcon,
-		title: "Content updates",
-		settings: [
-			{
-				description: "Get notified when new commentaries are published.",
-				icon: MessagesSquareIcon,
-				key: "comments",
-				label: "New commentaries",
-			},
-			{
-				description: "Get notified when existing content is updated.",
-				icon: RefreshCwIcon,
-				key: "updates",
-				label: "Updated content",
-			},
-			{
-				description: "Get notified about new articles, study guides, or tools.",
-				icon: BookMarkedIcon,
-				key: "resources",
-				label: "New study resources",
-			},
-		],
-	},
-	{
-		description: "Notifications about your activity and interactions.",
-		icon: MessagesSquareIcon,
-		title: "Community and interaction",
-		settings: [
-			{
-				description: "Get notified when someone replies to your comments.",
-				icon: MessageCircleIcon,
-				key: "replies",
-				label: "Replies to your comments",
-			},
-			{
-				description: "Get notified when someone mentions you.",
-				icon: AtSignIcon,
-				key: "mentions",
-				label: "Mentions",
-			},
-			{
-				description:
-					"Get notified about the status of content you’ve reported.",
-				icon: CircleHelpIcon,
-				key: "reports",
-				label: "Updates to your reports",
-			},
-		],
-	},
-	{
-		description: "Important notifications about your account.",
-		icon: ShieldCheckIcon,
-		title: "Account and security",
-		settings: [
-			{
-				description:
-					"Get notified about sign-ins from new devices or other security events.",
-				icon: BellIcon,
-				key: "security",
-				label: "Security alerts",
-			},
-			{
-				description:
-					"Get important updates about your account, billing, and settings.",
-				icon: BellIcon,
-				key: "account",
-				label: "Account updates",
-			},
-		],
-	},
-];
+type Inbox = Awaited<ReturnType<typeof getNotificationInbox>>;
 
 export function NotificationsPage() {
 	const [settings, setSettings] = useState<NotificationPreferences>(
 		defaultNotificationPreferences,
 	);
-	const [frequency, setFrequency] = useState<Frequency>("important");
+	const [inbox, setInbox] = useState<Inbox | null>(null);
+	const [isLoading, setIsLoading] = useState(true);
+	const [loadError, setLoadError] = useState(false);
+	const [isSaving, setIsSaving] = useState(false);
+	const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
 
 	useEffect(() => {
-		void getNotificationPreferences()
-			.then(setSettings)
-			.catch(() => toast.error("Unable to load notification preferences."));
+		let active = true;
+
+		void Promise.all([getNotificationPreferences(), getNotificationInbox()])
+			.then(([preferences, nextInbox]) => {
+				if (!active) return;
+				setSettings(preferences);
+				setInbox(nextInbox);
+			})
+			.catch(() => {
+				if (active) {
+					setLoadError(true);
+					toast.error("Unable to load notification settings.");
+				}
+			})
+			.finally(() => {
+				if (active) setIsLoading(false);
+			});
+
+		return () => {
+			active = false;
+		};
 	}, []);
 
 	async function handleSettingChange(
-		key: NotificationPreferenceKey,
+		key: "email" | "security",
 		checked: boolean,
 	) {
+		if (isSaving) return;
+
 		const previousSettings = settings;
 		const nextSettings = { ...settings, [key]: checked };
 		setSettings(nextSettings);
+		setIsSaving(true);
 
 		try {
 			await updateNotificationPreferences({ data: nextSettings });
+			toast.success("Notification settings saved.");
 		} catch {
 			setSettings(previousSettings);
-			toast.error("Unable to save notification preferences.");
+			toast.error("Unable to save notification settings.");
+		} finally {
+			setIsSaving(false);
+		}
+	}
+
+	async function handleMarkRead(id: number) {
+		if (!inbox) return;
+
+		const notification = inbox.notifications.find((item) => item.id === id);
+		if (!notification || notification.readAt) return;
+
+		setInbox({
+			...inbox,
+			notifications: inbox.notifications.map((item) =>
+				item.id === id ? { ...item, readAt: new Date() } : item,
+			),
+			unreadCount: inbox.unreadCount - 1,
+		});
+
+		try {
+			await markNotificationRead({ data: { id } });
+		} catch {
+			try {
+				setInbox(await getNotificationInbox());
+			} catch {
+				setLoadError(true);
+			}
+			toast.error("Unable to mark the notification as read.");
+		}
+	}
+
+	async function handleMarkAllRead() {
+		if (!inbox || inbox.unreadCount === 0 || isMarkingAllRead) return;
+		setIsMarkingAllRead(true);
+
+		try {
+			await markAllNotificationsRead();
+			setInbox({
+				...inbox,
+				notifications: inbox.notifications.map((item) => ({
+					...item,
+					readAt: item.readAt ?? new Date(),
+				})),
+				unreadCount: 0,
+			});
+			toast.success("All notifications marked as read.");
+		} catch {
+			toast.error("Unable to mark notifications as read.");
+		} finally {
+			setIsMarkingAllRead(false);
 		}
 	}
 
 	return (
-		<div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_16rem]">
-			<main className="flex min-w-0 flex-col gap-3">
-				{notificationGroups.map((group) => (
-					<NotificationPanel
-						group={group}
-						key={group.title}
-						onSettingChange={handleSettingChange}
-						settings={settings}
-					/>
-				))}
-			</main>
-			<aside className="flex flex-col gap-3">
-				<ScriptureQuote />
-				<NotificationFrequency frequency={frequency} onChange={setFrequency} />
-				<TipsCard />
-			</aside>
+		<div className="mx-auto flex max-w-3xl flex-col gap-5">
+			<NotificationSettings
+				isLoading={isLoading}
+				isSaving={isSaving}
+				onChange={handleSettingChange}
+				settings={settings}
+			/>
+			<NotificationInbox
+				inbox={inbox}
+				loadError={loadError}
+				isLoading={isLoading}
+				isMarkingAllRead={isMarkingAllRead}
+				onMarkAllRead={handleMarkAllRead}
+				onMarkRead={handleMarkRead}
+			/>
 		</div>
 	);
 }
 
-function NotificationPanel({
-	group,
+function NotificationSettings({
+	isLoading,
+	isSaving,
+	onChange,
 	settings,
-	onSettingChange,
 }: {
-	group: (typeof notificationGroups)[number];
+	isLoading: boolean;
+	isSaving: boolean;
+	onChange: (key: "email" | "security", checked: boolean) => void;
 	settings: NotificationPreferences;
-	onSettingChange: (key: NotificationPreferenceKey, checked: boolean) => void;
 }) {
-	const Icon = group.icon;
-
 	return (
 		<section className="rounded-xl border border-border/60 bg-card px-4 py-3 shadow-sm sm:px-5 sm:py-4">
 			<header className="flex items-center gap-3">
 				<div className="grid size-10 shrink-0 place-items-center rounded-full border border-border bg-secondary text-primary">
-					<Icon aria-hidden="true" className="size-4" strokeWidth={1.7} />
-				</div>
-				<div className="min-w-0">
-					<h2 className="font-serif text-lg leading-tight tracking-[-0.015em] sm:text-xl">
-						{group.title}
-					</h2>
-					<p className="mt-0.5 text-muted-foreground text-xs leading-5">
-						{group.description}
-					</p>
-				</div>
-			</header>
-			<Separator className="my-3" />
-			<div className="divide-y divide-border/60">
-				{group.settings.map((setting) => {
-					const SettingIcon = setting.icon;
-					const checked = settings[setting.key];
-
-					return (
-						<Label
-							className="flex cursor-pointer items-center gap-3 py-2 first:pt-0 last:pb-0"
-							key={setting.key}
-						>
-							<SettingIcon
-								aria-hidden="true"
-								className="size-4 shrink-0 text-foreground"
-								strokeWidth={1.8}
-							/>
-							<span className="min-w-0 flex-1">
-								<span className="block font-medium text-sm leading-4">
-									{setting.label}
-								</span>
-								<span className="mt-0.5 block text-muted-foreground text-xs leading-4">
-									{setting.description}
-								</span>
-							</span>
-							<Switch
-								checked={checked}
-								onCheckedChange={(nextChecked) =>
-									onSettingChange(setting.key, nextChecked)
-								}
-							/>
-						</Label>
-					);
-				})}
-			</div>
-		</section>
-	);
-}
-
-function ScriptureQuote() {
-	return (
-		<section className="relative hidden min-h-44 overflow-hidden rounded-xl border border-border bg-secondary md:block">
-			<img
-				alt=""
-				className="absolute inset-0 size-full object-cover opacity-55"
-				src="/landing/cta-hills.png"
-			/>
-			<div className="absolute inset-0 bg-linear-to-b from-secondary/90 via-secondary/55 to-transparent" />
-			<blockquote className="relative p-5">
-				<p className="font-serif text-foreground text-lg leading-[1.32] tracking-[-0.02em]">
-					“Watch and be alert, for you do not know when the time will come.”
-				</p>
-				<footer className="mt-3 text-foreground/80 text-xs">Mark 13:33</footer>
-			</blockquote>
-		</section>
-	);
-}
-
-function NotificationFrequency({
-	frequency,
-	onChange,
-}: {
-	frequency: Frequency;
-	onChange: (value: Frequency) => void;
-}) {
-	return (
-		<section className="rounded-xl border border-border/60 bg-card p-4 shadow-sm">
-			<header className="flex items-center gap-3">
-				<div className="grid size-9 shrink-0 place-items-center rounded-full border border-border bg-secondary text-primary">
-					<Clock3Icon aria-hidden="true" className="size-4" strokeWidth={1.7} />
-				</div>
-				<div>
-					<h2 className="font-serif text-lg tracking-[-0.015em]">
-						Notification frequency
-					</h2>
-					<p className="mt-0.5 text-muted-foreground text-xs leading-4">
-						Control how often you receive non-essential notifications.
-					</p>
-				</div>
-			</header>
-			<RadioGroup
-				className="mt-4 gap-3"
-				onValueChange={(value) => onChange(value as Frequency)}
-				value={frequency}
-			>
-				<FrequencyOption
-					description="Receive all notifications as they happen."
-					label="All notifications"
-					value="all"
-				/>
-				<FrequencyOption
-					description="Only receive the most important notifications."
-					label="Important only"
-					value="important"
-				/>
-				<FrequencyOption
-					description="Receive a limited number of notifications."
-					label="Minimal"
-					value="minimal"
-				/>
-			</RadioGroup>
-		</section>
-	);
-}
-
-function FrequencyOption({
-	value,
-	label,
-	description,
-}: {
-	value: Frequency;
-	label: string;
-	description: string;
-}) {
-	return (
-		<Label className="flex cursor-pointer items-start gap-3">
-			<RadioGroupItem className="mt-0.5" value={value} />
-			<span>
-				<span className="block font-medium text-sm leading-4">{label}</span>
-				<span className="mt-0.5 block text-muted-foreground text-xs leading-4">
-					{description}
-				</span>
-			</span>
-		</Label>
-	);
-}
-
-function TipsCard() {
-	return (
-		<section className="rounded-xl border border-border/60 bg-card p-4 shadow-sm">
-			<header className="flex items-center gap-3">
-				<div className="grid size-9 shrink-0 place-items-center rounded-full border border-border bg-secondary text-primary">
-					<LightbulbIcon
+					<BellRingIcon
 						aria-hidden="true"
 						className="size-4"
 						strokeWidth={1.7}
 					/>
 				</div>
-				<h2 className="font-serif text-lg tracking-[-0.015em]">Tips</h2>
+				<div>
+					<h2 className="font-serif text-lg leading-tight tracking-[-0.015em] sm:text-xl">
+						Notification settings
+					</h2>
+					<p className="mt-0.5 text-muted-foreground text-xs leading-5">
+						Control delivery of security notifications.
+					</p>
+				</div>
 			</header>
-			<p className="mt-3 text-muted-foreground text-xs leading-5">
-				You can always change these settings later. We’ll only send you relevant
-				notifications and you can unsubscribe at any time.
-			</p>
-			<Button className="mt-4 h-auto p-0 text-accent text-xs" variant="link">
-				Learn more about notifications
-				<ArrowRightIcon aria-hidden="true" data-icon="inline-end" />
-			</Button>
+			<Separator className="my-3" />
+			<div className="divide-y divide-border/60">
+				<Setting
+					checked={settings.email}
+					description="Allow security alerts to be delivered to your email address."
+					disabled={isLoading || isSaving}
+					icon={MailIcon}
+					label="Email delivery"
+					onCheckedChange={(checked) => onChange("email", checked)}
+				/>
+				<Setting
+					checked={settings.security}
+					description="Receive email alerts for new sign-ins and other security events."
+					disabled={isLoading || isSaving}
+					icon={ShieldCheckIcon}
+					label="Security alerts"
+					onCheckedChange={(checked) => onChange("security", checked)}
+				/>
+			</div>
+		</section>
+	);
+}
+
+function Setting({
+	checked,
+	description,
+	disabled,
+	icon: Icon,
+	label,
+	onCheckedChange,
+}: {
+	checked: boolean;
+	description: string;
+	disabled: boolean;
+	icon: typeof BellRingIcon;
+	label: string;
+	onCheckedChange: (checked: boolean) => void;
+}) {
+	return (
+		<Label className="flex cursor-pointer items-center gap-3 py-2 first:pt-0 last:pb-0">
+			<Icon
+				aria-hidden="true"
+				className="size-4 shrink-0 text-foreground"
+				strokeWidth={1.8}
+			/>
+			<span className="min-w-0 flex-1">
+				<span className="block font-medium text-sm leading-4">{label}</span>
+				<span className="mt-0.5 block text-muted-foreground text-xs leading-4">
+					{description}
+				</span>
+			</span>
+			<Switch
+				checked={checked}
+				disabled={disabled}
+				onCheckedChange={onCheckedChange}
+			/>
+		</Label>
+	);
+}
+
+function NotificationInbox({
+	inbox,
+	isLoading,
+	loadError,
+	isMarkingAllRead,
+	onMarkAllRead,
+	onMarkRead,
+}: {
+	inbox: Inbox | null;
+	isLoading: boolean;
+	loadError: boolean;
+	isMarkingAllRead: boolean;
+	onMarkAllRead: () => void;
+	onMarkRead: (id: number) => void;
+}) {
+	return (
+		<section className="rounded-xl border border-border/60 bg-card shadow-sm">
+			<header className="flex items-center justify-between gap-3 px-4 py-3 sm:px-5 sm:py-4">
+				<div>
+					<h2 className="font-serif text-lg leading-tight tracking-[-0.015em] sm:text-xl">
+						Inbox
+						{inbox && inbox.unreadCount > 0 ? ` (${inbox.unreadCount})` : ""}
+					</h2>
+					<p className="mt-0.5 text-muted-foreground text-xs leading-5">
+						Your most recent in-app notifications.
+					</p>
+				</div>
+				<Button
+					disabled={!inbox || inbox.unreadCount === 0 || isMarkingAllRead}
+					onClick={onMarkAllRead}
+					size="sm"
+					variant="outline"
+				>
+					Mark all read
+				</Button>
+			</header>
+			<Separator />
+			{isLoading ? (
+				<p className="px-4 py-6 text-muted-foreground text-sm sm:px-5">
+					Loading notifications…
+				</p>
+			) : loadError ? (
+				<p className="px-4 py-6 text-destructive text-sm sm:px-5">
+					Notifications could not be loaded. Refresh the page to try again.
+				</p>
+			) : !inbox || inbox.notifications.length === 0 ? (
+				<p className="px-4 py-6 text-muted-foreground text-sm sm:px-5">
+					You have no notifications yet.
+				</p>
+			) : (
+				<ul className="divide-y divide-border/60">
+					{inbox.notifications.map((notification) => (
+						<li className="px-4 py-3 sm:px-5" key={notification.id}>
+							<div className="flex items-start gap-3">
+								<div className="min-w-0 flex-1">
+									{notification.destination ? (
+										<Link
+											className="font-medium text-sm hover:underline"
+											onClick={() => onMarkRead(notification.id)}
+											to={notification.destination as never}
+										>
+											{notification.title}
+										</Link>
+									) : (
+										<p className="font-medium text-sm">{notification.title}</p>
+									)}
+									<p className="mt-1 text-muted-foreground text-sm">
+										{notification.body}
+									</p>
+								</div>
+								{notification.readAt ? (
+									<CheckIcon
+										aria-label="Read"
+										className="mt-0.5 size-4 text-muted-foreground"
+									/>
+								) : (
+									<Button
+										onClick={() => onMarkRead(notification.id)}
+										size="sm"
+										variant="ghost"
+									>
+										Mark read
+									</Button>
+								)}
+							</div>
+						</li>
+					))}
+				</ul>
+			)}
 		</section>
 	);
 }

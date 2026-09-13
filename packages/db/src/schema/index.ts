@@ -39,6 +39,7 @@ export * from "./lexemes";
 export * from "./literary_units";
 export * from "./manuscripts";
 export * from "./notes";
+export * from "./notifications";
 export * from "./original_language_notes";
 export * from "./passage_ranges";
 export * from "./passages";
