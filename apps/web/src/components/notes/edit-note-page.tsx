@@ -94,7 +94,10 @@ export function EditNotePage({ noteId }: { noteId: number }) {
 							onSubmit={async (values) => {
 								await saveNote(values);
 								toast.success("Note updated.");
-								navigate({ to: "/library/notes", search: { note: note.id } });
+								navigate({
+									to: "/library/notes",
+									search: { addToCollection: true, note: note.id },
+								});
 							}}
 							submitLabel="Save changes"
 						/>

@@ -12,6 +12,7 @@ import { Skeleton } from "@berean-study/ui/components/skeleton";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
 	ChevronsUpDownIcon,
+	Info,
 	LogOutIcon,
 	SettingsIcon,
 	UserIcon,
@@ -122,6 +123,10 @@ export default function UserMenu({ sidebar = false }: UserMenuProps) {
 							className="size-4 text-muted-foreground"
 						/>
 						Settings
+					</DropdownMenuItem>
+					<DropdownMenuItem render={<Link to="/about" />}>
+						<Info aria-hidden="true" className="size-4 text-muted-foreground" />
+						About
 					</DropdownMenuItem>
 				</DropdownMenuGroup>
 

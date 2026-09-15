@@ -25,7 +25,6 @@ import {
 	ChevronDownIcon,
 	CircleHelpIcon,
 	FileTextIcon,
-	FolderIcon,
 	LightbulbIcon,
 	LinkIcon,
 	ListIcon,
@@ -260,17 +259,6 @@ export function NoteForm({
 								/>
 							)}
 						</form.Subscribe>
-						<section className="note-side-card">
-							<h2>
-								<FolderIcon aria-hidden="true" /> Add to Collection
-							</h2>
-							<NativeSelect aria-label="Add to collection">
-								<NativeSelectOption value="">
-									Select a collection...
-								</NativeSelectOption>
-							</NativeSelect>
-							<p>Organize your notes into collections.</p>
-						</section>
 						<section className="note-side-card">
 							<h2>
 								<LightbulbIcon aria-hidden="true" /> Study Prompts

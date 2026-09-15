@@ -19,7 +19,7 @@ import {
 	SidebarSeparator,
 } from "@berean-study/ui/components/sidebar";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { InfoIcon, MoonIcon, SearchIcon, SunIcon } from "lucide-react";
+import { MoonIcon, SearchIcon, SunIcon } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 
 import {
@@ -148,11 +148,6 @@ function AppSidebar({
 				)}
 			</SidebarContent>
 			<SidebarFooter className="px-3 pb-4">
-				<SidebarSeparator className="mx-0 mb-2" />
-				<NavigationMenu
-					items={desktopSecondaryNavigationItems}
-					pathname={pathname}
-				/>
 				<SidebarSeparator className="mx-0 mt-auto" />
 				<div className="pt-2">
 					<UserMenu sidebar />
@@ -233,15 +228,6 @@ function NavigationMenu({
 		</SidebarMenu>
 	);
 }
-
-const desktopSecondaryNavigationItems = [
-	{ href: "/#about", icon: InfoIcon, label: "About" },
-	{
-		href: "/settings",
-		icon: secondaryNavigationItems[2].icon,
-		label: "Settings",
-	},
-] as const satisfies readonly NavigationItem[];
 
 const desktopPrimaryNavigationItems = [
 	...primaryNavigationItems,

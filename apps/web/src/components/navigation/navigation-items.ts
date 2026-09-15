@@ -3,6 +3,7 @@ import {
 	BookOpenIcon,
 	FileClockIcon,
 	FileTextIcon,
+	FolderIcon,
 	HouseIcon,
 	LibraryIcon,
 	ScrollTextIcon,
@@ -37,7 +38,14 @@ export const primaryNavigationItems = [
 		mobileLabel: "Browse",
 	},
 	{
-		children: [{ href: "/library/notes", icon: FileTextIcon, label: "Notes" }],
+		children: [
+			{ href: "/library/notes", icon: FileTextIcon, label: "Notes" },
+			{
+				href: "/library/collections",
+				icon: FolderIcon,
+				label: "Collections",
+			},
+		],
 		href: "/library",
 		icon: LibraryIcon,
 		label: "Library",
