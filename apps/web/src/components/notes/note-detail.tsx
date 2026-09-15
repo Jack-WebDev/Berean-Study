@@ -15,6 +15,13 @@ import {
 } from "@berean-study/ui/components/alert-dialog";
 import { Button } from "@berean-study/ui/components/button";
 import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "@berean-study/ui/components/dropdown-menu";
+import {
 	Empty,
 	EmptyDescription,
 	EmptyHeader,
@@ -24,13 +31,14 @@ import {
 import {
 	ArrowLeftIcon,
 	BookOpenIcon,
+	EllipsisIcon,
 	FileTextIcon,
+	FolderPlusIcon,
 	PencilIcon,
 	Trash2Icon,
 } from "lucide-react";
-import { useState } from "react";
-
-import { formatDate } from "@/lib/format";
+import { useEffect, useState } from "react";
+import { AddNoteToCollectionDialog } from "../collections/add-note-to-collection-dialog";
 import { NoteCollectionControl } from "./note-collection";
 import { NoteTags } from "./note-tags";
 import { passageLabel } from "./notes-list";
@@ -42,6 +50,7 @@ export function NoteDetail({
 	onEdit,
 	onAddTag,
 	collections,
+	openCollectionPicker = false,
 	onAssignCollection,
 	onCreateCollection,
 	onRemoveTag,
@@ -52,6 +61,7 @@ export function NoteDetail({
 	onEdit: (noteId: number) => void;
 	onAddTag: (noteId: number, name: string) => Promise<void>;
 	collections: NoteCollection[];
+	openCollectionPicker?: boolean;
 	onAssignCollection: (
 		noteId: number,
 		collectionId: number | null,
@@ -63,6 +73,11 @@ export function NoteDetail({
 	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 	const [deleteError, setDeleteError] = useState<string | null>(null);
 	const [isDeleting, setIsDeleting] = useState(false);
+	const [collectionDialogOpen, setCollectionDialogOpen] = useState(false);
+
+	useEffect(() => {
+		if (openCollectionPicker) setCollectionDialogOpen(true);
+	}, [openCollectionPicker]);
 
 	if (!note) {
 		return (
@@ -95,24 +110,32 @@ export function NoteDetail({
 							Scripture
 						</Button>
 					) : null}
-					<Button
-						onClick={() => onEdit(note.id)}
-						size="sm"
-						type="button"
-						variant="outline"
-					>
-						<PencilIcon aria-hidden="true" data-icon="inline-start" />
-						Edit
-					</Button>
-					<Button
-						onClick={() => setDeleteDialogOpen(true)}
-						size="sm"
-						type="button"
-						variant="destructive"
-					>
-						<Trash2Icon aria-hidden="true" data-icon="inline-start" />
-						Delete
-					</Button>
+					<DropdownMenu>
+						<DropdownMenuTrigger
+							render={<Button size="icon-sm" type="button" variant="outline" />}
+						>
+							<EllipsisIcon aria-hidden="true" />
+							<span className="sr-only">Note actions</span>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent align="end">
+							<DropdownMenuItem onClick={() => setCollectionDialogOpen(true)}>
+								<FolderPlusIcon aria-hidden="true" />
+								Add to Collection
+							</DropdownMenuItem>
+							<DropdownMenuItem onClick={() => onEdit(note.id)}>
+								<PencilIcon aria-hidden="true" />
+								Edit
+							</DropdownMenuItem>
+							<DropdownMenuSeparator />
+							<DropdownMenuItem
+								className="text-destructive focus:text-destructive"
+								onClick={() => setDeleteDialogOpen(true)}
+							>
+								<Trash2Icon aria-hidden="true" />
+								Delete note
+							</DropdownMenuItem>
+						</DropdownMenuContent>
+					</DropdownMenu>
 				</div>
 				<h1 className="notes-note-title" id="note-detail-title">
 					{note.content.split(/\n|\./)[0].trim() || "Untitled note"}
@@ -140,6 +163,11 @@ export function NoteDetail({
 				collections={collections}
 				onAssign={(collectionId) => onAssignCollection(note.id, collectionId)}
 				onCreate={onCreateCollection}
+			/>
+			<AddNoteToCollectionDialog
+				noteId={note.id}
+				onOpenChange={setCollectionDialogOpen}
+				open={collectionDialogOpen}
 			/>
 
 			<AlertDialog

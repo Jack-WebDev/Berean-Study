@@ -6,6 +6,7 @@ import { NotesPage } from "@/components/notes/notes-page";
 export const Route = createFileRoute("/_auth/library/notes/")({
 	component: NotesRoute,
 	validateSearch: z.object({
+		addToCollection: z.coerce.boolean().optional(),
 		book: z.coerce.number().int().positive().optional(),
 		collection: z.coerce.number().int().positive().optional(),
 		note: z.coerce.number().int().positive().optional(),
@@ -19,6 +20,7 @@ export const Route = createFileRoute("/_auth/library/notes/")({
 
 function NotesRoute() {
 	const {
+		addToCollection,
 		book,
 		collection,
 		note,
@@ -44,6 +46,7 @@ function NotesRoute() {
 				navigate({
 					to: "/library/notes",
 					search: {
+						addToCollection,
 						book: filters.bookId,
 						collection: filters.collectionId,
 						passage: filters.passageId,
@@ -58,6 +61,7 @@ function NotesRoute() {
 				navigate({
 					to: "/library/notes",
 					search: {
+						addToCollection,
 						book,
 						collection,
 						note: noteId,
@@ -69,6 +73,7 @@ function NotesRoute() {
 					},
 				})
 			}
+			openCollectionPicker={addToCollection}
 			returnPassageId={returnPassageId}
 			selectedNoteId={note}
 		/>

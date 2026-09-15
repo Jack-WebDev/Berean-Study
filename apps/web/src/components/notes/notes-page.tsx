@@ -39,12 +39,14 @@ import type {
 export function NotesPage({
 	filters,
 	onFiltersChange,
+	openCollectionPicker,
 	onSelectNote,
 	returnPassageId,
 	selectedNoteId,
 }: {
 	filters: NoteFilters;
 	onFiltersChange: (filters: NoteFilters) => void;
+	openCollectionPicker?: boolean;
 	onSelectNote: (noteId?: number) => void;
 	returnPassageId?: number;
 	selectedNoteId?: number;
@@ -293,6 +295,7 @@ export function NotesPage({
 								note={selectedNote}
 								onAddTag={handleAddTag}
 								collections={collections ?? []}
+								openCollectionPicker={openCollectionPicker}
 								onAssignCollection={handleAssignCollection}
 								onCreateCollection={handleCreateCollection}
 								onDelete={handleDelete}

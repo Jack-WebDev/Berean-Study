@@ -60,6 +60,7 @@ export function NewNotePage({
 						navigate({
 							to: "/library/notes",
 							search: {
+								addToCollection: true,
 								note: note.id,
 								passage: Number(values.passageId),
 								return: returnPassageId,
