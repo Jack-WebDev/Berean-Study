@@ -2,6 +2,7 @@ import { Editor, type JSONContent } from "@tiptap/core";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { createRichTextExtensions } from "../src/editor-extensions";
+import { sanitizePastedHtml } from "../src/paste-sanitization";
 
 const editors: Editor[] = [];
 
@@ -106,5 +107,37 @@ describe("Berean rich-text schema", () => {
 		const document = source.getJSON();
 		const restored = createEditor(document);
 		expect(restored.getJSON()).toEqual(document);
+	});
+
+	it("supports constrained writing tables", () => {
+		const editor = createEditor();
+		expect(
+			editor.commands.insertTable({ cols: 2, rows: 2, withHeaderRow: true }),
+		).toBe(true);
+		expect(editor.isActive("table")).toBe(true);
+		expect(editor.commands.addRowAfter()).toBe(true);
+		expect(editor.commands.deleteRow()).toBe(true);
+		expect(editor.commands.addColumnAfter()).toBe(true);
+		expect(editor.commands.deleteColumn()).toBe(true);
+		expect(editor.commands.toggleHeaderRow()).toBe(true);
+		expect(editor.commands.toggleHeaderColumn()).toBe(true);
+		expect(editor.commands.deleteTable()).toBe(true);
+		expect(editor.isActive("table")).toBe(false);
+	});
+
+	it("sanitizes unsupported paste styling and normalizes H1 to H2", () => {
+		const html = sanitizePastedHtml(
+			'<h1 style="color:red">Title</h1><p style="font-size:20px">Body <span style="background:yellow"><strong>text</strong></span><script>alert(1)</script></p><a href="javascript:alert(1)" onclick="x()">unsafe</a>',
+		);
+		expect(html).toContain("<h2>Title</h2>");
+		expect(html).not.toContain("h1");
+		expect(html).not.toContain("style=");
+		expect(html).not.toContain("script");
+		expect(html).not.toContain("onclick");
+		expect(html).toContain("<strong>text</strong>");
+
+		const editor = createEditor(html);
+		expect(editor.getJSON().content?.[0]?.type).toBe("heading");
+		expect(editor.getJSON().content?.[0]?.attrs?.level).toBe(2);
 	});
 });

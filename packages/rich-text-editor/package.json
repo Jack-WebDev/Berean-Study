@@ -21,15 +21,16 @@
 	},
 	"devDependencies": {
 		"@berean-study/config": "workspace:*",
+		"@berean-study/testkit": "workspace:*",
 		"@types/react": "catalog:",
 		"@types/react-dom": "catalog:",
 		"tsdown": "catalog:",
-		"typescript": "catalog:",
-		"@berean-study/testkit": "workspace:*"
+		"typescript": "catalog:"
 	},
 	"dependencies": {
 		"@tiptap/core": "^3.31.3",
 		"@tiptap/extension-placeholder": "^3.31.3",
+		"@tiptap/extension-table": "^3.31.3",
 		"@tiptap/extension-text-align": "^3.31.3",
 		"@tiptap/pm": "^3.31.3",
 		"@tiptap/react": "^3.31.3",

@@ -13,6 +13,8 @@ import {
 	QuoteIcon,
 	Redo2Icon,
 	StrikethroughIcon,
+	Table2Icon,
+	Trash2Icon,
 	UnderlineIcon,
 	Undo2Icon,
 } from "lucide-react";
@@ -35,6 +37,7 @@ type ToolbarState = {
 	isLink: boolean;
 	isStrike: boolean;
 	isUnderline: boolean;
+	isTable: boolean;
 };
 
 export function EditorToolbar({ editor }: { editor: Editor }) {
@@ -51,6 +54,7 @@ export function EditorToolbar({ editor }: { editor: Editor }) {
 			isLink: currentEditor.isActive("link"),
 			isStrike: currentEditor.isActive("strike"),
 			isUnderline: currentEditor.isActive("underline"),
+			isTable: currentEditor.isActive("table"),
 		}),
 	});
 
@@ -150,6 +154,7 @@ export function EditorToolbar({ editor }: { editor: Editor }) {
 			>
 				<MinusIcon aria-hidden="true" />
 			</ToolbarButton>
+			<TableControls editor={editor} isTable={state.isTable} />
 			<ToolbarSeparator />
 			<ToolbarButton
 				disabled={!state.canUndo}
@@ -166,6 +171,92 @@ export function EditorToolbar({ editor }: { editor: Editor }) {
 				<Redo2Icon aria-hidden="true" />
 			</ToolbarButton>
 		</div>
+	);
+}
+
+function TableControls({
+	editor,
+	isTable,
+}: {
+	editor: Editor;
+	isTable: boolean;
+}) {
+	return (
+		<div className="flex items-center gap-0.5">
+			<ToolbarButton
+				label="Insert table"
+				onClick={() =>
+					editor
+						.chain()
+						.focus()
+						.insertTable({ cols: 3, rows: 3, withHeaderRow: true })
+						.run()
+				}
+			>
+				<Table2Icon aria-hidden="true" />
+			</ToolbarButton>
+			{isTable ? (
+				<details className="relative">
+					<summary className="flex h-7 cursor-pointer list-none items-center rounded-sm px-1.5 text-xs hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
+						Table
+					</summary>
+					<div className="absolute top-8 right-0 z-10 grid w-48 gap-1 rounded-md border border-border bg-popover p-2 shadow-md">
+						<TableMenuButton
+							label="Add row"
+							onClick={() => editor.chain().focus().addRowAfter().run()}
+						/>
+						<TableMenuButton
+							label="Remove row"
+							onClick={() => editor.chain().focus().deleteRow().run()}
+						/>
+						<TableMenuButton
+							label="Add column"
+							onClick={() => editor.chain().focus().addColumnAfter().run()}
+						/>
+						<TableMenuButton
+							label="Remove column"
+							onClick={() => editor.chain().focus().deleteColumn().run()}
+						/>
+						<TableMenuButton
+							label="Toggle header row"
+							onClick={() => editor.chain().focus().toggleHeaderRow().run()}
+						/>
+						<TableMenuButton
+							label="Toggle header column"
+							onClick={() => editor.chain().focus().toggleHeaderColumn().run()}
+						/>
+						<TableMenuButton
+							destructive
+							label="Delete table"
+							onClick={() => editor.chain().focus().deleteTable().run()}
+						/>
+					</div>
+				</details>
+			) : null}
+		</div>
+	);
+}
+
+function TableMenuButton({
+	destructive = false,
+	label,
+	onClick,
+}: {
+	destructive?: boolean;
+	label: string;
+	onClick: () => void;
+}) {
+	return (
+		<button
+			className={`rounded-sm px-2 py-1 text-left text-xs hover:bg-muted ${destructive ? "text-destructive" : ""}`}
+			onClick={onClick}
+			type="button"
+		>
+			{destructive ? (
+				<Trash2Icon aria-hidden="true" className="mr-1 inline size-3" />
+			) : null}
+			{label}
+		</button>
 	);
 }
 
