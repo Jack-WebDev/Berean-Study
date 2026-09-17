@@ -1,18 +1,29 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { BookmarkIcon } from "lucide-react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { z } from "zod";
 
-import { DestinationPage } from "@/components/application/destination-page";
+import { SavedPage, type SavedView } from "@/components/saved/saved-page";
+import { getSavedItems } from "@/functions/saved-items";
 
 export const Route = createFileRoute("/_auth/library/saved")({
-	component: SavedPage,
+	component: SavedRoute,
+	loader: () => getSavedItems(),
+	validateSearch: z.object({
+		view: z.enum(["highlights", "bookmarks"]).default("highlights"),
+	}),
 });
 
-function SavedPage() {
+function SavedRoute() {
+	const { view } = Route.useSearch();
+	const savedItems = Route.useLoaderData();
+	const navigate = useNavigate({ from: "/library/saved" });
+
 	return (
-		<DestinationPage
-			description="Your saved highlights and bookmarks will appear here."
-			icon={BookmarkIcon}
-			title="Saved"
+		<SavedPage
+			onViewChange={(nextView: SavedView) =>
+				navigate({ to: "/library/saved", search: { view: nextView } })
+			}
+			savedItems={savedItems}
+			view={view}
 		/>
 	);
 }
