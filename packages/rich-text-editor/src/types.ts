@@ -19,6 +19,13 @@ export type CitationAttributes = {
 	label: string;
 };
 
+export type RichTextEditorPreset = "member" | "contributor";
+
+export type DocumentReferences = {
+	bibleReferences: BibleReferenceAttributes[];
+	citations: CitationAttributes[];
+};
+
 /** A selection supplied by the host application's picker UI. */
 export type RichTextSelectionResult =
 	| { type: "bibleReference"; value: BibleReferenceAttributes }
@@ -37,6 +44,13 @@ export type RichTextEditorProps = {
 		| null
 		| undefined
 		| Promise<BibleReferenceAttributes | null | undefined>;
+	/** Opens a host-owned source picker; contributor preset only. */
+	onRequestCitation?: () =>
+		| CitationAttributes
+		| null
+		| undefined
+		| Promise<CitationAttributes | null | undefined>;
 	placeholder?: string;
+	preset?: RichTextEditorPreset;
 	value: RichTextDocument;
 };

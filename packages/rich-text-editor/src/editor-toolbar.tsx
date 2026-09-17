@@ -27,7 +27,7 @@ import {
 	useState,
 } from "react";
 
-import type { BibleReferenceAttributes } from "./types";
+import type { BibleReferenceAttributes, CitationAttributes } from "./types";
 
 type ToolbarState = {
 	activeAlignment: "left" | "center" | "right" | null;
@@ -36,6 +36,8 @@ type ToolbarState = {
 	canRedo: boolean;
 	canUndo: boolean;
 	isBold: boolean;
+	isBibleReference: boolean;
+	isCitation: boolean;
 	isItalic: boolean;
 	isLink: boolean;
 	isStrike: boolean;
@@ -46,6 +48,7 @@ type ToolbarState = {
 export function EditorToolbar({
 	editor,
 	onRequestBibleReference,
+	onRequestCitation,
 }: {
 	editor: Editor;
 	onRequestBibleReference?: () =>
@@ -53,6 +56,11 @@ export function EditorToolbar({
 		| null
 		| undefined
 		| Promise<BibleReferenceAttributes | null | undefined>;
+	onRequestCitation?: () =>
+		| CitationAttributes
+		| null
+		| undefined
+		| Promise<CitationAttributes | null | undefined>;
 }) {
 	const state = useEditorState({
 		editor,
@@ -63,6 +71,8 @@ export function EditorToolbar({
 			canRedo: currentEditor.can().redo(),
 			canUndo: currentEditor.can().undo(),
 			isBold: currentEditor.isActive("bold"),
+			isBibleReference: currentEditor.isActive("bibleReference"),
+			isCitation: currentEditor.isActive("citation"),
 			isItalic: currentEditor.isActive("italic"),
 			isLink: currentEditor.isActive("link"),
 			isStrike: currentEditor.isActive("strike"),
@@ -170,15 +180,24 @@ export function EditorToolbar({
 			<TableControls editor={editor} isTable={state.isTable} />
 			{onRequestBibleReference ? (
 				<ToolbarButton
-					active={editor.isActive("bibleReference")}
+					active={state.isBibleReference}
 					label={
-						editor.isActive("bibleReference")
+						state.isBibleReference
 							? "Replace Bible reference"
 							: "Insert Bible reference"
 					}
 					onClick={() => requestBibleReference(editor, onRequestBibleReference)}
 				>
 					<BookOpenIcon aria-hidden="true" />
+				</ToolbarButton>
+			) : null}
+			{onRequestCitation ? (
+				<ToolbarButton
+					active={state.isCitation}
+					label={state.isCitation ? "Replace citation" : "Insert citation"}
+					onClick={() => requestCitation(editor, onRequestCitation)}
+				>
+					<QuoteIcon aria-hidden="true" />
 				</ToolbarButton>
 			) : null}
 			<ToolbarSeparator />
@@ -210,6 +229,18 @@ async function requestBibleReference(
 ) {
 	const reference = await onRequestBibleReference();
 	if (reference) editor.commands.insertBibleReference(reference);
+}
+
+async function requestCitation(
+	editor: Editor,
+	onRequestCitation: () =>
+		| CitationAttributes
+		| null
+		| undefined
+		| Promise<CitationAttributes | null | undefined>,
+) {
+	const citation = await onRequestCitation();
+	if (citation) editor.commands.insertCitation(citation);
 }
 
 function TableControls({

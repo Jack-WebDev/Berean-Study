@@ -10,7 +10,9 @@ import TextAlign from "@tiptap/extension-text-align";
 import StarterKit from "@tiptap/starter-kit";
 
 import { BibleReference } from "./bible-reference";
+import { Citation } from "./citation";
 import { sanitizePastedHtml } from "./paste-sanitization";
+import type { RichTextEditorPreset } from "./types";
 
 const allowedProtocols = new Set(["http:", "https:", "mailto:"]);
 
@@ -26,6 +28,7 @@ function isAllowedLinkUri(uri: string | undefined) {
 /** Returns the deliberately constrained schema shared by edit and read-only use. */
 export function createRichTextExtensions(
 	placeholder = "Start writing…",
+	preset: RichTextEditorPreset = "member",
 ): Extensions {
 	return [
 		StarterKit.configure({
@@ -46,6 +49,7 @@ export function createRichTextExtensions(
 		TableHeader,
 		TableCell,
 		BibleReference,
+		...(preset === "contributor" ? [Citation] : []),
 		Placeholder.configure({ placeholder }),
 	];
 }

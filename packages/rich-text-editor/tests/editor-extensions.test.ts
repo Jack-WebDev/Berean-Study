@@ -1,16 +1,24 @@
 import { Editor, type JSONContent } from "@tiptap/core";
 import { afterEach, describe, expect, it } from "vitest";
-import { getDocumentBibleReferences } from "../src/bible-reference-utils";
+import {
+	getDocumentBibleReferences,
+	getDocumentCitations,
+	getDocumentReferences,
+} from "../src/bible-reference-utils";
 import { createRichTextExtensions } from "../src/editor-extensions";
 import { sanitizePastedHtml } from "../src/paste-sanitization";
+import type { RichTextEditorPreset } from "../src/types";
 
 const editors: Editor[] = [];
 
-function createEditor(content: string | JSONContent = "<p>Testing</p>") {
+function createEditor(
+	content: string | JSONContent = "<p>Testing</p>",
+	preset: RichTextEditorPreset = "member",
+) {
 	const editor = new Editor({
 		content,
 		element: document.createElement("div"),
-		extensions: createRichTextExtensions(),
+		extensions: createRichTextExtensions("Start writing…", preset),
 	});
 	editors.push(editor);
 	return editor;
@@ -215,5 +223,72 @@ describe("Berean rich-text schema", () => {
 				type: "doc",
 			}),
 		).toEqual([]);
+	});
+
+	it("limits citations to the contributor preset", () => {
+		const member = createEditor();
+		const contributor = createEditor("<p>Testing</p>", "contributor");
+		expect(
+			member.extensionManager.extensions.some(
+				(extension) => extension.name === "citation",
+			),
+		).toBe(false);
+		expect(
+			contributor.extensionManager.extensions.some(
+				(extension) => extension.name === "citation",
+			),
+		).toBe(true);
+		expect(member.commands.insertCitation).toBeUndefined();
+		expect(contributor.commands.insertCitation).toBeTypeOf("function");
+	});
+
+	it("inserts, serializes, deserializes, and deletes citations", () => {
+		const editor = createEditor("<p>Testing</p>", "contributor");
+		const citation = { citationId: 481, label: "1" };
+		expect(editor.commands.insertCitation(citation)).toBe(true);
+
+		const document = editor.getJSON();
+		expect(document.content?.[0]?.content).toContainEqual(
+			expect.objectContaining({ attrs: citation, type: "citation" }),
+		);
+		expect(
+			getDocumentCitations(document as JSONContent & { type: "doc" }),
+		).toEqual([citation]);
+		expect(
+			getDocumentReferences(document as JSONContent & { type: "doc" }),
+		).toEqual({ bibleReferences: [], citations: [citation] });
+
+		const restored = createEditor(document, "contributor");
+		expect(restored.getJSON()).toEqual(document);
+		restored.commands.selectAll();
+		expect(restored.commands.deleteSelection()).toBe(true);
+		expect(
+			getDocumentCitations(restored.getJSON() as JSONContent & { type: "doc" }),
+		).toEqual([]);
+	});
+
+	it("renders citations in a read-only contributor editor and rejects invalid data", () => {
+		const editor = new Editor({
+			content: {
+				content: [
+					{
+						content: [
+							{ attrs: { citationId: 481, label: "1" }, type: "citation" },
+						],
+						type: "paragraph",
+					},
+				],
+				type: "doc",
+			},
+			editable: false,
+			element: document.createElement("div"),
+			extensions: createRichTextExtensions("Start writing…", "contributor"),
+		});
+		editors.push(editor);
+		expect(editor.getHTML()).toContain('data-citation="true"');
+		expect(editor.getHTML()).toContain("[1]");
+		expect(editor.commands.insertCitation({ citationId: 0, label: "" })).toBe(
+			false,
+		);
 	});
 });

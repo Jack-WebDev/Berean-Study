@@ -17,14 +17,16 @@ export function RichTextEditor({
 	editable = true,
 	onChange,
 	onRequestBibleReference,
+	onRequestCitation,
 	placeholder = "Start writing…",
+	preset = "member",
 	value,
 }: RichTextEditorProps) {
 	const onChangeRef = useRef(onChange);
 	onChangeRef.current = onChange;
 	const extensions = useMemo(
-		() => createRichTextExtensions(placeholder),
-		[placeholder],
+		() => createRichTextExtensions(placeholder, preset),
+		[placeholder, preset],
 	);
 	const editor = useEditor({
 		content: value ?? emptyDocument,
@@ -56,6 +58,9 @@ export function RichTextEditor({
 				<EditorToolbar
 					editor={editor}
 					onRequestBibleReference={onRequestBibleReference}
+					onRequestCitation={
+						preset === "contributor" ? onRequestCitation : undefined
+					}
 				/>
 			) : null}
 			<EditorContent
