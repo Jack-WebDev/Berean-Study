@@ -11,7 +11,7 @@ type DbClient = ReturnType<typeof createDb>;
 
 export type CreateNoteInput = {
 	content: string;
-	passageId: number;
+	passageId?: number | null;
 };
 
 export type UpdateNoteInput = CreateNoteInput;
@@ -94,8 +94,8 @@ export async function listNotes(
 			userNoteCollections,
 			eq(userNoteCollections.id, notes.collectionId),
 		)
-		.innerJoin(passages, eq(passages.id, notes.passageId))
-		.innerJoin(books, eq(books.id, passages.bookId))
+		.leftJoin(passages, eq(passages.id, notes.passageId))
+		.leftJoin(books, eq(books.id, passages.bookId))
 		.where(and(...conditions))
 		.orderBy(desc(notes.updatedAt), desc(notes.id));
 
@@ -340,7 +340,9 @@ export async function createNote(
 	userId: string,
 	input: CreateNoteInput,
 ) {
-	await assertPassageExists(db, input.passageId);
+	if (input.passageId !== null && input.passageId !== undefined) {
+		await assertPassageExists(db, input.passageId);
+	}
 
 	const [note] = await db
 		.insert(notes)
@@ -357,7 +359,9 @@ export async function updateNote(
 	noteId: number,
 	input: UpdateNoteInput,
 ) {
-	await assertPassageExists(db, input.passageId);
+	if (input.passageId !== null && input.passageId !== undefined) {
+		await assertPassageExists(db, input.passageId);
+	}
 
 	const [note] = await db
 		.update(notes)

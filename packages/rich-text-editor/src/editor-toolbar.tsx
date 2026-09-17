@@ -1,3 +1,13 @@
+import { Button } from "@berean-study/ui/components/button";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@berean-study/ui/components/dialog";
+import { Input } from "@berean-study/ui/components/input";
 import type { Editor } from "@tiptap/core";
 import { useEditorState } from "@tiptap/react";
 import {
@@ -19,13 +29,7 @@ import {
 	UnderlineIcon,
 	Undo2Icon,
 } from "lucide-react";
-import {
-	type FormEvent,
-	type ReactNode,
-	useEffect,
-	useRef,
-	useState,
-} from "react";
+import { type FormEvent, type ReactNode, useRef, useState } from "react";
 
 import {
 	type CitationRequest,
@@ -330,18 +334,7 @@ function LinkControl({ active, editor }: { active: boolean; editor: Editor }) {
 	const [open, setOpen] = useState(false);
 	const [href, setHref] = useState("");
 	const [error, setError] = useState<string | null>(null);
-	const dialogRef = useRef<HTMLDialogElement>(null);
-	const inputRef = useRef<HTMLInputElement>(null);
 	const selectionRef = useRef({ from: 0, to: 0 });
-	useEffect(() => {
-		const dialog = dialogRef.current;
-		if (!dialog) return;
-		if (open && !dialog.open) dialog.showModal();
-		if (!open && dialog.open) dialog.close();
-	}, [open]);
-	useEffect(() => {
-		if (open) inputRef.current?.focus();
-	}, [open]);
 	const close = () => {
 		setError(null);
 		setOpen(false);
@@ -382,73 +375,57 @@ function LinkControl({ active, editor }: { active: boolean; editor: Editor }) {
 			>
 				<LinkIcon aria-hidden="true" />
 			</ToolbarButton>
-			<dialog
-				aria-labelledby="link-dialog-title"
-				className="w-full max-w-sm rounded-md border border-border bg-popover p-4 text-popover-foreground shadow-lg backdrop:bg-black/10"
-				onCancel={(event) => {
-					event.preventDefault();
-					close();
+			<Dialog
+				onOpenChange={(nextOpen) => {
+					if (!nextOpen) close();
 				}}
-				ref={dialogRef}
+				open={open}
 			>
-				<div className="mb-4 grid gap-1">
-					<h2 className="font-medium text-sm" id="link-dialog-title">
-						Add link
-					</h2>
-					<p className="text-muted-foreground text-xs/relaxed">
-						Paste the web address to apply to the selected text.
-					</p>
-				</div>
-				<form aria-label="Link editor" className="grid gap-3" onSubmit={save}>
-					<input
-						aria-label="Link URL"
-						className="w-full rounded-sm border border-input bg-background px-2 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-						onChange={(event) => {
-							setError(null);
-							setHref(event.target.value);
-						}}
-						onKeyDown={(event) => {
-							if (event.key === "Escape") close();
-						}}
-						placeholder="https://example.com"
-						ref={inputRef}
-						value={href}
-					/>
-					{error ? <p className="text-destructive text-xs">{error}</p> : null}
-					<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-						<button
-							className="rounded-sm px-3 py-1.5 text-sm hover:bg-muted"
-							onClick={close}
-							type="button"
-						>
-							Cancel
-						</button>
-						{active ? (
-							<button
-								className="rounded-sm px-3 py-1.5 text-destructive text-sm hover:bg-destructive/10"
-								onClick={() => {
-									editor
-										.chain()
-										.setTextSelection(selectionRef.current)
-										.focus()
-										.unsetLink()
-										.run();
-									close();
-								}}
-								type="button"
-							>
-								Remove
-							</button>
-						) : null}
-						<button
-							className="rounded-sm bg-primary px-3 py-1.5 font-medium text-primary-foreground text-sm"
-							type="submit"
-						>
-							Save link
-						</button>
-					</div>
-				</form>
-			</dialog>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>Add link</DialogTitle>
+						<DialogDescription>
+							Paste the web address to apply to the selected text.
+						</DialogDescription>
+					</DialogHeader>
+					<form aria-label="Link editor" className="grid gap-3" onSubmit={save}>
+						<Input
+							aria-label="Link URL"
+							autoFocus
+							onChange={(event) => {
+								setError(null);
+								setHref(event.target.value);
+							}}
+							placeholder="https://example.com"
+							value={href}
+						/>
+						{error ? <p className="text-destructive text-xs">{error}</p> : null}
+						<DialogFooter>
+							<Button onClick={close} type="button" variant="ghost">
+								Cancel
+							</Button>
+							{active ? (
+								<Button
+									onClick={() => {
+										editor
+											.chain()
+											.setTextSelection(selectionRef.current)
+											.focus()
+											.unsetLink()
+											.run();
+										close();
+									}}
+									type="button"
+									variant="destructive"
+								>
+									Remove
+								</Button>
+							) : null}
+							<Button type="submit">Save link</Button>
+						</DialogFooter>
+					</form>
+				</DialogContent>
+			</Dialog>
 		</>
 	);
 }

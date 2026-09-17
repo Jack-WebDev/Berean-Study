@@ -14,7 +14,7 @@ export type NoteFormValues = {
 
 type AutosaveStatus = "idle" | "saving" | "saved" | "failed";
 
-const AUTOSAVE_DELAY_MS = 800;
+const AUTOSAVE_DELAY_MS = 5000;
 
 export function NoteAutosaveStatus({
 	initialValues,
@@ -126,5 +126,5 @@ function areValuesEqual(left: NoteFormValues, right: NoteFormValues) {
 }
 
 function isValidForAutosave(values: NoteFormValues) {
-	return hasNoteContent(values.content) && /^\d+$/.test(values.passageId);
+	return hasNoteContent(values.content);
 }

@@ -1,8 +1,10 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeftIcon } from "lucide-react";
+import { useRef } from "react";
 import { toast } from "sonner";
 
-import { createNote, setNoteTags } from "@/functions/notes";
+import { createNote, setNoteTags, updateNote } from "@/functions/notes";
+import type { NoteFormValues } from "./note-autosave-status";
 import { emptyNoteDocument, serializeNoteContent } from "./note-content";
 import { NoteForm } from "./note-form";
 
@@ -14,6 +16,21 @@ export function NewNotePage({
 	returnPassageId?: number;
 }) {
 	const navigate = useNavigate({ from: "/library/notes/new" });
+	const createdNoteId = useRef<number | null>(null);
+	const saveNote = async (values: NoteFormValues) => {
+		const passageId = values.passageId ? Number(values.passageId) : null;
+		const data = {
+			content: serializeNoteContent(values.content),
+			passageId,
+		};
+		const note = createdNoteId.current
+			? await updateNote({ data: { ...data, id: createdNoteId.current } })
+			: await createNote({ data });
+		if (!note) throw new Error("Note not found.");
+		createdNoteId.current = note.id;
+		await setNoteTags({ data: { id: note.id, tags: values.tags } });
+		return note;
+	};
 
 	return (
 		<div className="min-h-full bg-background px-4 py-6 text-foreground sm:px-6 lg:px-8">
@@ -49,23 +66,26 @@ export function NewNotePage({
 							: navigate({ to: "/library/notes" })
 					}
 					onSubmit={async (values) => {
-						const note = await createNote({
-							data: {
-								content: serializeNoteContent(values.content),
-								passageId: Number(values.passageId),
-							},
-						});
-						await setNoteTags({ data: { id: note.id, tags: values.tags } });
+						const note = await saveNote(values);
 						toast.success("Note saved.");
 						navigate({
 							to: "/library/notes",
 							search: {
 								addToCollection: true,
 								note: note.id,
-								passage: Number(values.passageId),
+								passage: values.passageId
+									? Number(values.passageId)
+									: undefined,
 								return: returnPassageId,
 							},
 						});
+					}}
+					onAutosave={async (values) => {
+						await saveNote(values);
+					}}
+					onSaveDraft={async (values) => {
+						await saveNote(values);
+						toast.success("Draft saved.");
 					}}
 					submitLabel="Save note"
 				/>

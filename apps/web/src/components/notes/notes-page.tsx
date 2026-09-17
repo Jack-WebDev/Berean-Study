@@ -369,7 +369,9 @@ function NotesInsightsRail({
 							Related to
 						</dt>
 						<dd className="text-primary">
-							{note ? (note.passageTitle ?? note.bookName) : "—"}
+							{note
+								? (note.passageTitle ?? note.bookName ?? "Unlinked note")
+								: "—"}
 						</dd>
 					</div>
 					<div>

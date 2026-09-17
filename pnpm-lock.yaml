@@ -325,6 +325,9 @@ importers:
 
   packages/rich-text-editor:
     dependencies:
+      '@berean-study/ui':
+        specifier: workspace:*
+        version: link:../ui
       '@tiptap/core':
         specifier: ^3.31.3
         version: 3.31.3(@tiptap/pm@3.31.3)

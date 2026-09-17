@@ -567,10 +567,10 @@ html[data-reading-width="wide"] {
 	line-height: 1.65;
 	color: var(--foreground);
 }
-.notes-note-content::first-line {
-	font-family: var(--font-serif);
-	font-size: 1.05rem;
-	font-weight: 700;
+.notes-note-content > section {
+	border: 0;
+	border-radius: 0;
+	background: transparent;
 }
 .notes-note-detail > section {
 	border-top: 1px solid var(--border);

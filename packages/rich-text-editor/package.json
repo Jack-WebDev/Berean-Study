@@ -29,6 +29,7 @@
 		"vitest": "catalog:"
 	},
 	"dependencies": {
+		"@berean-study/ui": "workspace:*",
 		"@tiptap/core": "^3.31.3",
 		"@tiptap/extension-placeholder": "^3.31.3",
 		"@tiptap/extension-table": "^3.31.3",

@@ -26,7 +26,7 @@ const noteIdSchema = z.object({
 
 const noteInputSchema = z.object({
 	content: z.string().trim().min(1),
-	passageId: z.number().int().positive(),
+	passageId: z.number().int().positive().nullable().optional(),
 });
 
 const updateNoteSchema = noteIdSchema.extend(noteInputSchema.shape);

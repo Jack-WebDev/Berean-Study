@@ -137,7 +137,7 @@ function NotesListSkeleton() {
 }
 
 export function passageLabel(note: Note) {
-	return note.passageTitle ?? note.bookName;
+	return note.passageTitle ?? note.bookName ?? "Unlinked note";
 }
 
 function notePreview(content: string) {

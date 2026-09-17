@@ -524,7 +524,7 @@ function CollectionNotes({
 					>
 						<div className="min-w-0">
 							<p className="font-medium text-sm">
-								{note.passageTitle ?? note.bookName}
+								{note.passageTitle ?? note.bookName ?? "Unlinked note"}
 							</p>
 							<p className="mt-1 line-clamp-3 whitespace-pre-wrap text-muted-foreground text-sm leading-6">
 								{getNoteContentText(note.content)}

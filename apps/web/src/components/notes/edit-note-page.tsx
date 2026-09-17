@@ -42,7 +42,7 @@ export function EditNotePage({ noteId }: { noteId: number }) {
 			data: {
 				content: serializeNoteContent(values.content),
 				id: noteId,
-				passageId: Number(values.passageId),
+				passageId: values.passageId ? Number(values.passageId) : null,
 			},
 		});
 		if (!updatedNote) throw new Error("Note not found.");
@@ -84,7 +84,7 @@ export function EditNotePage({ noteId }: { noteId: number }) {
 						<NoteForm
 							initialValues={{
 								content: parseNoteContent(note.content),
-								passageId: note.passageId.toString(),
+								passageId: note.passageId?.toString() ?? "",
 								tags: note.tags.map((tag) => tag.name),
 							}}
 							key={note.id}
@@ -92,6 +92,10 @@ export function EditNotePage({ noteId }: { noteId: number }) {
 								navigate({ to: "/library/notes", search: { note: note.id } })
 							}
 							onAutosave={saveNote}
+							onSaveDraft={async (values) => {
+								await saveNote(values);
+								toast.success("Draft saved.");
+							}}
 							onSubmit={async (values) => {
 								await saveNote(values);
 								toast.success("Note updated.");

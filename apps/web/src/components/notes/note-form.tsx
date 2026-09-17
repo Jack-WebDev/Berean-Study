@@ -55,7 +55,7 @@ const noteFormSchema = z.object({
 			"Write a note before saving.",
 		)
 		.refine(hasNoteContent, "Write a note before saving."),
-	passageId: z.string().regex(/^\d+$/, "Choose a Scripture passage."),
+	passageId: z.string(),
 	tags: z.array(z.string().trim().min(1).max(50)).max(20),
 });
 
@@ -63,12 +63,14 @@ export function NoteForm({
 	initialValues,
 	onCancel,
 	onAutosave,
+	onSaveDraft,
 	onSubmit,
 	submitLabel,
 }: {
 	initialValues: NoteFormValues;
 	onCancel: () => void;
 	onAutosave?: (values: NoteFormValues) => Promise<void>;
+	onSaveDraft: (values: NoteFormValues) => Promise<void>;
 	onSubmit: (values: NoteFormValues) => Promise<void>;
 	submitLabel: string;
 }) {
@@ -79,6 +81,7 @@ export function NoteForm({
 	const [editorMode, setEditorMode] = useState<NoteEditorMode>("write");
 	const onSubmitRef = useRef(onSubmit);
 	const onAutosaveRef = useRef(onAutosave);
+	const onSaveDraftRef = useRef(onSaveDraft);
 	const saveQueue = useRef(Promise.resolve());
 	useEffect(() => {
 		onSubmitRef.current = onSubmit;
@@ -86,6 +89,9 @@ export function NoteForm({
 	useEffect(() => {
 		onAutosaveRef.current = onAutosave;
 	}, [onAutosave]);
+	useEffect(() => {
+		onSaveDraftRef.current = onSaveDraft;
+	}, [onSaveDraft]);
 	const enqueueSave = useCallback(
 		(
 			save: (values: NoteFormValues) => Promise<void>,
@@ -108,6 +114,10 @@ export function NoteForm({
 			const autosave = onAutosaveRef.current;
 			return autosave ? enqueueSave(autosave, values) : Promise.resolve();
 		},
+		[enqueueSave],
+	);
+	const queueDraftSave = useCallback(
+		(values: NoteFormValues) => enqueueSave(onSaveDraftRef.current, values),
 		[enqueueSave],
 	);
 	const form = useForm({
@@ -238,10 +248,59 @@ export function NoteForm({
 								);
 							}}
 						</form.Field>
-						<blockquote className="note-passage-quote">
-							“There is therefore now no condemnation for those who are in
-							Christ Jesus.”<span>ROMANS 8:1</span>
-						</blockquote>
+						<form.Subscribe
+							selector={(state) => ({
+								canSubmit: state.canSubmit,
+								isDirty: state.isDirty,
+								isSubmitting: state.isSubmitting,
+								values: state.values,
+							})}
+						>
+							{({ canSubmit, isDirty, isSubmitting, values }) => (
+								<div className="note-save-actions mt-5">
+									<Button
+										className="note-primary-save"
+										disabled={!canSubmit || isSubmitting}
+										type="submit"
+									>
+										{isSubmitting ? (
+											<Spinner aria-hidden="true" data-icon="inline-start" />
+										) : (
+											<SaveIcon aria-hidden="true" data-icon="inline-start" />
+										)}
+										{submitLabel}
+									</Button>
+									<Button
+										disabled={!canSubmit || isSubmitting}
+										onClick={() => void queueDraftSave(values)}
+										type="button"
+										variant="outline"
+									>
+										<FileTextIcon aria-hidden="true" data-icon="inline-start" />
+										Save as draft
+									</Button>
+									<Button
+										disabled={isSubmitting}
+										onClick={() =>
+											isDirty ? setDiscardDialogOpen(true) : onCancel()
+										}
+										type="button"
+										variant="outline"
+									>
+										Cancel
+									</Button>
+									{onAutosave ? (
+										<NoteAutosaveStatus
+											initialValues={initialValues}
+											isManualSaveInProgress={isSubmitting}
+											onSave={queueAutosave}
+											values={values}
+										/>
+									) : null}
+									{submitError ? <FieldError>{submitError}</FieldError> : null}
+								</div>
+							)}
+						</form.Subscribe>
 					</main>
 					<aside className="note-actions-column" aria-label="Note options">
 						<form.Subscribe selector={(state) => state.values.tags}>
@@ -291,8 +350,10 @@ export function NoteForm({
 								<div>
 									<dt>Word count</dt>
 									<dd>
-										<form.Subscribe selector={(state) => state.values.content}>
-											{(content) => `${getWordCount(content)} words`}
+										<form.Subscribe
+											selector={(state) => getWordCount(state.values.content)}
+										>
+											{(wordCount) => `${wordCount} words`}
 										</form.Subscribe>
 									</dd>
 								</div>
@@ -305,61 +366,6 @@ export function NoteForm({
 								</div>
 							</dl>
 						</section>
-						<form.Subscribe
-							selector={(state) => ({
-								canSubmit: state.canSubmit,
-								isDirty: state.isDirty,
-								isSubmitting: state.isSubmitting,
-								values: state.values,
-							})}
-						>
-							{({ canSubmit, isDirty, isSubmitting, values }) => (
-								<div className="note-save-actions">
-									<Button
-										className="note-primary-save"
-										disabled={!canSubmit || isSubmitting || passages === null}
-										type="submit"
-									>
-										{isSubmitting ? (
-											<Spinner aria-hidden="true" data-icon="inline-start" />
-										) : (
-											<SaveIcon aria-hidden="true" data-icon="inline-start" />
-										)}
-										{submitLabel}
-									</Button>
-									<Button
-										disabled={isSubmitting}
-										onClick={() =>
-											isDirty ? setDiscardDialogOpen(true) : onCancel()
-										}
-										type="button"
-										variant="outline"
-									>
-										<FileTextIcon aria-hidden="true" data-icon="inline-start" />
-										Save as draft
-									</Button>
-									<Button
-										disabled={isSubmitting}
-										onClick={() =>
-											isDirty ? setDiscardDialogOpen(true) : onCancel()
-										}
-										type="button"
-										variant="outline"
-									>
-										Cancel
-									</Button>
-									{onAutosave ? (
-										<NoteAutosaveStatus
-											initialValues={initialValues}
-											isManualSaveInProgress={isSubmitting}
-											onSave={queueAutosave}
-											values={values}
-										/>
-									) : null}
-									{submitError ? <FieldError>{submitError}</FieldError> : null}
-								</div>
-							)}
-						</form.Subscribe>
 					</aside>
 				</div>
 			</form>
