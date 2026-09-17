@@ -31,6 +31,12 @@ export type RichTextSelectionResult =
 export type RichTextEditorProps = {
 	editable?: boolean;
 	onChange: (document: RichTextDocument) => void;
+	/** Opens a host-owned passage picker; the editor only inserts its result. */
+	onRequestBibleReference?: () =>
+		| BibleReferenceAttributes
+		| null
+		| undefined
+		| Promise<BibleReferenceAttributes | null | undefined>;
 	placeholder?: string;
 	value: RichTextDocument;
 };

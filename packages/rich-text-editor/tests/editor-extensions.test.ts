@@ -1,6 +1,6 @@
 import { Editor, type JSONContent } from "@tiptap/core";
 import { afterEach, describe, expect, it } from "vitest";
-
+import { getDocumentBibleReferences } from "../src/bible-reference-utils";
 import { createRichTextExtensions } from "../src/editor-extensions";
 import { sanitizePastedHtml } from "../src/paste-sanitization";
 
@@ -139,5 +139,81 @@ describe("Berean rich-text schema", () => {
 		const editor = createEditor(html);
 		expect(editor.getJSON().content?.[0]?.type).toBe("heading");
 		expect(editor.getJSON().content?.[0]?.attrs?.level).toBe(2);
+	});
+
+	it("inserts, serializes, deserializes, and deletes Bible references", () => {
+		const editor = createEditor();
+		const reference = { label: "Romans 8:1", passageId: 123 };
+		expect(editor.commands.insertBibleReference(reference)).toBe(true);
+
+		const document = editor.getJSON();
+		expect(document.content?.[0]?.content).toContainEqual(
+			expect.objectContaining({
+				attrs: reference,
+				type: "bibleReference",
+			}),
+		);
+		expect(
+			getDocumentBibleReferences(document as JSONContent & { type: "doc" }),
+		).toEqual([reference]);
+
+		const restored = createEditor(document);
+		expect(restored.getJSON()).toEqual(document);
+		restored.commands.selectAll();
+		expect(restored.commands.deleteSelection()).toBe(true);
+		expect(
+			getDocumentBibleReferences(
+				restored.getJSON() as JSONContent & { type: "doc" },
+			),
+		).toEqual([]);
+	});
+
+	it("renders Bible references in a read-only editor", () => {
+		const editor = new Editor({
+			content: {
+				content: [
+					{
+						content: [
+							{
+								attrs: { label: "John 3:16", passageId: 316 },
+								type: "bibleReference",
+							},
+						],
+						type: "paragraph",
+					},
+				],
+				type: "doc",
+			},
+			editable: false,
+			element: document.createElement("div"),
+			extensions: createRichTextExtensions(),
+		});
+		editors.push(editor);
+		expect(editor.isEditable).toBe(false);
+		expect(editor.getHTML()).toContain('data-bible-reference="true"');
+		expect(editor.getHTML()).toContain("John 3:16");
+	});
+
+	it("rejects invalid Bible reference data and ignores it during extraction", () => {
+		const editor = createEditor();
+		expect(
+			editor.commands.insertBibleReference({ label: "", passageId: 0 }),
+		).toBe(false);
+		expect(
+			getDocumentBibleReferences({
+				content: [
+					{
+						content: [
+							{
+								attrs: { label: "", passageId: "wrong" },
+								type: "bibleReference",
+							},
+						],
+						type: "paragraph",
+					},
+				],
+				type: "doc",
+			}),
+		).toEqual([]);
 	});
 });

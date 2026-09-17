@@ -5,6 +5,7 @@ import {
 	AlignLeftIcon,
 	AlignRightIcon,
 	BoldIcon,
+	BookOpenIcon,
 	ItalicIcon,
 	LinkIcon,
 	ListIcon,
@@ -26,6 +27,8 @@ import {
 	useState,
 } from "react";
 
+import type { BibleReferenceAttributes } from "./types";
+
 type ToolbarState = {
 	activeAlignment: "left" | "center" | "right" | null;
 	activeBlock: "blockquote" | "bulletList" | "orderedList" | null;
@@ -40,7 +43,17 @@ type ToolbarState = {
 	isTable: boolean;
 };
 
-export function EditorToolbar({ editor }: { editor: Editor }) {
+export function EditorToolbar({
+	editor,
+	onRequestBibleReference,
+}: {
+	editor: Editor;
+	onRequestBibleReference?: () =>
+		| BibleReferenceAttributes
+		| null
+		| undefined
+		| Promise<BibleReferenceAttributes | null | undefined>;
+}) {
 	const state = useEditorState({
 		editor,
 		selector: ({ editor: currentEditor }): ToolbarState => ({
@@ -155,6 +168,19 @@ export function EditorToolbar({ editor }: { editor: Editor }) {
 				<MinusIcon aria-hidden="true" />
 			</ToolbarButton>
 			<TableControls editor={editor} isTable={state.isTable} />
+			{onRequestBibleReference ? (
+				<ToolbarButton
+					active={editor.isActive("bibleReference")}
+					label={
+						editor.isActive("bibleReference")
+							? "Replace Bible reference"
+							: "Insert Bible reference"
+					}
+					onClick={() => requestBibleReference(editor, onRequestBibleReference)}
+				>
+					<BookOpenIcon aria-hidden="true" />
+				</ToolbarButton>
+			) : null}
 			<ToolbarSeparator />
 			<ToolbarButton
 				disabled={!state.canUndo}
@@ -172,6 +198,18 @@ export function EditorToolbar({ editor }: { editor: Editor }) {
 			</ToolbarButton>
 		</div>
 	);
+}
+
+async function requestBibleReference(
+	editor: Editor,
+	onRequestBibleReference: () =>
+		| BibleReferenceAttributes
+		| null
+		| undefined
+		| Promise<BibleReferenceAttributes | null | undefined>,
+) {
+	const reference = await onRequestBibleReference();
+	if (reference) editor.commands.insertBibleReference(reference);
 }
 
 function TableControls({

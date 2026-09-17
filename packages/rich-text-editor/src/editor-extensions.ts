@@ -9,6 +9,7 @@ import {
 import TextAlign from "@tiptap/extension-text-align";
 import StarterKit from "@tiptap/starter-kit";
 
+import { BibleReference } from "./bible-reference";
 import { sanitizePastedHtml } from "./paste-sanitization";
 
 const allowedProtocols = new Set(["http:", "https:", "mailto:"]);
@@ -44,6 +45,7 @@ export function createRichTextExtensions(
 		TableRow,
 		TableHeader,
 		TableCell,
+		BibleReference,
 		Placeholder.configure({ placeholder }),
 	];
 }

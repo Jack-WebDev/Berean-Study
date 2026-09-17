@@ -1,3 +1,5 @@
+export { isValidBibleReference } from "./bible-reference";
+export { getDocumentBibleReferences } from "./bible-reference-utils";
 export type { DocumentHeading } from "./document-utils";
 export {
 	extractDocumentHeadings,
