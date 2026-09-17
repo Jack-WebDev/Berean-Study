@@ -12,6 +12,7 @@ import { BookOpenIcon, FileTextIcon } from "lucide-react";
 
 import { formatDate } from "@/lib/format";
 
+import { getNoteContentText } from "./note-content";
 import type { Note } from "./types";
 
 export function NotesList({
@@ -69,7 +70,7 @@ export function NotesList({
 						type="button"
 					>
 						<span className="notes-list-title truncate">
-							{notePreview(note.content).split(/[.!?]/)[0] || "Untitled note"}
+							{note.title || "Untitled note"}
 						</span>
 						<span className="flex min-w-0 items-center gap-2 text-primary text-xs">
 							<BookOpenIcon aria-hidden="true" className="size-3.5 shrink-0" />
@@ -136,9 +137,9 @@ function NotesListSkeleton() {
 }
 
 export function passageLabel(note: Note) {
-	return note.passageTitle ?? note.bookName;
+	return note.passageTitle ?? note.bookName ?? "Unlinked note";
 }
 
 function notePreview(content: string) {
-	return content.replace(/\s+/g, " ").trim();
+	return getNoteContentText(content).replace(/\s+/g, " ").trim();
 }

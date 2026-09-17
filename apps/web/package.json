@@ -11,6 +11,7 @@
 		"@berean-study/auth": "workspace:*",
 		"@berean-study/db": "workspace:*",
 		"@berean-study/env": "workspace:*",
+		"@berean-study/rich-text-editor": "workspace:*",
 		"@berean-study/ui": "workspace:*",
 		"@tailwindcss/vite": "^4.3.3",
 		"@tanstack/react-form": "^1.33.2",

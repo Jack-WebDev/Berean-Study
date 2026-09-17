@@ -47,7 +47,7 @@ import {
 	Trash2Icon,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-
+import { getNoteContentText } from "@/components/notes/note-content";
 import {
 	deleteCollection,
 	getCollection,
@@ -524,10 +524,10 @@ function CollectionNotes({
 					>
 						<div className="min-w-0">
 							<p className="font-medium text-sm">
-								{note.passageTitle ?? note.bookName}
+								{note.passageTitle ?? note.bookName ?? "Unlinked note"}
 							</p>
 							<p className="mt-1 line-clamp-3 whitespace-pre-wrap text-muted-foreground text-sm leading-6">
-								{note.content}
+								{getNoteContentText(note.content)}
 							</p>
 						</div>
 						<DropdownMenu>

@@ -1,3 +1,4 @@
+import { RichTextRenderer } from "@berean-study/rich-text-editor";
 import {
 	Alert,
 	AlertDescription,
@@ -40,6 +41,7 @@ import {
 import { useEffect, useState } from "react";
 import { AddNoteToCollectionDialog } from "../collections/add-note-to-collection-dialog";
 import { NoteCollectionControl } from "./note-collection";
+import { parseNoteContent } from "./note-content";
 import { NoteTags } from "./note-tags";
 import { passageLabel } from "./notes-list";
 import type { Note, NoteCollection } from "./types";
@@ -138,7 +140,7 @@ export function NoteDetail({
 					</DropdownMenu>
 				</div>
 				<h1 className="notes-note-title" id="note-detail-title">
-					{note.content.split(/\n|\./)[0].trim() || "Untitled note"}
+					{note.title || "Untitled note"}
 				</h1>
 				<p className="notes-note-passage">
 					<BookOpenIcon aria-hidden="true" />
@@ -150,8 +152,12 @@ export function NoteDetail({
 					))}
 				</div>
 			</header>
-			<div className="notes-note-content whitespace-pre-wrap">
-				{note.content}
+			<div className="notes-note-content">
+				<RichTextRenderer
+					ariaLabel="Note content"
+					document={parseNoteContent(note.content)}
+					preset="member"
+				/>
 			</div>
 			<NoteTags
 				onAdd={(name) => onAddTag(note.id, name)}

@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { getNote, setNoteTags, updateNote } from "@/functions/notes";
 
 import type { NoteFormValues } from "./note-autosave-status";
+import { parseNoteContent, serializeNoteContent } from "./note-content";
 import { NoteForm } from "./note-form";
 import type { Note } from "./types";
 
@@ -39,9 +40,10 @@ export function EditNotePage({ noteId }: { noteId: number }) {
 	const saveNote = async (values: NoteFormValues) => {
 		const updatedNote = await updateNote({
 			data: {
-				content: values.content,
+				content: serializeNoteContent(values.content),
 				id: noteId,
-				passageId: Number(values.passageId),
+				passageId: values.passageId ? Number(values.passageId) : null,
+				title: values.title.trim(),
 			},
 		});
 		if (!updatedNote) throw new Error("Note not found.");
@@ -82,15 +84,20 @@ export function EditNotePage({ noteId }: { noteId: number }) {
 						</header>
 						<NoteForm
 							initialValues={{
-								content: note.content,
-								passageId: note.passageId.toString(),
+								content: parseNoteContent(note.content),
+								passageId: note.passageId?.toString() ?? "",
 								tags: note.tags.map((tag) => tag.name),
+								title: note.title || "Untitled note",
 							}}
 							key={note.id}
 							onCancel={() =>
 								navigate({ to: "/library/notes", search: { note: note.id } })
 							}
 							onAutosave={saveNote}
+							onSaveDraft={async (values) => {
+								await saveNote(values);
+								toast.success("Draft saved.");
+							}}
 							onSubmit={async (values) => {
 								await saveNote(values);
 								toast.success("Note updated.");

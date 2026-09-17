@@ -24,7 +24,7 @@ import {
 	removeTagFromNote,
 	setNoteCollection,
 } from "@/functions/notes";
-
+import { getNoteContentText } from "./note-content";
 import { NoteDetail } from "./note-detail";
 import { NotesControls } from "./notes-controls";
 import { NotesList } from "./notes-list";
@@ -369,7 +369,9 @@ function NotesInsightsRail({
 							Related to
 						</dt>
 						<dd className="text-primary">
-							{note ? (note.passageTitle ?? note.bookName) : "—"}
+							{note
+								? (note.passageTitle ?? note.bookName ?? "Unlinked note")
+								: "—"}
 						</dd>
 					</div>
 					<div>
@@ -379,7 +381,7 @@ function NotesInsightsRail({
 						</dt>
 						<dd>
 							{note
-								? `${note.content.trim().split(/\s+/).filter(Boolean).length} words`
+								? `${getNoteContentText(note.content).trim().split(/\s+/).filter(Boolean).length} words`
 								: "—"}
 						</dd>
 					</div>

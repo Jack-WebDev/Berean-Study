@@ -1,0 +1,44 @@
+{
+	"name": "@berean-study/rich-text-editor",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"description": "Reusable structured rich-text editor contracts for Berean Study.",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.mts",
+			"import": "./dist/index.mjs"
+		},
+		"./types": {
+			"types": "./dist/types.d.mts",
+			"import": "./dist/types.mjs"
+		}
+	},
+	"scripts": {
+		"build": "tsdown",
+		"check-types": "tsc -p tsconfig.json --noEmit",
+		"test": "testkit-vitest run --config vitest.config.ts"
+	},
+	"devDependencies": {
+		"@berean-study/config": "workspace:*",
+		"@berean-study/testkit": "workspace:*",
+		"@types/react": "catalog:",
+		"@types/react-dom": "catalog:",
+		"tsdown": "catalog:",
+		"typescript": "catalog:",
+		"vitest": "catalog:"
+	},
+	"dependencies": {
+		"@berean-study/ui": "workspace:*",
+		"@tiptap/core": "^3.31.3",
+		"@tiptap/extension-placeholder": "^3.31.3",
+		"@tiptap/extension-table": "^3.31.3",
+		"@tiptap/extension-text-align": "^3.31.3",
+		"@tiptap/pm": "^3.31.3",
+		"@tiptap/react": "^3.31.3",
+		"@tiptap/starter-kit": "^3.31.3",
+		"lucide-react": "catalog:",
+		"react": "catalog:",
+		"react-dom": "catalog:"
+	}
+}

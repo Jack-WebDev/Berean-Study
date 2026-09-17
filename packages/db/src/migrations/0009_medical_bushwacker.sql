@@ -1,0 +1,1 @@
+ALTER TABLE "notes" ALTER COLUMN "passage_id" DROP NOT NULL;

@@ -11,7 +11,8 @@ type DbClient = ReturnType<typeof createDb>;
 
 export type CreateNoteInput = {
 	content: string;
-	passageId: number;
+	passageId?: number | null;
+	title: string;
 };
 
 export type UpdateNoteInput = CreateNoteInput;
@@ -48,6 +49,7 @@ const noteSelection = {
 	id: notes.id,
 	passageId: notes.passageId,
 	passageTitle: passages.title,
+	title: notes.title,
 	updatedAt: notes.updatedAt,
 };
 
@@ -80,6 +82,7 @@ export async function listNotes(
 	if (input.query) {
 		const query = `%${escapeLikePattern(input.query)}%`;
 		const searchCondition = or(
+			ilike(notes.title, query),
 			ilike(notes.content, query),
 			ilike(books.name, query),
 			ilike(passages.title, query),
@@ -94,8 +97,8 @@ export async function listNotes(
 			userNoteCollections,
 			eq(userNoteCollections.id, notes.collectionId),
 		)
-		.innerJoin(passages, eq(passages.id, notes.passageId))
-		.innerJoin(books, eq(books.id, passages.bookId))
+		.leftJoin(passages, eq(passages.id, notes.passageId))
+		.leftJoin(books, eq(books.id, passages.bookId))
 		.where(and(...conditions))
 		.orderBy(desc(notes.updatedAt), desc(notes.id));
 
@@ -340,7 +343,9 @@ export async function createNote(
 	userId: string,
 	input: CreateNoteInput,
 ) {
-	await assertPassageExists(db, input.passageId);
+	if (input.passageId !== null && input.passageId !== undefined) {
+		await assertPassageExists(db, input.passageId);
+	}
 
 	const [note] = await db
 		.insert(notes)
@@ -357,7 +362,9 @@ export async function updateNote(
 	noteId: number,
 	input: UpdateNoteInput,
 ) {
-	await assertPassageExists(db, input.passageId);
+	if (input.passageId !== null && input.passageId !== undefined) {
+		await assertPassageExists(db, input.passageId);
+	}
 
 	const [note] = await db
 		.update(notes)

@@ -22,14 +22,16 @@ export const notes = pgTable(
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
 
-		passageId: integer("passage_id")
-			.notNull()
-			.references(() => passages.id, { onDelete: "restrict" }),
+		passageId: integer("passage_id").references(() => passages.id, {
+			onDelete: "restrict",
+		}),
 
 		collectionId: integer("collection_id").references(
 			() => userNoteCollections.id,
 			{ onDelete: "set null" },
 		),
+
+		title: text().notNull().default(""),
 
 		content: text().notNull(),
 
