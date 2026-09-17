@@ -1,18 +1,25 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { HeartIcon } from "lucide-react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 
-import { DestinationPage } from "@/components/application/destination-page";
+import {
+	FaithRecordsPage,
+	type FaithView,
+} from "@/components/faith/faith-records-page";
 
 export const Route = createFileRoute("/_auth/library/testimonies")({
-	component: TestimoniesPage,
+	component: TestimoniesRoute,
 });
 
-function TestimoniesPage() {
+function TestimoniesRoute() {
+	const navigate = useNavigate({ from: "/library/testimonies" });
+
 	return (
-		<DestinationPage
-			description="Your personal faith records will appear here."
-			icon={HeartIcon}
-			title="Testimonies"
+		<FaithRecordsPage
+			onViewChange={(view: FaithView) =>
+				navigate({
+					to: view === "prayers" ? "/library/prayers" : "/library/testimonies",
+				})
+			}
+			view="testimonies"
 		/>
 	);
 }

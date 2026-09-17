@@ -1,18 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { LibraryIcon } from "lucide-react";
 
-import { DestinationPage } from "@/components/application/destination-page";
+import { LibraryPage } from "@/components/library/library-page";
 
 export const Route = createFileRoute("/_auth/library/")({
-	component: LibraryPage,
+	component: LibraryRoute,
 });
 
-function LibraryPage() {
-	return (
-		<DestinationPage
-			description="Bookmarks, notes, highlights, and reading history belong here."
-			icon={LibraryIcon}
-			title="Library"
-		/>
-	);
+function LibraryRoute() {
+	return <LibraryPage />;
 }

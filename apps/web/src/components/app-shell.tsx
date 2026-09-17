@@ -206,12 +206,12 @@ function NavigationMenuItem({
 	pathname: string;
 }) {
 	const hasChildren = Boolean(item.children?.length);
-	const isCurrentRoute = isCurrentLocation(pathname, item.href);
+	const isCurrentRoute = isCurrentLocation(pathname, item);
 	const [isExpanded, setIsExpanded] = useState(isCurrentRoute);
 
 	useEffect(() => {
-		if (isCurrentLocation(pathname, item.href)) setIsExpanded(true);
-	}, [item.href, pathname]);
+		if (isCurrentLocation(pathname, item)) setIsExpanded(true);
+	}, [item, pathname]);
 
 	if (!hasChildren) {
 		return <NavigationLink item={item} isActive={isCurrentRoute} />;
@@ -249,7 +249,7 @@ function NavigationMenuItem({
 						{item.children?.map((child) => (
 							<NavigationSubmenuLink
 								child={child}
-								isActive={isCurrentLocation(pathname, child.href)}
+								isActive={isCurrentLocation(pathname, child)}
 								key={child.href}
 							/>
 						))}
@@ -370,8 +370,10 @@ function ApplicationToolbar({ onOpenSearch }: { onOpenSearch: () => void }) {
 	);
 }
 
-export function isCurrentLocation(pathname: string, href: string) {
-	return (
-		pathname === href || (href !== "/home" && pathname.startsWith(`${href}/`))
+export function isCurrentLocation(pathname: string, item: NavigationItem) {
+	return [item.href, ...(item.activePaths ?? [])].some(
+		(href) =>
+			pathname === href ||
+			(href !== "/home" && pathname.startsWith(`${href}/`)),
 	);
 }

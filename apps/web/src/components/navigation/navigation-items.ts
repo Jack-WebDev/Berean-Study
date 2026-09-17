@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 
 export type NavigationItem = {
+	activePaths?: readonly string[];
 	children?: readonly NavigationItem[];
 	href: string;
 	icon: LucideIcon;
@@ -49,6 +50,7 @@ export const primaryNavigationItems = [
 			},
 			{ href: "/library/saved", icon: BookmarkIcon, label: "Saved" },
 			{
+				activePaths: ["/library/prayers", "/library/testimonies"],
 				href: "/library/prayers",
 				icon: HeartIcon,
 				label: "Prayers & Testimonies",
