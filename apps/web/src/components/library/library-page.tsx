@@ -1,4 +1,6 @@
+import type { ReaderHomeOverview } from "@berean-study/db/reader-home";
 import { Separator } from "@berean-study/ui/components/separator";
+import { Skeleton } from "@berean-study/ui/components/skeleton";
 import { cn } from "@berean-study/ui/lib/utils";
 import { Link } from "@tanstack/react-router";
 import {
@@ -10,12 +12,10 @@ import {
 	HeartIcon,
 	LibraryIcon,
 } from "lucide-react";
-
-const recentPassages = [
-	{ reference: "John 15", detail: "Abide in me" },
-	{ reference: "Psalm 23", detail: "The Lord is my shepherd" },
-	{ reference: "Romans 8", detail: "Life in the Spirit" },
-] as const;
+import {
+	RecentLibraryActivitySection,
+	type RecentLibraryActivityState,
+} from "./recent-library-activity";
 
 const libraryDestinations = [
 	{
@@ -50,7 +50,26 @@ const recentlyStudied = [
 	{ label: "Freedom in Christ", reference: "Romans 8:1–17" },
 ] as const;
 
-export function LibraryPage() {
+export type ContinueReadingState =
+	| {
+			status: "error";
+	  }
+	| {
+			status: "loading";
+	  }
+	| {
+			continueReading: ReaderHomeOverview["continueReading"];
+			lastStudiedAt: Date | null;
+			status: "ready";
+	  };
+
+export function LibraryPage({
+	continueReading,
+	recentActivity,
+}: {
+	continueReading: ContinueReadingState;
+	recentActivity: RecentLibraryActivityState;
+}) {
 	return (
 		<div className="min-h-full px-5 py-8 sm:px-8 lg:px-12">
 			<main className="mx-auto flex w-full max-w-5xl flex-col gap-12">
@@ -63,8 +82,8 @@ export function LibraryPage() {
 					</p>
 				</header>
 
-				<ContinueReading />
-				<RecentPassages />
+				<ContinueReading state={continueReading} />
+				<RecentLibraryActivitySection state={recentActivity} />
 				<LibraryDestinations />
 				<RecentlyStudied />
 			</main>
@@ -72,7 +91,21 @@ export function LibraryPage() {
 	);
 }
 
-function ContinueReading() {
+function ContinueReading({ state }: { state: ContinueReadingState }) {
+	if (state.status === "loading") {
+		return <ContinueReadingLoading />;
+	}
+
+	if (state.status === "error") {
+		return <ContinueReadingUnavailable />;
+	}
+
+	if (!state.continueReading) {
+		return <BeginReading />;
+	}
+
+	const { bookName, passageId, title } = state.continueReading;
+
 	return (
 		<section aria-labelledby="continue-reading-heading" className="max-w-3xl">
 			<h2
@@ -81,65 +114,128 @@ function ContinueReading() {
 			>
 				Continue Reading
 			</h2>
-			<Link
-				className="mt-4 flex items-center gap-4 border-border border-y py-5 transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-				to="/bible"
-			>
+			<div className="mt-4 border-border border-y py-5">
 				<BookOpenIcon
 					aria-hidden="true"
 					className="size-5 text-muted-foreground"
 				/>
-				<span className="min-w-0 flex-1">
-					<span className="block font-serif text-xl">John 15</span>
-					<span className="mt-1 block text-muted-foreground text-sm">
-						The vine and the branches
-					</span>
-				</span>
-				<ArrowRightIcon
-					aria-hidden="true"
-					className="size-4 text-muted-foreground"
-				/>
-			</Link>
+				<p className="mt-3 font-serif text-xl">{bookName}</p>
+				{title ? (
+					<p className="mt-1 text-muted-foreground text-sm">{title}</p>
+				) : null}
+				<p className="mt-3 text-muted-foreground text-sm">
+					{state.lastStudiedAt
+						? formatLastStudied(state.lastStudiedAt)
+						: "Continue where you left off."}
+				</p>
+				<Link
+					className="mt-4 inline-flex items-center gap-2 font-medium text-primary text-sm transition-colors hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+					search={{ passage: passageId }}
+					to="/bible"
+				>
+					Continue
+					<ArrowRightIcon aria-hidden="true" className="size-4" />
+				</Link>
+			</div>
 		</section>
 	);
 }
 
-function RecentPassages() {
+function formatLastStudied(value: Date) {
+	const studiedAt = new Date(value);
+	const today = new Date();
+	const startOfToday = new Date(
+		today.getFullYear(),
+		today.getMonth(),
+		today.getDate(),
+	);
+	const startOfStudiedDay = new Date(
+		studiedAt.getFullYear(),
+		studiedAt.getMonth(),
+		studiedAt.getDate(),
+	);
+	const daysAgo = Math.round(
+		(startOfToday.getTime() - startOfStudiedDay.getTime()) / 86_400_000,
+	);
+
+	if (daysAgo <= 0) return "Last studied today";
+	if (daysAgo === 1) return "Last studied yesterday";
+	return `Last studied ${daysAgo} days ago`;
+}
+
+function BeginReading() {
 	return (
-		<section aria-labelledby="recent-heading" className="max-w-3xl">
+		<section aria-labelledby="continue-reading-heading" className="max-w-3xl">
 			<h2
 				className="font-serif text-2xl tracking-[-0.015em]"
-				id="recent-heading"
+				id="continue-reading-heading"
 			>
-				Recent
+				Begin Reading
 			</h2>
-			<div className="mt-4">
-				{recentPassages.map((passage, index) => (
-					<div key={passage.reference}>
-						{index > 0 ? <Separator /> : null}
-						<Link
-							className="flex items-center gap-4 py-4 transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-							to="/bible"
-						>
-							<BookOpenIcon
-								aria-hidden="true"
-								className="size-4 text-muted-foreground"
-							/>
-							<span className="min-w-0 flex-1">
-								<span className="block font-medium text-sm">
-									{passage.reference}
-								</span>
-								<span className="mt-0.5 block truncate text-muted-foreground text-sm">
-									{passage.detail}
-								</span>
-							</span>
-							<ArrowRightIcon
-								aria-hidden="true"
-								className="size-4 text-muted-foreground"
-							/>
-						</Link>
-					</div>
-				))}
+			<div className="mt-4 border-border border-y py-5">
+				<BookOpenIcon
+					aria-hidden="true"
+					className="size-5 text-muted-foreground"
+				/>
+				<p className="mt-3 max-w-md text-muted-foreground text-sm leading-6">
+					Choose a book or passage to begin studying Scripture.
+				</p>
+				<Link
+					className="mt-4 inline-flex items-center gap-2 font-medium text-primary text-sm transition-colors hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+					to="/bible"
+				>
+					Browse Scripture
+					<ArrowRightIcon aria-hidden="true" className="size-4" />
+				</Link>
+			</div>
+		</section>
+	);
+}
+
+function ContinueReadingLoading() {
+	return (
+		<section
+			aria-busy="true"
+			aria-labelledby="continue-reading-heading"
+			className="max-w-3xl"
+		>
+			<h2
+				className="font-serif text-2xl tracking-[-0.015em]"
+				id="continue-reading-heading"
+			>
+				Continue Reading
+			</h2>
+			<div className="mt-4 border-border border-y py-5">
+				<Skeleton className="size-5" />
+				<Skeleton className="mt-3 h-6 w-32" />
+				<Skeleton className="mt-2 h-4 w-52" />
+				<Skeleton className="mt-5 h-4 w-20" />
+			</div>
+		</section>
+	);
+}
+
+function ContinueReadingUnavailable() {
+	return (
+		<section aria-labelledby="continue-reading-heading" className="max-w-3xl">
+			<h2
+				className="font-serif text-2xl tracking-[-0.015em]"
+				id="continue-reading-heading"
+			>
+				Continue Reading
+			</h2>
+			<div className="mt-4 border-border border-y py-5">
+				<p className="max-w-md text-muted-foreground text-sm leading-6">
+					Your reading position is unavailable right now. You can still continue
+					studying Scripture.
+				</p>
+				<Link
+					className="mt-4 inline-flex items-center gap-2 font-medium text-primary text-sm transition-colors hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+					to="/bible"
+				>
+					Browse Scripture
+					<ArrowRightIcon aria-hidden="true" className="size-4" />
+				</Link>
 			</div>
 		</section>
 	);
