@@ -13,8 +13,13 @@ export {
 	getEstimatedReadingTime,
 	getWordCount,
 } from "./document-utils";
+export {
+	filterEditorActions,
+	getAvailableEditorActions,
+} from "./editor-actions";
 export { sanitizePastedHtml } from "./paste-sanitization";
 export { RichTextEditor } from "./rich-text-editor";
+export { getNextCommandIndex } from "./slash-commands";
 export type {
 	BibleReferenceAttributes,
 	CitationAttributes,

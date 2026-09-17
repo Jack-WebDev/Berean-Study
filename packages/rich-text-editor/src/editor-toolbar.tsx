@@ -27,7 +27,13 @@ import {
 	useState,
 } from "react";
 
-import type { BibleReferenceAttributes, CitationAttributes } from "./types";
+import {
+	type CitationRequest,
+	type EditorActionContext,
+	executeEditorAction,
+	type ReferenceRequest,
+} from "./editor-actions";
+import type { RichTextEditorPreset } from "./types";
 
 type ToolbarState = {
 	activeAlignment: "left" | "center" | "right" | null;
@@ -49,19 +55,18 @@ export function EditorToolbar({
 	editor,
 	onRequestBibleReference,
 	onRequestCitation,
+	preset,
 }: {
 	editor: Editor;
-	onRequestBibleReference?: () =>
-		| BibleReferenceAttributes
-		| null
-		| undefined
-		| Promise<BibleReferenceAttributes | null | undefined>;
-	onRequestCitation?: () =>
-		| CitationAttributes
-		| null
-		| undefined
-		| Promise<CitationAttributes | null | undefined>;
+	onRequestBibleReference?: ReferenceRequest;
+	onRequestCitation?: CitationRequest;
+	preset: RichTextEditorPreset;
 }) {
+	const actionContext: EditorActionContext = {
+		onRequestBibleReference,
+		onRequestCitation,
+		preset,
+	};
 	const state = useEditorState({
 		editor,
 		selector: ({ editor: currentEditor }): ToolbarState => ({
@@ -90,7 +95,13 @@ export function EditorToolbar({
 			<select
 				aria-label="Block format"
 				className="h-7 rounded-sm border border-input bg-background px-2 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-				onChange={(event) => setBlockFormat(editor, event.target.value)}
+				onChange={(event) =>
+					void executeEditorAction(
+						editor,
+						blockFormatAction(event.target.value),
+						actionContext,
+					)
+				}
 				value={blockFormatValue(state.activeHeading)}
 			>
 				<option value="paragraph">Paragraph</option>
@@ -152,32 +163,42 @@ export function EditorToolbar({
 			<ToolbarButton
 				active={state.activeBlock === "bulletList"}
 				label="Bulleted list"
-				onClick={() => editor.chain().focus().toggleBulletList().run()}
+				onClick={() =>
+					void executeEditorAction(editor, "bullet", actionContext)
+				}
 			>
 				<ListIcon aria-hidden="true" />
 			</ToolbarButton>
 			<ToolbarButton
 				active={state.activeBlock === "orderedList"}
 				label="Numbered list"
-				onClick={() => editor.chain().focus().toggleOrderedList().run()}
+				onClick={() =>
+					void executeEditorAction(editor, "numbered", actionContext)
+				}
 			>
 				<ListOrderedIcon aria-hidden="true" />
 			</ToolbarButton>
 			<ToolbarButton
 				active={state.activeBlock === "blockquote"}
 				label="Blockquote"
-				onClick={() => editor.chain().focus().toggleBlockquote().run()}
+				onClick={() => void executeEditorAction(editor, "quote", actionContext)}
 			>
 				<QuoteIcon aria-hidden="true" />
 			</ToolbarButton>
 			<LinkControl active={state.isLink} editor={editor} />
 			<ToolbarButton
 				label="Insert horizontal divider"
-				onClick={() => editor.chain().focus().setHorizontalRule().run()}
+				onClick={() =>
+					void executeEditorAction(editor, "divider", actionContext)
+				}
 			>
 				<MinusIcon aria-hidden="true" />
 			</ToolbarButton>
-			<TableControls editor={editor} isTable={state.isTable} />
+			<TableControls
+				actionContext={actionContext}
+				editor={editor}
+				isTable={state.isTable}
+			/>
 			{onRequestBibleReference ? (
 				<ToolbarButton
 					active={state.isBibleReference}
@@ -186,7 +207,9 @@ export function EditorToolbar({
 							? "Replace Bible reference"
 							: "Insert Bible reference"
 					}
-					onClick={() => requestBibleReference(editor, onRequestBibleReference)}
+					onClick={() =>
+						void executeEditorAction(editor, "bible", actionContext)
+					}
 				>
 					<BookOpenIcon aria-hidden="true" />
 				</ToolbarButton>
@@ -195,7 +218,9 @@ export function EditorToolbar({
 				<ToolbarButton
 					active={state.isCitation}
 					label={state.isCitation ? "Replace citation" : "Insert citation"}
-					onClick={() => requestCitation(editor, onRequestCitation)}
+					onClick={() =>
+						void executeEditorAction(editor, "citation", actionContext)
+					}
 				>
 					<QuoteIcon aria-hidden="true" />
 				</ToolbarButton>
@@ -219,34 +244,12 @@ export function EditorToolbar({
 	);
 }
 
-async function requestBibleReference(
-	editor: Editor,
-	onRequestBibleReference: () =>
-		| BibleReferenceAttributes
-		| null
-		| undefined
-		| Promise<BibleReferenceAttributes | null | undefined>,
-) {
-	const reference = await onRequestBibleReference();
-	if (reference) editor.commands.insertBibleReference(reference);
-}
-
-async function requestCitation(
-	editor: Editor,
-	onRequestCitation: () =>
-		| CitationAttributes
-		| null
-		| undefined
-		| Promise<CitationAttributes | null | undefined>,
-) {
-	const citation = await onRequestCitation();
-	if (citation) editor.commands.insertCitation(citation);
-}
-
 function TableControls({
+	actionContext,
 	editor,
 	isTable,
 }: {
+	actionContext: EditorActionContext;
 	editor: Editor;
 	isTable: boolean;
 }) {
@@ -254,13 +257,7 @@ function TableControls({
 		<div className="flex items-center gap-0.5">
 			<ToolbarButton
 				label="Insert table"
-				onClick={() =>
-					editor
-						.chain()
-						.focus()
-						.insertTable({ cols: 3, rows: 3, withHeaderRow: true })
-						.run()
-				}
+				onClick={() => void executeEditorAction(editor, "table", actionContext)}
 			>
 				<Table2Icon aria-hidden="true" />
 			</ToolbarButton>
@@ -471,9 +468,10 @@ function submitLink(
 		.run();
 	setOpen(false);
 }
-function setBlockFormat(editor: Editor, value: string) {
-	const chain = editor.chain().focus();
-	if (value === "heading-2") chain.toggleHeading({ level: 2 }).run();
-	else if (value === "heading-3") chain.toggleHeading({ level: 3 }).run();
-	else chain.setParagraph().run();
+function blockFormatAction(
+	value: string,
+): "paragraph" | "heading2" | "heading3" {
+	if (value === "heading-2") return "heading2";
+	if (value === "heading-3") return "heading3";
+	return "paragraph";
 }

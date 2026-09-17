@@ -12,6 +12,7 @@ import StarterKit from "@tiptap/starter-kit";
 import { BibleReference } from "./bible-reference";
 import { Citation } from "./citation";
 import { sanitizePastedHtml } from "./paste-sanitization";
+import { SlashCommands } from "./slash-commands";
 import type { RichTextEditorPreset } from "./types";
 
 const allowedProtocols = new Set(["http:", "https:", "mailto:"]);
@@ -50,6 +51,7 @@ export function createRichTextExtensions(
 		TableCell,
 		BibleReference,
 		...(preset === "contributor" ? [Citation] : []),
+		SlashCommands,
 		Placeholder.configure({ placeholder }),
 	];
 }
