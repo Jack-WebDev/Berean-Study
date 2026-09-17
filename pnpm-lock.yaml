@@ -317,6 +317,18 @@ importers:
         specifier: 'catalog:'
         version: 6.0.3
 
+  packages/rich-text-editor:
+    devDependencies:
+      '@berean-study/config':
+        specifier: workspace:*
+        version: link:../config
+      tsdown:
+        specifier: 'catalog:'
+        version: 0.16.8(@emnapi/core@1.10.0)(@emnapi/runtime@1.11.3)(typescript@6.0.3)
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+
   packages/ui:
     dependencies:
       '@base-ui/react':

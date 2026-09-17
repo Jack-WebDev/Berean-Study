@@ -1,0 +1,23 @@
+{
+	"name": "@berean-study/rich-text-editor",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"description": "Reusable structured rich-text editor contracts for Berean Study.",
+	"exports": {
+		".": {
+			"default": "./src/index.ts"
+		},
+		"./types": {
+			"default": "./src/types.ts"
+		}
+	},
+	"scripts": {
+		"check-types": "tsc -p tsconfig.json --noEmit"
+	},
+	"devDependencies": {
+		"@berean-study/config": "workspace:*",
+		"typescript": "catalog:",
+		"tsdown": "catalog:"
+	}
+}
