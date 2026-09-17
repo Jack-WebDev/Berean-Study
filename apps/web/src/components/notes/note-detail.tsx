@@ -40,6 +40,7 @@ import {
 import { useEffect, useState } from "react";
 import { AddNoteToCollectionDialog } from "../collections/add-note-to-collection-dialog";
 import { NoteCollectionControl } from "./note-collection";
+import { getNoteContentText } from "./note-content";
 import { NoteTags } from "./note-tags";
 import { passageLabel } from "./notes-list";
 import type { Note, NoteCollection } from "./types";
@@ -138,7 +139,8 @@ export function NoteDetail({
 					</DropdownMenu>
 				</div>
 				<h1 className="notes-note-title" id="note-detail-title">
-					{note.content.split(/\n|\./)[0].trim() || "Untitled note"}
+					{getNoteContentText(note.content).split(/\n|\./)[0].trim() ||
+						"Untitled note"}
 				</h1>
 				<p className="notes-note-passage">
 					<BookOpenIcon aria-hidden="true" />
@@ -151,7 +153,7 @@ export function NoteDetail({
 				</div>
 			</header>
 			<div className="notes-note-content whitespace-pre-wrap">
-				{note.content}
+				{getNoteContentText(note.content)}
 			</div>
 			<NoteTags
 				onAdd={(name) => onAddTag(note.id, name)}

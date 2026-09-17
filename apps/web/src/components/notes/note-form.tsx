@@ -1,4 +1,8 @@
 import {
+	type RichTextDocument,
+	RichTextEditor,
+} from "@berean-study/rich-text-editor";
+import {
 	AlertDialog,
 	AlertDialogAction,
 	AlertDialogCancel,
@@ -16,24 +20,15 @@ import {
 	NativeSelectOption,
 } from "@berean-study/ui/components/native-select";
 import { Spinner } from "@berean-study/ui/components/spinner";
-import { Textarea } from "@berean-study/ui/components/textarea";
 import { useForm } from "@tanstack/react-form";
 import {
-	AlignCenterIcon,
-	AlignLeftIcon,
 	BookOpenIcon,
-	ChevronDownIcon,
 	CircleHelpIcon,
 	FileTextIcon,
 	LightbulbIcon,
-	LinkIcon,
-	ListIcon,
-	ListOrderedIcon,
 	PlusIcon,
-	QuoteIcon,
 	SaveIcon,
 	TagIcon,
-	UnderlineIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { z } from "zod";
@@ -43,21 +38,23 @@ import {
 	NoteAutosaveStatus,
 	type NoteFormValues,
 } from "./note-autosave-status";
+import { hasNoteContent } from "./note-content";
 import { NoteStudyContext } from "./note-study-context";
 
 type PassageOption = Awaited<ReturnType<typeof getPassageOptions>>[number];
 const noteFormSchema = z.object({
-	content: z.string().trim().min(1, "Write a note before saving."),
+	content: z
+		.custom<RichTextDocument>(
+			(value) =>
+				Boolean(value) &&
+				typeof value === "object" &&
+				(value as { type?: unknown }).type === "doc",
+			"Write a note before saving.",
+		)
+		.refine(hasNoteContent, "Write a note before saving."),
 	passageId: z.string().regex(/^\d+$/, "Choose a Scripture passage."),
 	tags: z.array(z.string().trim().min(1).max(50)).max(20),
 });
-const toolbarItems = [
-	{ icon: ListIcon, label: "Bulleted list" },
-	{ icon: ListOrderedIcon, label: "Numbered list" },
-	{ icon: AlignLeftIcon, label: "Align left" },
-	{ icon: AlignCenterIcon, label: "Align center" },
-	{ icon: QuoteIcon, label: "Quote" },
-];
 
 export function NoteForm({
 	initialValues,
@@ -144,6 +141,12 @@ export function NoteForm({
 					event.stopPropagation();
 					form.handleSubmit();
 				}}
+				onKeyDown={(event) => {
+					if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+						event.preventDefault();
+						form.handleSubmit();
+					}
+				}}
 			>
 				<div className="note-composer-layout">
 					<aside className="note-context-column" aria-label="Passage context">
@@ -192,54 +195,13 @@ export function NoteForm({
 												<button type="button">Preview</button>
 											</div>
 										</div>
-										<div className="note-rich-editor">
-											<div className="note-toolbar">
-												<button type="button">
-													Paragraph <ChevronDownIcon aria-hidden="true" />
-												</button>
-												<button aria-label="Bold" type="button">
-													<strong>B</strong>
-												</button>
-												<button aria-label="Italic" type="button">
-													<em>I</em>
-												</button>
-												<button aria-label="Underline" type="button">
-													<UnderlineIcon aria-hidden="true" />
-												</button>
-												<button aria-label="Insert link" type="button">
-													<LinkIcon aria-hidden="true" />
-												</button>
-												<span aria-hidden="true" />
-												{toolbarItems.map(({ icon: Icon, label }) => (
-													<button aria-label={label} key={label} type="button">
-														<Icon aria-hidden="true" />
-													</button>
-												))}
-											</div>
-											<Textarea
-												aria-invalid={Boolean(error)}
-												className="note-content-input"
-												id={field.name}
-												name={field.name}
-												onBlur={field.handleBlur}
-												onChange={(event) =>
-													field.handleChange(event.target.value)
-												}
-												onKeyDown={(event) => {
-													if (
-														(event.ctrlKey || event.metaKey) &&
-														event.key === "Enter"
-													) {
-														event.preventDefault();
-														form.handleSubmit();
-													}
-												}}
-												placeholder={
-													"Start writing your note here...\n\nYou can reflect on the passage, record what you're learning, ask questions, or note cross-references."
-												}
-												value={field.state.value}
-											/>
-										</div>
+										<RichTextEditor
+											editable
+											onChange={field.handleChange}
+											placeholder="Start writing your note here…"
+											preset="member"
+											value={field.state.value}
+										/>
 										{error ? <FieldError>{error}</FieldError> : null}
 									</div>
 								);

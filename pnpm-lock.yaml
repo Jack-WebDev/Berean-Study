@@ -102,6 +102,9 @@ importers:
       '@berean-study/env':
         specifier: workspace:*
         version: link:../../packages/env
+      '@berean-study/rich-text-editor':
+        specifier: workspace:*
+        version: link:../../packages/rich-text-editor
       '@berean-study/ui':
         specifier: workspace:*
         version: link:../../packages/ui

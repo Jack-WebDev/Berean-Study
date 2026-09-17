@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { getNote, setNoteTags, updateNote } from "@/functions/notes";
 
 import type { NoteFormValues } from "./note-autosave-status";
+import { parseNoteContent, serializeNoteContent } from "./note-content";
 import { NoteForm } from "./note-form";
 import type { Note } from "./types";
 
@@ -39,7 +40,7 @@ export function EditNotePage({ noteId }: { noteId: number }) {
 	const saveNote = async (values: NoteFormValues) => {
 		const updatedNote = await updateNote({
 			data: {
-				content: values.content,
+				content: serializeNoteContent(values.content),
 				id: noteId,
 				passageId: Number(values.passageId),
 			},
@@ -82,7 +83,7 @@ export function EditNotePage({ noteId }: { noteId: number }) {
 						</header>
 						<NoteForm
 							initialValues={{
-								content: note.content,
+								content: parseNoteContent(note.content),
 								passageId: note.passageId.toString(),
 								tags: note.tags.map((tag) => tag.name),
 							}}

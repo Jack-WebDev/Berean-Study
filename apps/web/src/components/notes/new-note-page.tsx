@@ -3,7 +3,7 @@ import { ArrowLeftIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { createNote, setNoteTags } from "@/functions/notes";
-
+import { emptyNoteDocument, serializeNoteContent } from "./note-content";
 import { NoteForm } from "./note-form";
 
 export function NewNotePage({
@@ -36,7 +36,7 @@ export function NewNotePage({
 				</header>
 				<NoteForm
 					initialValues={{
-						content: "",
+						content: emptyNoteDocument,
 						passageId: initialPassageId?.toString() ?? "",
 						tags: [],
 					}}
@@ -51,7 +51,7 @@ export function NewNotePage({
 					onSubmit={async (values) => {
 						const note = await createNote({
 							data: {
-								content: values.content,
+								content: serializeNoteContent(values.content),
 								passageId: Number(values.passageId),
 							},
 						});

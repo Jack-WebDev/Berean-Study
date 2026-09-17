@@ -24,7 +24,7 @@ import {
 	removeTagFromNote,
 	setNoteCollection,
 } from "@/functions/notes";
-
+import { getNoteContentText } from "./note-content";
 import { NoteDetail } from "./note-detail";
 import { NotesControls } from "./notes-controls";
 import { NotesList } from "./notes-list";
@@ -379,7 +379,7 @@ function NotesInsightsRail({
 						</dt>
 						<dd>
 							{note
-								? `${note.content.trim().split(/\s+/).filter(Boolean).length} words`
+								? `${getNoteContentText(note.content).trim().split(/\s+/).filter(Boolean).length} words`
 								: "—"}
 						</dd>
 					</div>
