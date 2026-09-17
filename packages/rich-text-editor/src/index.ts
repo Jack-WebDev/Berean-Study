@@ -19,6 +19,7 @@ export {
 } from "./editor-actions";
 export { sanitizePastedHtml } from "./paste-sanitization";
 export { RichTextEditor } from "./rich-text-editor";
+export { RichTextEditorWorkspace } from "./rich-text-editor-workspace";
 export { getNextCommandIndex } from "./slash-commands";
 export type {
 	BibleReferenceAttributes,
@@ -27,6 +28,7 @@ export type {
 	RichTextDocument,
 	RichTextEditorPreset,
 	RichTextEditorProps,
+	RichTextEditorWorkspaceProps,
 	RichTextNode,
 	RichTextSelectionResult,
 } from "./types";

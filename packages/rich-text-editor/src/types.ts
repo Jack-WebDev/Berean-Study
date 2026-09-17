@@ -1,4 +1,5 @@
-import type { JSONContent } from "@tiptap/core";
+import type { Editor, JSONContent } from "@tiptap/core";
+import type { ReactNode } from "react";
 
 /**
  * The persisted document contract. Its shape intentionally matches the JSON
@@ -50,7 +51,18 @@ export type RichTextEditorProps = {
 		| null
 		| undefined
 		| Promise<CitationAttributes | null | undefined>;
+	/** Receives the editor instance for optional composition layers. */
+	onEditorReady?: (editor: Editor | null) => void;
 	placeholder?: string;
 	preset?: RichTextEditorPreset;
 	value: RichTextDocument;
+};
+
+export type RichTextEditorWorkspaceProps = RichTextEditorProps & {
+	/** Host-rendered tag controls; the editor has no tag persistence knowledge. */
+	tags?: ReactNode;
+	/** Host-rendered organization context, such as a location or collection. */
+	organization?: ReactNode;
+	/** Host-rendered resource details, such as status and timestamps. */
+	details?: ReactNode;
 };

@@ -17,6 +17,7 @@ const emptyDocument: RichTextDocument = {
 export function RichTextEditor({
 	editable = true,
 	onChange,
+	onEditorReady,
 	onRequestBibleReference,
 	onRequestCitation,
 	placeholder = "Start writing…",
@@ -45,6 +46,12 @@ export function RichTextEditor({
 	useEffect(() => {
 		if (editor) editor.setEditable(editable);
 	}, [editable, editor]);
+
+	useEffect(() => {
+		if (!editor) return;
+		onEditorReady?.(editor);
+		return () => onEditorReady?.(null);
+	}, [editor, onEditorReady]);
 
 	useEffect(() => {
 		if (!editor || documentsEqual(editor.getJSON(), value)) return;
