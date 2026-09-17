@@ -37,7 +37,9 @@ export type RichTextSelectionResult =
  * emits values; persistence and picker interfaces stay with the consumer.
  */
 export type RichTextEditorProps = {
+	ariaLabel?: string;
 	editable?: boolean;
+	id?: string;
 	onChange: (document: RichTextDocument) => void;
 	/** Opens a host-owned passage picker; the editor only inserts its result. */
 	onRequestBibleReference?: () =>
@@ -56,6 +58,13 @@ export type RichTextEditorProps = {
 	placeholder?: string;
 	preset?: RichTextEditorPreset;
 	value: RichTextDocument;
+};
+
+export type RichTextRendererProps = {
+	ariaLabel?: string;
+	/** A malformed value is rendered as an empty document. */
+	document: RichTextDocument | null | undefined;
+	preset?: RichTextEditorPreset;
 };
 
 export type RichTextEditorWorkspaceProps = RichTextEditorProps & {

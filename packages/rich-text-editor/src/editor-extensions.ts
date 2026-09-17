@@ -30,7 +30,9 @@ function isAllowedLinkUri(uri: string | undefined) {
 export function createRichTextExtensions(
 	placeholder = "Start writing…",
 	preset: RichTextEditorPreset = "member",
+	options: { interactive?: boolean } = {},
 ): Extensions {
+	const { interactive = true } = options;
 	return [
 		StarterKit.configure({
 			heading: { levels: [2, 3] },
@@ -51,8 +53,9 @@ export function createRichTextExtensions(
 		TableCell,
 		BibleReference,
 		...(preset === "contributor" ? [Citation] : []),
-		SlashCommands,
-		Placeholder.configure({ placeholder }),
+		...(interactive
+			? [SlashCommands, Placeholder.configure({ placeholder })]
+			: []),
 	];
 }
 

@@ -5,6 +5,7 @@ import {
 	getDocumentCitations,
 	getDocumentReferences,
 } from "../src/bible-reference-utils";
+import { executeEditorAction } from "../src/editor-actions";
 import { createRichTextExtensions } from "../src/editor-extensions";
 import { sanitizePastedHtml } from "../src/paste-sanitization";
 import type { RichTextEditorPreset } from "../src/types";
@@ -66,6 +67,9 @@ describe("Berean rich-text schema", () => {
 		expect(editor.isActive("link")).toBe(true);
 		expect(editor.commands.unsetLink()).toBe(true);
 		expect(editor.isActive("link")).toBe(false);
+		expect(editor.commands.setLink({ href: "javascript:alert(1)" })).toBe(
+			false,
+		);
 	});
 
 	it("supports alignment, lists, quotes, dividers, undo, and redo", () => {
@@ -92,6 +96,19 @@ describe("Berean rich-text schema", () => {
 		expect(historyEditor.can().undo()).toBe(true);
 		expect(historyEditor.commands.undo()).toBe(true);
 		expect(historyEditor.commands.redo()).toBe(true);
+	});
+
+	it("executes list and quote actions through the shared action layer", async () => {
+		const editor = createEditor();
+		const context = { preset: "member" as const };
+		await executeEditorAction(editor, "bullet", context);
+		expect(editor.isActive("bulletList")).toBe(true);
+		await executeEditorAction(editor, "bullet", context);
+		await executeEditorAction(editor, "numbered", context);
+		expect(editor.isActive("orderedList")).toBe(true);
+		await executeEditorAction(editor, "numbered", context);
+		await executeEditorAction(editor, "quote", context);
+		expect(editor.isActive("blockquote")).toBe(true);
 	});
 
 	it("round-trips the structured JSON document", () => {
@@ -202,6 +219,117 @@ describe("Berean rich-text schema", () => {
 		expect(editor.getHTML()).toContain("John 3:16");
 	});
 
+	it("renders every supported structure with the shared read-only schema", () => {
+		const editor = new Editor({
+			content: {
+				content: [
+					{
+						attrs: { level: 2 },
+						content: [{ text: "Heading", type: "text" }],
+						type: "heading",
+					},
+					{
+						attrs: { textAlign: "center" },
+						content: [
+							{ marks: [{ type: "bold" }], text: "Bold", type: "text" },
+							{ marks: [{ type: "italic" }], text: " italic", type: "text" },
+							{
+								marks: [{ type: "underline" }],
+								text: " underline",
+								type: "text",
+							},
+							{ marks: [{ type: "strike" }], text: " strike", type: "text" },
+						],
+						type: "paragraph",
+					},
+					{
+						content: [
+							{
+								content: [
+									{
+										content: [{ text: "Bullet", type: "text" }],
+										type: "paragraph",
+									},
+								],
+								type: "listItem",
+							},
+						],
+						type: "bulletList",
+					},
+					{
+						content: [
+							{
+								content: [
+									{
+										content: [{ text: "Number", type: "text" }],
+										type: "paragraph",
+									},
+								],
+								type: "listItem",
+							},
+						],
+						type: "orderedList",
+					},
+					{ content: [{ text: "Quote", type: "text" }], type: "blockquote" },
+					{ type: "horizontalRule" },
+					{
+						content: [
+							{
+								content: [
+									{
+										content: [
+											{
+												content: [{ text: "Cell", type: "text" }],
+												type: "paragraph",
+											},
+										],
+										type: "tableCell",
+									},
+								],
+								type: "tableRow",
+							},
+						],
+						type: "table",
+					},
+					{
+						content: [
+							{
+								attrs: { label: "Romans 8:1", passageId: 123 },
+								type: "bibleReference",
+							},
+							{ attrs: { citationId: 481, label: "1" }, type: "citation" },
+						],
+						type: "paragraph",
+					},
+				],
+				type: "doc",
+			},
+			editable: false,
+			element: document.createElement("div"),
+			extensions: createRichTextExtensions("", "contributor"),
+		});
+		editors.push(editor);
+
+		const html = editor.getHTML();
+		for (const fragment of [
+			"<h2",
+			"<strong>Bold</strong>",
+			"<em> italic</em>",
+			"<u> underline</u>",
+			"<s> strike</s>",
+			"text-align: center",
+			"<ul>",
+			"<ol>",
+			"<blockquote>",
+			"<hr>",
+			"<table",
+			'data-bible-reference="true"',
+			'data-citation="true"',
+		]) {
+			expect(html).toContain(fragment);
+		}
+	});
+
 	it("rejects invalid Bible reference data and ignores it during extraction", () => {
 		const editor = createEditor();
 		expect(
@@ -240,6 +368,19 @@ describe("Berean rich-text schema", () => {
 		).toBe(true);
 		expect(member.commands.insertCitation).toBeUndefined();
 		expect(contributor.commands.insertCitation).toBeTypeOf("function");
+	});
+
+	it("safely ignores unavailable reference and citation callbacks", async () => {
+		const member = createEditor();
+		const contributor = createEditor("<p>Testing</p>", "contributor");
+		expect(
+			await executeEditorAction(member, "bible", { preset: "member" }),
+		).toBe(false);
+		expect(
+			await executeEditorAction(contributor, "citation", {
+				preset: "contributor",
+			}),
+		).toBe(false);
 	});
 
 	it("inserts, serializes, deserializes, and deletes citations", () => {

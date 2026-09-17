@@ -14,12 +14,17 @@ export {
 	getWordCount,
 } from "./document-utils";
 export {
+	emptyRichTextDocument,
+	normalizeRichTextDocument,
+} from "./document-validation";
+export {
 	filterEditorActions,
 	getAvailableEditorActions,
 } from "./editor-actions";
 export { sanitizePastedHtml } from "./paste-sanitization";
 export { RichTextEditor } from "./rich-text-editor";
 export { RichTextEditorWorkspace } from "./rich-text-editor-workspace";
+export { RichTextRenderer } from "./rich-text-renderer";
 export { getNextCommandIndex } from "./slash-commands";
 export type {
 	BibleReferenceAttributes,
@@ -30,5 +35,6 @@ export type {
 	RichTextEditorProps,
 	RichTextEditorWorkspaceProps,
 	RichTextNode,
+	RichTextRendererProps,
 	RichTextSelectionResult,
 } from "./types";

@@ -329,63 +329,127 @@ function TableMenuButton({
 function LinkControl({ active, editor }: { active: boolean; editor: Editor }) {
 	const [open, setOpen] = useState(false);
 	const [href, setHref] = useState("");
+	const [error, setError] = useState<string | null>(null);
+	const dialogRef = useRef<HTMLDialogElement>(null);
 	const inputRef = useRef<HTMLInputElement>(null);
+	const selectionRef = useRef({ from: 0, to: 0 });
+	useEffect(() => {
+		const dialog = dialogRef.current;
+		if (!dialog) return;
+		if (open && !dialog.open) dialog.showModal();
+		if (!open && dialog.open) dialog.close();
+	}, [open]);
 	useEffect(() => {
 		if (open) inputRef.current?.focus();
 	}, [open]);
+	const close = () => {
+		setError(null);
+		setOpen(false);
+	};
+	const save = (event: FormEvent<HTMLFormElement>) => {
+		event.preventDefault();
+		const normalizedHref = normalizeLink(href);
+		if (!normalizedHref) {
+			setError("Enter a valid http, https, or mailto link.");
+			return;
+		}
+		editor
+			.chain()
+			.setTextSelection(selectionRef.current)
+			.focus()
+			.extendMarkRange("link")
+			.setLink({ href: normalizedHref })
+			.run();
+		close();
+	};
 
 	return (
-		<div className="relative">
+		<>
 			<ToolbarButton
 				active={active}
 				label="Add or edit link"
 				onClick={() => {
+					selectionRef.current = {
+						from: editor.state.selection.from,
+						to: editor.state.selection.to,
+					};
 					setHref(
 						(editor.getAttributes("link").href as string | undefined) ?? "",
 					);
+					setError(null);
 					setOpen(true);
 				}}
 			>
 				<LinkIcon aria-hidden="true" />
 			</ToolbarButton>
-			{open ? (
-				<form
-					aria-label="Link editor"
-					className="absolute top-9 z-10 flex w-72 gap-1 rounded-md border border-border bg-popover p-2 shadow-md"
-					onSubmit={(event) => submitLink(event, editor, href, setOpen)}
-				>
+			<dialog
+				aria-labelledby="link-dialog-title"
+				className="w-full max-w-sm rounded-md border border-border bg-popover p-4 text-popover-foreground shadow-lg backdrop:bg-black/10"
+				onCancel={(event) => {
+					event.preventDefault();
+					close();
+				}}
+				ref={dialogRef}
+			>
+				<div className="mb-4 grid gap-1">
+					<h2 className="font-medium text-sm" id="link-dialog-title">
+						Add link
+					</h2>
+					<p className="text-muted-foreground text-xs/relaxed">
+						Paste the web address to apply to the selected text.
+					</p>
+				</div>
+				<form aria-label="Link editor" className="grid gap-3" onSubmit={save}>
 					<input
 						aria-label="Link URL"
-						className="min-w-0 flex-1 rounded-sm border border-input bg-background px-2 py-1 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-						onChange={(event) => setHref(event.target.value)}
+						className="w-full rounded-sm border border-input bg-background px-2 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+						onChange={(event) => {
+							setError(null);
+							setHref(event.target.value);
+						}}
 						onKeyDown={(event) => {
-							if (event.key === "Escape") setOpen(false);
+							if (event.key === "Escape") close();
 						}}
 						placeholder="https://example.com"
 						ref={inputRef}
 						value={href}
 					/>
-					<button
-						className="rounded-sm bg-primary px-2 py-1 font-medium text-primary-foreground text-xs"
-						type="submit"
-					>
-						Save
-					</button>
-					{active ? (
+					{error ? <p className="text-destructive text-xs">{error}</p> : null}
+					<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
 						<button
-							className="rounded-sm px-2 py-1 text-destructive text-xs hover:bg-destructive/10"
-							onClick={() => {
-								editor.chain().focus().unsetLink().run();
-								setOpen(false);
-							}}
+							className="rounded-sm px-3 py-1.5 text-sm hover:bg-muted"
+							onClick={close}
 							type="button"
 						>
-							Remove
+							Cancel
 						</button>
-					) : null}
+						{active ? (
+							<button
+								className="rounded-sm px-3 py-1.5 text-destructive text-sm hover:bg-destructive/10"
+								onClick={() => {
+									editor
+										.chain()
+										.setTextSelection(selectionRef.current)
+										.focus()
+										.unsetLink()
+										.run();
+									close();
+								}}
+								type="button"
+							>
+								Remove
+							</button>
+						) : null}
+						<button
+							className="rounded-sm bg-primary px-3 py-1.5 font-medium text-primary-foreground text-sm"
+							type="submit"
+						>
+							Save link
+						</button>
+					</div>
 				</form>
-			) : null}
-		</div>
+			</dialog>
+		</>
 	);
 }
 
@@ -450,23 +514,6 @@ function normalizeLink(value: string) {
 	} catch {
 		return null;
 	}
-}
-function submitLink(
-	event: FormEvent<HTMLFormElement>,
-	editor: Editor,
-	href: string,
-	setOpen: (open: boolean) => void,
-) {
-	event.preventDefault();
-	const normalizedHref = normalizeLink(href);
-	if (!normalizedHref) return;
-	editor
-		.chain()
-		.focus()
-		.extendMarkRange("link")
-		.setLink({ href: normalizedHref })
-		.run();
-	setOpen(false);
 }
 function blockFormatAction(
 	value: string,

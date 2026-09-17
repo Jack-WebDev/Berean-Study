@@ -1,6 +1,8 @@
 import {
+	getWordCount,
 	type RichTextDocument,
 	RichTextEditor,
+	RichTextRenderer,
 } from "@berean-study/rich-text-editor";
 import {
 	AlertDialog,
@@ -42,6 +44,7 @@ import { hasNoteContent } from "./note-content";
 import { NoteStudyContext } from "./note-study-context";
 
 type PassageOption = Awaited<ReturnType<typeof getPassageOptions>>[number];
+type NoteEditorMode = "preview" | "write";
 const noteFormSchema = z.object({
 	content: z
 		.custom<RichTextDocument>(
@@ -73,6 +76,7 @@ export function NoteForm({
 	const [hasLoadError, setHasLoadError] = useState(false);
 	const [submitError, setSubmitError] = useState<string | null>(null);
 	const [discardDialogOpen, setDiscardDialogOpen] = useState(false);
+	const [editorMode, setEditorMode] = useState<NoteEditorMode>("write");
 	const onSubmitRef = useRef(onSubmit);
 	const onAutosaveRef = useRef(onAutosave);
 	const saveQueue = useRef(Promise.resolve());
@@ -188,20 +192,47 @@ export function NoteForm({
 											<label className="note-field-label" htmlFor={field.name}>
 												Content <span aria-hidden="true">*</span>
 											</label>
-											<div className="note-mode-toggle">
-												<button className="is-active" type="button">
+											<fieldset className="note-mode-toggle">
+												<legend className="sr-only">Note editor mode</legend>
+												<button
+													aria-pressed={editorMode === "write"}
+													className={
+														editorMode === "write" ? "is-active" : undefined
+													}
+													onClick={() => setEditorMode("write")}
+													type="button"
+												>
 													Write
 												</button>
-												<button type="button">Preview</button>
-											</div>
+												<button
+													aria-pressed={editorMode === "preview"}
+													className={
+														editorMode === "preview" ? "is-active" : undefined
+													}
+													onClick={() => setEditorMode("preview")}
+													type="button"
+												>
+													Preview
+												</button>
+											</fieldset>
 										</div>
-										<RichTextEditor
-											editable
-											onChange={field.handleChange}
-											placeholder="Start writing your note here…"
-											preset="member"
-											value={field.state.value}
-										/>
+										{editorMode === "write" ? (
+											<RichTextEditor
+												ariaLabel="Note content"
+												editable
+												id={field.name}
+												onChange={field.handleChange}
+												placeholder="Start writing your note here…"
+												preset="member"
+												value={field.state.value}
+											/>
+										) : (
+											<RichTextRenderer
+												ariaLabel="Note content preview"
+												document={field.state.value}
+												preset="member"
+											/>
+										)}
 										{error ? <FieldError>{error}</FieldError> : null}
 									</div>
 								);
@@ -259,7 +290,11 @@ export function NoteForm({
 								</div>
 								<div>
 									<dt>Word count</dt>
-									<dd>0 words</dd>
+									<dd>
+										<form.Subscribe selector={(state) => state.values.content}>
+											{(content) => `${getWordCount(content)} words`}
+										</form.Subscribe>
+									</dd>
 								</div>
 								<div>
 									<dt>Auto-saved</dt>
