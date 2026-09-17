@@ -68,6 +68,10 @@ export type RichTextRendererProps = {
 };
 
 export type RichTextEditorWorkspaceProps = RichTextEditorProps & {
+	/** Host-provided context displayed only in the focused workspace header. */
+	focusedModeTitle?: ReactNode;
+	/** Host-owned save status displayed only in the focused workspace header. */
+	focusedModeStatus?: ReactNode;
 	/** Host-rendered tag controls; the editor has no tag persistence knowledge. */
 	tags?: ReactNode;
 	/** Host-rendered organization context, such as a location or collection. */

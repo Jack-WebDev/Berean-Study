@@ -5,7 +5,16 @@ import {
 	TabsTrigger,
 } from "@berean-study/ui/components/tabs";
 import type { Editor } from "@tiptap/core";
-import { BookOpenIcon, MinusIcon, QuoteIcon, Table2Icon } from "lucide-react";
+import {
+	BookOpenIcon,
+	Maximize2Icon,
+	Minimize2Icon,
+	MinusIcon,
+	PanelRightCloseIcon,
+	PanelRightOpenIcon,
+	QuoteIcon,
+	Table2Icon,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getDocumentReferences } from "./bible-reference-utils";
 import {
@@ -31,6 +40,8 @@ type InspectorTab = "insert" | "document" | "references";
  */
 export function RichTextEditorWorkspace({
 	details,
+	focusedModeStatus,
+	focusedModeTitle,
 	onChange,
 	onEditorReady,
 	onRequestBibleReference,
@@ -43,9 +54,36 @@ export function RichTextEditorWorkspace({
 }: RichTextEditorWorkspaceProps) {
 	const [editor, setEditor] = useState<Editor | null>(null);
 	const [document, setDocument] = useState(value);
+	const [inspectorTab, setInspectorTab] = useState<InspectorTab>("insert");
+	const [isFocused, setIsFocused] = useState(false);
+	const [focusedInspectorOpen, setFocusedInspectorOpen] = useState(false);
 	const [mobileInspectorOpen, setMobileInspectorOpen] = useState(false);
 
 	useEffect(() => setDocument(value), [value]);
+
+	useEffect(() => {
+		if (!isFocused) return;
+		const previousOverflow = window.document.body.style.overflow;
+		window.document.body.style.overflow = "hidden";
+		return () => {
+			window.document.body.style.overflow = previousOverflow;
+		};
+	}, [isFocused]);
+
+	useEffect(() => {
+		if (!isFocused) return;
+		const handleKeyDown = (event: KeyboardEvent) => {
+			if (event.key !== "Escape" || event.defaultPrevented) return;
+			if (focusedInspectorOpen) {
+				event.preventDefault();
+				setFocusedInspectorOpen(false);
+				return;
+			}
+			setIsFocused(false);
+		};
+		window.addEventListener("keydown", handleKeyDown);
+		return () => window.removeEventListener("keydown", handleKeyDown);
+	}, [focusedInspectorOpen, isFocused]);
 
 	const handleChange = useCallback(
 		(nextDocument: RichTextDocument) => {
@@ -67,55 +105,146 @@ export function RichTextEditorWorkspace({
 	);
 
 	return (
-		<div className="grid min-w-0 gap-4 md:grid-cols-[minmax(0,1fr)_17rem]">
-			<div className="min-w-0">
-				<div className="mb-2 flex justify-end md:hidden">
+		<section
+			aria-label="Editor workspace"
+			className={
+				isFocused
+					? "fixed inset-0 z-50 flex min-h-dvh flex-col overflow-hidden bg-background text-foreground"
+					: "min-w-0"
+			}
+			data-focused={isFocused || undefined}
+		>
+			<header
+				className={
+					isFocused
+						? "flex h-12 shrink-0 items-center gap-3 border-border border-b bg-card px-4"
+						: "hidden"
+				}
+			>
+				<button
+					aria-label="Exit Focus"
+					className="inline-flex items-center gap-1.5 rounded-sm px-2 py-1 font-medium text-xs hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+					onClick={() => setIsFocused(false)}
+					type="button"
+				>
+					<Minimize2Icon aria-hidden="true" className="size-3.5" />
+					Exit Focus
+				</button>
+				<div className="min-w-0 flex-1 truncate text-center font-medium text-sm">
+					{focusedModeTitle}
+				</div>
+				<div className="flex items-center gap-2">
+					{focusedModeStatus ? (
+						<div className="text-muted-foreground text-xs">
+							{focusedModeStatus}
+						</div>
+					) : null}
 					<button
-						aria-controls="rich-text-mobile-inspector"
-						aria-expanded={mobileInspectorOpen}
-						className="rounded-sm border border-border px-2 py-1 font-medium text-xs hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-						onClick={() => setMobileInspectorOpen((open) => !open)}
+						aria-expanded={focusedInspectorOpen}
+						aria-label={
+							focusedInspectorOpen
+								? "Close writing tools"
+								: "Open writing tools"
+						}
+						className="inline-flex size-7 items-center justify-center rounded-sm hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+						onClick={() => setFocusedInspectorOpen((open) => !open)}
 						type="button"
 					>
-						Writing tools
+						{focusedInspectorOpen ? (
+							<PanelRightCloseIcon aria-hidden="true" className="size-4" />
+						) : (
+							<PanelRightOpenIcon aria-hidden="true" className="size-4" />
+						)}
 					</button>
 				</div>
-				<RichTextEditor
-					{...editorProps}
-					onChange={handleChange}
-					onEditorReady={handleEditorReady}
-					onRequestBibleReference={onRequestBibleReference}
-					onRequestCitation={onRequestCitation}
-					preset={preset}
-					value={value}
-				/>
-				{mobileInspectorOpen ? (
-					<div
-						className="mt-2 border border-border bg-card md:hidden"
-						id="rich-text-mobile-inspector"
-					>
-						<WorkspaceInspector
-							details={details}
-							document={document}
-							editor={editor}
-							organization={organization}
-							actionContext={actionContext}
-							tags={tags}
-						/>
+			</header>
+			<div
+				className={
+					isFocused
+						? "flex min-h-0 flex-1"
+						: "grid min-w-0 gap-4 md:grid-cols-[minmax(0,1fr)_17rem]"
+				}
+			>
+				<div
+					className={
+						isFocused
+							? "mx-auto w-full min-w-0 max-w-[52rem] overflow-y-auto px-4 py-6 sm:px-6"
+							: "min-w-0"
+					}
+				>
+					<div className={isFocused ? "hidden" : "mb-2 flex justify-end"}>
+						<button
+							aria-label="Focus editor"
+							className="inline-flex items-center gap-1.5 rounded-sm border border-border px-2 py-1 font-medium text-xs hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+							onClick={() => setIsFocused(true)}
+							type="button"
+						>
+							<Maximize2Icon aria-hidden="true" className="size-3.5" />
+							Focus editor
+						</button>
 					</div>
-				) : null}
+					<div
+						className={isFocused ? "hidden" : "mb-2 flex justify-end md:hidden"}
+					>
+						<button
+							aria-controls="rich-text-mobile-inspector"
+							aria-expanded={mobileInspectorOpen}
+							className="rounded-sm border border-border px-2 py-1 font-medium text-xs hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+							onClick={() => setMobileInspectorOpen((open) => !open)}
+							type="button"
+						>
+							Writing tools
+						</button>
+					</div>
+					<RichTextEditor
+						{...editorProps}
+						onChange={handleChange}
+						onEditorReady={handleEditorReady}
+						onRequestBibleReference={onRequestBibleReference}
+						onRequestCitation={onRequestCitation}
+						preset={preset}
+						value={value}
+					/>
+					{mobileInspectorOpen && !isFocused ? (
+						<div
+							className="mt-2 border border-border bg-card md:hidden"
+							id="rich-text-mobile-inspector"
+						>
+							<WorkspaceInspector
+								details={details}
+								document={document}
+								editor={editor}
+								organization={organization}
+								actionContext={actionContext}
+								onTabChange={setInspectorTab}
+								tab={inspectorTab}
+								tags={tags}
+							/>
+						</div>
+					) : null}
+				</div>
+				<aside
+					className={
+						isFocused
+							? focusedInspectorOpen
+								? "w-72 shrink-0 overflow-y-auto border-border border-l bg-card"
+								: "hidden"
+							: "hidden min-h-0 border border-border bg-card md:block"
+					}
+				>
+					<WorkspaceInspector
+						details={details}
+						document={document}
+						editor={editor}
+						organization={organization}
+						actionContext={actionContext}
+						onTabChange={setInspectorTab}
+						tab={inspectorTab}
+						tags={tags}
+					/>
+				</aside>
 			</div>
-			<aside className="hidden min-h-0 border border-border bg-card md:block">
-				<WorkspaceInspector
-					details={details}
-					document={document}
-					editor={editor}
-					organization={organization}
-					actionContext={actionContext}
-					tags={tags}
-				/>
-			</aside>
-		</div>
+		</section>
 	);
 }
 
@@ -124,17 +253,20 @@ function WorkspaceInspector({
 	details,
 	document,
 	editor,
+	onTabChange,
 	organization,
 	tags,
+	tab,
 }: {
 	actionContext: Parameters<typeof getAvailableEditorActions>[0];
 	details?: React.ReactNode;
 	document: RichTextDocument;
 	editor: Editor | null;
+	onTabChange: (tab: InspectorTab) => void;
 	organization?: React.ReactNode;
 	tags?: React.ReactNode;
+	tab: InspectorTab;
 }) {
-	const [tab, setTab] = useState<InspectorTab>("insert");
 	const headings = useMemo(() => extractDocumentHeadings(document), [document]);
 	const references = useMemo(() => getDocumentReferences(document), [document]);
 	const actions = useMemo(
@@ -147,7 +279,7 @@ function WorkspaceInspector({
 			<Tabs
 				aria-label="Writing tools"
 				className="min-h-72 gap-0"
-				onValueChange={(value) => setTab(value as InspectorTab)}
+				onValueChange={(value) => onTabChange(value as InspectorTab)}
 				value={tab}
 			>
 				<TabsList

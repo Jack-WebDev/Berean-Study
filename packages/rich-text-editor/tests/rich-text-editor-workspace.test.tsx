@@ -163,6 +163,61 @@ describe("RichTextEditorWorkspace", () => {
 				.citations,
 		).toEqual([]);
 	});
+
+	it("enters and exits focus without recreating the editor or changing content", async () => {
+		const changes: RichTextDocument[] = [];
+		const { container, getEditor } = await mount({
+			focusedModeStatus: "Saved",
+			focusedModeTitle: "No Condemnation in Christ",
+			onChange: (nextDocument) => changes.push(nextDocument),
+		});
+		const editor = getEditor();
+		await click(tab(container, "Document"));
+		await act(async () => {
+			editor.commands.insertContent("A thought");
+			editor.commands.setTextSelection(2);
+		});
+		const contentBeforeFocus = editor.getJSON();
+		const selectionBeforeFocus = editor.state.selection.toJSON();
+		const changeCountBeforeFocus = changes.length;
+
+		await click(button(container, "Focus editor") as HTMLButtonElement);
+		expect(container.querySelector("[data-focused]")).toBeTruthy();
+		expect(window.document.body.style.overflow).toBe("hidden");
+		expect(getEditor()).toBe(editor);
+		expect(editor.getJSON()).toEqual(contentBeforeFocus);
+		expect(editor.state.selection.toJSON()).toEqual(selectionBeforeFocus);
+		expect(editor.can().undo()).toBe(true);
+		expect(changes).toHaveLength(changeCountBeforeFocus);
+		expect(button(container, "Exit Focus")).toBeTruthy();
+		expect(container.textContent).toContain("No Condemnation in Christ");
+		expect(container.textContent).toContain("Saved");
+
+		await click(button(container, "Open writing tools") as HTMLButtonElement);
+		expect(button(container, "Close writing tools")).toBeTruthy();
+		expect(tab(container, "Document").getAttribute("aria-selected")).toBe(
+			"true",
+		);
+		await pressEscape();
+		expect(button(container, "Open writing tools")).toBeTruthy();
+		await pressEscape();
+		expect(container.querySelector("[data-focused]")).toBeNull();
+		expect(window.document.body.style.overflow).toBe("");
+
+		await click(button(container, "Focus editor") as HTMLButtonElement);
+		await click(button(container, "Exit Focus") as HTMLButtonElement);
+		expect(container.querySelector("[data-focused]")).toBeNull();
+	});
+
+	it("restores background scrolling when unmounted while focused", async () => {
+		const { container, unmount } = await mount({});
+		window.document.body.style.overflow = "scroll";
+		await click(button(container, "Focus editor") as HTMLButtonElement);
+		expect(window.document.body.style.overflow).toBe("hidden");
+
+		unmount();
+		expect(window.document.body.style.overflow).toBe("scroll");
+	});
 });
 
 async function mount({
@@ -181,9 +236,10 @@ async function mount({
 		root.render(
 			<RichTextEditorWorkspace
 				{...props}
-				onChange={() => undefined}
+				onChange={(nextDocument) => props.onChange?.(nextDocument)}
 				onEditorReady={(nextEditor) => {
 					if (nextEditor) editor = nextEditor;
+					props.onEditorReady?.(nextEditor);
 				}}
 				value={document}
 			/>,
@@ -196,12 +252,24 @@ async function mount({
 			if (!editor) throw new Error("Editor did not initialize.");
 			return editor;
 		},
+		unmount: () => {
+			act(() => root.unmount());
+			container.remove();
+			const index = mounted.findIndex((entry) => entry.root === root);
+			if (index >= 0) mounted.splice(index, 1);
+		},
 	};
 }
 
 async function click(element: Element) {
 	await act(async () =>
 		element.dispatchEvent(new MouseEvent("click", { bubbles: true })),
+	);
+}
+
+async function pressEscape() {
+	await act(async () =>
+		window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })),
 	);
 }
 
