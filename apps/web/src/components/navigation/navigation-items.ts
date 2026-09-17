@@ -1,9 +1,11 @@
 import type { LucideIcon } from "lucide-react";
 import {
+	BookmarkIcon,
 	BookOpenIcon,
 	FileClockIcon,
 	FileTextIcon,
 	FolderIcon,
+	HeartIcon,
 	HouseIcon,
 	LibraryIcon,
 	ScrollTextIcon,
@@ -44,6 +46,12 @@ export const primaryNavigationItems = [
 				href: "/library/collections",
 				icon: FolderIcon,
 				label: "Collections",
+			},
+			{ href: "/library/saved", icon: BookmarkIcon, label: "Saved" },
+			{
+				href: "/library/prayers",
+				icon: HeartIcon,
+				label: "Prayers & Testimonies",
 			},
 		],
 		href: "/library",
