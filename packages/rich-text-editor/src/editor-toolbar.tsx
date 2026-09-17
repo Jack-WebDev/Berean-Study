@@ -93,7 +93,7 @@ export function EditorToolbar({
 	return (
 		<div
 			aria-label="Rich text formatting"
-			className="flex flex-wrap items-center gap-0.5 border-border border-b bg-muted/35 px-2 py-1.5"
+			className="flex flex-nowrap items-center gap-0.5 overflow-x-auto border-border border-b bg-muted/35 px-2 py-1.5"
 			role="toolbar"
 		>
 			<select
@@ -447,7 +447,7 @@ function ToolbarButton({
 		<button
 			aria-label={label}
 			aria-pressed={active}
-			className="inline-flex size-7 items-center justify-center rounded-sm text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-40 aria-pressed:bg-primary aria-pressed:text-primary-foreground [&_svg]:size-3.5"
+			className="inline-flex size-7 shrink-0 items-center justify-center rounded-sm text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-40 aria-pressed:bg-primary aria-pressed:text-primary-foreground [&_svg]:size-3.5"
 			disabled={disabled}
 			onClick={onClick}
 			type="button"
@@ -458,7 +458,9 @@ function ToolbarButton({
 }
 
 function ToolbarSeparator() {
-	return <span aria-hidden="true" className="mx-1 h-5 w-px bg-border" />;
+	return (
+		<span aria-hidden="true" className="mx-1 h-5 w-px shrink-0 bg-border" />
+	);
 }
 function blockFormatValue(activeHeading: 2 | 3 | null) {
 	return activeHeading ? `heading-${activeHeading}` : "paragraph";

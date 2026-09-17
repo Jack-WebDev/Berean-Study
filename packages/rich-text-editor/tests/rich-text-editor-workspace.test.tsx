@@ -23,6 +23,30 @@ const testRectMethods = {
 Object.defineProperties(Node.prototype, testRectMethods);
 Object.defineProperties(Range.prototype, testRectMethods);
 
+let wideViewport = true;
+const mediaQueryListeners = new Set<(event: MediaQueryListEvent) => void>();
+Object.defineProperty(window, "matchMedia", {
+	value: () => ({
+		addEventListener: (
+			event: string,
+			listener: (event: MediaQueryListEvent) => void,
+		) => {
+			if (event === "change") mediaQueryListeners.add(listener);
+		},
+		dispatchEvent: () => true,
+		matches: wideViewport,
+		media: "",
+		onchange: null,
+		removeEventListener: (
+			event: string,
+			listener: (event: MediaQueryListEvent) => void,
+		) => {
+			if (event === "change") mediaQueryListeners.delete(listener);
+		},
+	}),
+	writable: true,
+});
+
 const emptyDocument: RichTextDocument = {
 	content: [{ type: "paragraph" }],
 	type: "doc",
@@ -35,6 +59,7 @@ afterEach(() => {
 		act(() => root.unmount());
 		container.remove();
 	}
+	setWideViewport(true);
 });
 
 describe("RichTextEditorWorkspace", () => {
@@ -218,6 +243,28 @@ describe("RichTextEditorWorkspace", () => {
 		unmount();
 		expect(window.document.body.style.overflow).toBe("scroll");
 	});
+
+	it("uses the shared sheet for inspector access on narrow screens", async () => {
+		setWideViewport(false);
+		const { container, getEditor } = await mount({});
+		const editor = getEditor();
+
+		await click(button(container, "Open writing tools") as HTMLButtonElement);
+		expect(window.document.body.textContent).toContain("Writing tools");
+		expect(getEditor()).toBe(editor);
+	});
+
+	it("keeps the focused writing area intact when its narrow inspector opens", async () => {
+		setWideViewport(false);
+		const { container, getEditor } = await mount({});
+		const editor = getEditor();
+
+		await click(button(container, "Focus editor") as HTMLButtonElement);
+		await click(button(container, "Open writing tools") as HTMLButtonElement);
+		expect(container.querySelector("[data-focused]")).toBeTruthy();
+		expect(window.document.body.textContent).toContain("Writing tools");
+		expect(getEditor()).toBe(editor);
+	});
 });
 
 async function mount({
@@ -271,6 +318,12 @@ async function pressEscape() {
 	await act(async () =>
 		window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })),
 	);
+}
+
+function setWideViewport(matches: boolean) {
+	wideViewport = matches;
+	for (const listener of mediaQueryListeners)
+		listener({ matches } as MediaQueryListEvent);
 }
 
 function button(container: ParentNode, label: string) {

@@ -47,7 +47,7 @@ export function createRichTextExtensions(
 			alignments: ["left", "center", "right"],
 			types: ["heading", "paragraph"],
 		}),
-		Table.configure({ resizable: false }),
+		Table.configure({ renderWrapper: true, resizable: false }),
 		TableRow,
 		TableHeader,
 		TableCell,

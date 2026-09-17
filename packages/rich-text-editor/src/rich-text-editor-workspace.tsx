@@ -1,4 +1,10 @@
 import {
+	Sheet,
+	SheetContent,
+	SheetHeader,
+	SheetTitle,
+} from "@berean-study/ui/components/sheet";
+import {
 	Tabs,
 	TabsContent,
 	TabsList,
@@ -57,7 +63,8 @@ export function RichTextEditorWorkspace({
 	const [inspectorTab, setInspectorTab] = useState<InspectorTab>("insert");
 	const [isFocused, setIsFocused] = useState(false);
 	const [focusedInspectorOpen, setFocusedInspectorOpen] = useState(false);
-	const [mobileInspectorOpen, setMobileInspectorOpen] = useState(false);
+	const [inspectorSheetOpen, setInspectorSheetOpen] = useState(false);
+	const isWideLayout = useMediaQuery("(min-width: 1024px)");
 
 	useEffect(() => setDocument(value), [value]);
 
@@ -74,16 +81,17 @@ export function RichTextEditorWorkspace({
 		if (!isFocused) return;
 		const handleKeyDown = (event: KeyboardEvent) => {
 			if (event.key !== "Escape" || event.defaultPrevented) return;
-			if (focusedInspectorOpen) {
+			if (focusedInspectorOpen || inspectorSheetOpen) {
 				event.preventDefault();
 				setFocusedInspectorOpen(false);
+				setInspectorSheetOpen(false);
 				return;
 			}
 			setIsFocused(false);
 		};
 		window.addEventListener("keydown", handleKeyDown);
 		return () => window.removeEventListener("keydown", handleKeyDown);
-	}, [focusedInspectorOpen, isFocused]);
+	}, [focusedInspectorOpen, inspectorSheetOpen, isFocused]);
 
 	const handleChange = useCallback(
 		(nextDocument: RichTextDocument) => {
@@ -103,6 +111,26 @@ export function RichTextEditorWorkspace({
 		() => ({ onRequestBibleReference, onRequestCitation, preset }),
 		[onRequestBibleReference, onRequestCitation, preset],
 	);
+	const enterFocus = useCallback(() => {
+		setFocusedInspectorOpen(false);
+		setInspectorSheetOpen(false);
+		setIsFocused(true);
+	}, []);
+	const exitFocus = useCallback(() => {
+		setFocusedInspectorOpen(false);
+		setInspectorSheetOpen(false);
+		setIsFocused(false);
+	}, []);
+	const toggleFocusedInspector = useCallback(() => {
+		if (isWideLayout) {
+			setFocusedInspectorOpen((open) => !open);
+			return;
+		}
+		setInspectorSheetOpen((open) => !open);
+	}, [isWideLayout]);
+	const isFocusedInspectorOpen = isWideLayout
+		? focusedInspectorOpen
+		: inspectorSheetOpen;
 
 	return (
 		<section
@@ -124,7 +152,7 @@ export function RichTextEditorWorkspace({
 				<button
 					aria-label="Exit Focus"
 					className="inline-flex items-center gap-1.5 rounded-sm px-2 py-1 font-medium text-xs hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-					onClick={() => setIsFocused(false)}
+					onClick={exitFocus}
 					type="button"
 				>
 					<Minimize2Icon aria-hidden="true" className="size-3.5" />
@@ -140,17 +168,17 @@ export function RichTextEditorWorkspace({
 						</div>
 					) : null}
 					<button
-						aria-expanded={focusedInspectorOpen}
+						aria-expanded={isFocusedInspectorOpen}
 						aria-label={
-							focusedInspectorOpen
+							isFocusedInspectorOpen
 								? "Close writing tools"
 								: "Open writing tools"
 						}
 						className="inline-flex size-7 items-center justify-center rounded-sm hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-						onClick={() => setFocusedInspectorOpen((open) => !open)}
+						onClick={toggleFocusedInspector}
 						type="button"
 					>
-						{focusedInspectorOpen ? (
+						{isFocusedInspectorOpen ? (
 							<PanelRightCloseIcon aria-hidden="true" className="size-4" />
 						) : (
 							<PanelRightOpenIcon aria-hidden="true" className="size-4" />
@@ -176,7 +204,7 @@ export function RichTextEditorWorkspace({
 						<button
 							aria-label="Focus editor"
 							className="inline-flex items-center gap-1.5 rounded-sm border border-border px-2 py-1 font-medium text-xs hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-							onClick={() => setIsFocused(true)}
+							onClick={enterFocus}
 							type="button"
 						>
 							<Maximize2Icon aria-hidden="true" className="size-3.5" />
@@ -184,13 +212,15 @@ export function RichTextEditorWorkspace({
 						</button>
 					</div>
 					<div
-						className={isFocused ? "hidden" : "mb-2 flex justify-end md:hidden"}
+						className={
+							isFocused || isWideLayout ? "hidden" : "mb-2 flex justify-end"
+						}
 					>
 						<button
-							aria-controls="rich-text-mobile-inspector"
-							aria-expanded={mobileInspectorOpen}
+							aria-expanded={inspectorSheetOpen}
+							aria-label="Open writing tools"
 							className="rounded-sm border border-border px-2 py-1 font-medium text-xs hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-							onClick={() => setMobileInspectorOpen((open) => !open)}
+							onClick={() => setInspectorSheetOpen(true)}
 							type="button"
 						>
 							Writing tools
@@ -205,31 +235,14 @@ export function RichTextEditorWorkspace({
 						preset={preset}
 						value={value}
 					/>
-					{mobileInspectorOpen && !isFocused ? (
-						<div
-							className="mt-2 border border-border bg-card md:hidden"
-							id="rich-text-mobile-inspector"
-						>
-							<WorkspaceInspector
-								details={details}
-								document={document}
-								editor={editor}
-								organization={organization}
-								actionContext={actionContext}
-								onTabChange={setInspectorTab}
-								tab={inspectorTab}
-								tags={tags}
-							/>
-						</div>
-					) : null}
 				</div>
 				<aside
 					className={
 						isFocused
-							? focusedInspectorOpen
+							? isWideLayout && focusedInspectorOpen
 								? "w-72 shrink-0 overflow-y-auto border-border border-l bg-card"
 								: "hidden"
-							: "hidden min-h-0 border border-border bg-card md:block"
+							: "hidden min-h-0 border border-border bg-card lg:block"
 					}
 				>
 					<WorkspaceInspector
@@ -244,8 +257,49 @@ export function RichTextEditorWorkspace({
 					/>
 				</aside>
 			</div>
+			<Sheet
+				onOpenChange={setInspectorSheetOpen}
+				open={!isWideLayout && inspectorSheetOpen}
+			>
+				<SheetContent side="right">
+					<SheetHeader>
+						<SheetTitle>Writing tools</SheetTitle>
+					</SheetHeader>
+					<div className="min-h-0 overflow-y-auto">
+						<WorkspaceInspector
+							actionContext={actionContext}
+							details={details}
+							document={document}
+							editor={editor}
+							onTabChange={setInspectorTab}
+							organization={organization}
+							tab={inspectorTab}
+							tags={tags}
+						/>
+					</div>
+				</SheetContent>
+			</Sheet>
 		</section>
 	);
+}
+
+function useMediaQuery(query: string) {
+	const [matches, setMatches] = useState(() =>
+		typeof window === "undefined" || !window.matchMedia
+			? false
+			: window.matchMedia(query).matches,
+	);
+
+	useEffect(() => {
+		if (!window.matchMedia) return;
+		const mediaQuery = window.matchMedia(query);
+		const updateMatches = () => setMatches(mediaQuery.matches);
+		updateMatches();
+		mediaQuery.addEventListener("change", updateMatches);
+		return () => mediaQuery.removeEventListener("change", updateMatches);
+	}, [query]);
+
+	return matches;
 }
 
 function WorkspaceInspector({

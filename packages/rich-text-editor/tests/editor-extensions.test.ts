@@ -140,6 +140,7 @@ describe("Berean rich-text schema", () => {
 			editor.commands.insertTable({ cols: 2, rows: 2, withHeaderRow: true }),
 		).toBe(true);
 		expect(editor.isActive("table")).toBe(true);
+		expect(editor.view.dom.querySelector(".tableWrapper")).toBeTruthy();
 		expect(editor.commands.addRowAfter()).toBe(true);
 		expect(editor.commands.deleteRow()).toBe(true);
 		expect(editor.commands.addColumnAfter()).toBe(true);
