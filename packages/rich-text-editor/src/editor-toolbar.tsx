@@ -218,7 +218,7 @@ export function EditorToolbar({
 					<BookOpenIcon aria-hidden="true" />
 				</ToolbarButton>
 			) : null}
-			{onRequestCitation ? (
+			{preset === "contributor" && onRequestCitation ? (
 				<ToolbarButton
 					active={state.isCitation}
 					label={state.isCitation ? "Replace citation" : "Insert citation"}

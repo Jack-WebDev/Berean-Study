@@ -1,3 +1,9 @@
+import {
+	Tabs,
+	TabsContent,
+	TabsList,
+	TabsTrigger,
+} from "@berean-study/ui/components/tabs";
 import type { Editor } from "@tiptap/core";
 import { BookOpenIcon, MinusIcon, QuoteIcon, Table2Icon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -138,39 +144,28 @@ function WorkspaceInspector({
 
 	return (
 		<div className="flex min-h-72 flex-col">
-			<div
+			<Tabs
 				aria-label="Writing tools"
-				className="flex border-border border-b"
-				role="tablist"
+				className="min-h-72 gap-0"
+				onValueChange={(value) => setTab(value as InspectorTab)}
+				value={tab}
 			>
-				<TabButton active={tab === "insert"} id="insert" onClick={setTab}>
-					Insert
-				</TabButton>
-				<TabButton active={tab === "document"} id="document" onClick={setTab}>
-					Document
-				</TabButton>
-				<TabButton
-					active={tab === "references"}
-					id="references"
-					onClick={setTab}
+				<TabsList
+					className="w-full rounded-none border-border border-b p-0"
+					variant="line"
 				>
-					References
-				</TabButton>
-			</div>
-			<div
-				aria-labelledby={`${tab}-tab`}
-				className="flex-1 p-3"
-				id={`${tab}-panel`}
-				role="tabpanel"
-			>
-				{tab === "insert" ? (
+					<TabsTrigger value="insert">Insert</TabsTrigger>
+					<TabsTrigger value="document">Document</TabsTrigger>
+					<TabsTrigger value="references">References</TabsTrigger>
+				</TabsList>
+				<TabsContent className="p-3" value="insert">
 					<InsertPanel
 						actions={actions}
 						context={actionContext}
 						editor={editor}
 					/>
-				) : null}
-				{tab === "document" ? (
+				</TabsContent>
+				<TabsContent className="p-3" value="document">
 					<DocumentPanel
 						details={details}
 						document={document}
@@ -179,43 +174,17 @@ function WorkspaceInspector({
 						organization={organization}
 						tags={tags}
 					/>
-				) : null}
-				{tab === "references" ? (
+				</TabsContent>
+				<TabsContent className="p-3" value="references">
 					<ReferencesPanel
 						actions={actions}
 						context={actionContext}
 						editor={editor}
 						references={references}
 					/>
-				) : null}
-			</div>
+				</TabsContent>
+			</Tabs>
 		</div>
-	);
-}
-
-function TabButton({
-	active,
-	children,
-	id,
-	onClick,
-}: {
-	active: boolean;
-	children: React.ReactNode;
-	id: InspectorTab;
-	onClick: (tab: InspectorTab) => void;
-}) {
-	return (
-		<button
-			aria-controls={`${id}-panel`}
-			aria-selected={active}
-			className="flex-1 border-transparent border-b-2 px-1 py-2 font-medium text-muted-foreground text-xs hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 aria-selected:border-primary aria-selected:text-foreground"
-			onClick={() => onClick(id)}
-			id={`${id}-tab`}
-			role="tab"
-			type="button"
-		>
-			{children}
-		</button>
 	);
 }
 
@@ -229,23 +198,44 @@ function InsertPanel({
 	editor: Editor | null;
 }) {
 	const items: {
+		description: string;
 		id: EditorActionId;
 		icon: typeof Table2Icon;
 		label: string;
 	}[] = [
-		{ icon: Table2Icon, id: "table", label: "Table" },
-		{ icon: MinusIcon, id: "divider", label: "Divider" },
-		{ icon: BookOpenIcon, id: "bible", label: "Bible Passage" },
-		{ icon: QuoteIcon, id: "citation", label: "Citation" },
+		{
+			description: "Insert a table into your document",
+			icon: Table2Icon,
+			id: "table",
+			label: "Table",
+		},
+		{
+			description: "Add a visual section divider",
+			icon: MinusIcon,
+			id: "divider",
+			label: "Divider",
+		},
+		{
+			description: "Insert a Scripture reference",
+			icon: BookOpenIcon,
+			id: "bible",
+			label: "Bible Passage",
+		},
+		{
+			description: "Add a citation or source",
+			icon: QuoteIcon,
+			id: "citation",
+			label: "Citation",
+		},
 	];
 	const available = new Set(actions.map((action) => action.id));
 	return (
 		<div className="grid gap-1">
 			{items
 				.filter((item) => available.has(item.id))
-				.map(({ icon: Icon, id, label }) => (
+				.map(({ description, icon: Icon, id, label }) => (
 					<button
-						className="flex items-center gap-2 rounded-sm px-2 py-2 text-left text-xs hover:bg-muted disabled:opacity-40"
+						className="flex items-start gap-2 rounded-sm px-2 py-2 text-left hover:bg-muted disabled:opacity-40"
 						disabled={!editor}
 						key={id}
 						onClick={() =>
@@ -253,13 +243,20 @@ function InsertPanel({
 						}
 						type="button"
 					>
-						<Icon aria-hidden="true" className="size-4 text-muted-foreground" />
-						{label}
+						<Icon
+							aria-hidden="true"
+							className="mt-0.5 size-4 text-muted-foreground"
+						/>
+						<span className="grid gap-0.5">
+							<span className="font-medium text-foreground text-xs">
+								{label}
+							</span>
+							<span className="text-muted-foreground text-xs">
+								{description}
+							</span>
+						</span>
 					</button>
 				))}
-			<p className="px-2 py-2 text-muted-foreground text-xs">
-				More insert options will appear here as they are enabled.
-			</p>
 		</div>
 	);
 }
@@ -467,7 +464,13 @@ function ReferenceRow({
 }
 function focusHeading(editor: Editor | null, index: number) {
 	const position = findNodePosition(editor, "heading", index);
-	if (position !== null) editor?.commands.focus(position);
+	if (position !== null)
+		editor
+			?.chain()
+			.focus()
+			.setTextSelection(position + 1)
+			.scrollIntoView()
+			.run();
 }
 function focusStructuredNode(
 	editor: Editor | null,
@@ -475,7 +478,8 @@ function focusStructuredNode(
 	index: number,
 ) {
 	const position = findNodePosition(editor, type, index);
-	if (position !== null) editor?.commands.setNodeSelection(position);
+	if (position !== null)
+		editor?.chain().focus().setNodeSelection(position).scrollIntoView().run();
 }
 
 function removeStructuredNode(
