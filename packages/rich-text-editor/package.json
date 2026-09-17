@@ -17,16 +17,15 @@
 	"scripts": {
 		"build": "tsdown",
 		"check-types": "tsc -p tsconfig.json --noEmit",
-		"test": "vitest run"
+		"test": "testkit-vitest run --config vitest.config.ts"
 	},
 	"devDependencies": {
 		"@berean-study/config": "workspace:*",
 		"@types/react": "catalog:",
 		"@types/react-dom": "catalog:",
-		"jsdom": "^30.0.1",
 		"tsdown": "catalog:",
 		"typescript": "catalog:",
-		"vitest": "^5.0.1"
+		"@berean-study/testkit": "workspace:*"
 	},
 	"dependencies": {
 		"@tiptap/core": "^3.31.3",

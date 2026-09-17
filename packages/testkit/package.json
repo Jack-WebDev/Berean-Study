@@ -1,0 +1,26 @@
+{
+	"name": "@berean-study/testkit",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"description": "Shared test configuration for Berean Study packages.",
+	"exports": {
+		"./vitest": {
+			"default": "./src/vitest.ts"
+		}
+	},
+	"bin": {
+		"testkit-vitest": "./bin/testkit-vitest.mjs"
+	},
+	"scripts": {
+		"check-types": "tsc -p tsconfig.json --noEmit"
+	},
+	"dependencies": {
+		"jsdom": "^30.0.1",
+		"vitest": "^5.0.1"
+	},
+	"devDependencies": {
+		"@berean-study/config": "workspace:*",
+		"typescript": "catalog:"
+	}
+}
