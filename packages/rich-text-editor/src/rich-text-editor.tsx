@@ -12,7 +12,10 @@ import type { RichTextDocument, RichTextEditorProps } from "./types";
 
 export function RichTextEditor({
 	ariaLabel = "Rich text editor",
+	className,
+	contentClassName,
 	editable = true,
+	footer,
 	id,
 	onChange,
 	onEditorReady,
@@ -65,7 +68,14 @@ export function RichTextEditor({
 	if (!editor) return null;
 
 	return (
-		<section className="relative overflow-hidden rounded-md border border-border bg-card text-card-foreground">
+		<section
+			className={[
+				"relative overflow-hidden rounded-md border border-border bg-card text-card-foreground",
+				className,
+			]
+				.filter(Boolean)
+				.join(" ")}
+		>
 			{editable ? (
 				<EditorToolbar
 					editor={editor}
@@ -76,7 +86,15 @@ export function RichTextEditor({
 					preset={preset}
 				/>
 			) : null}
-			<EditorContent className={richTextContentClassName} editor={editor} />
+			<EditorContent
+				className={[richTextContentClassName, contentClassName]
+					.filter(Boolean)
+					.join(" ")}
+				editor={editor}
+			/>
+			{footer ? (
+				<footer className="border-border border-t">{footer}</footer>
+			) : null}
 			{editable ? (
 				<SlashCommandMenu
 					editor={editor}

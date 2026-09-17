@@ -22,6 +22,7 @@ export function NewNotePage({
 		const data = {
 			content: serializeNoteContent(values.content),
 			passageId,
+			title: values.title.trim(),
 		};
 		const note = createdNoteId.current
 			? await updateNote({ data: { ...data, id: createdNoteId.current } })
@@ -34,7 +35,7 @@ export function NewNotePage({
 
 	return (
 		<div className="min-h-full bg-background px-4 py-6 text-foreground sm:px-6 lg:px-8">
-			<div className="mx-auto w-full max-w-[90rem]">
+			<div className="mx-auto w-full max-w-340">
 				<header>
 					<Link
 						className="inline-flex items-center gap-2 font-medium text-primary text-xs hover:underline"
@@ -43,10 +44,10 @@ export function NewNotePage({
 						<ArrowLeftIcon aria-hidden="true" className="size-3.5" />
 						Notes <span className="text-muted-foreground">/ Create note</span>
 					</Link>
-					<h1 className="mt-4 font-serif text-3xl tracking-[-0.03em] sm:text-[2.7rem]">
+					<h1 className="mt-3 font-serif text-3xl leading-10 tracking-[-0.03em] sm:text-4xl">
 						New Note
 					</h1>
-					<p className="mt-1 font-serif text-muted-foreground text-sm leading-6 sm:text-base">
+					<p className="mt-1 font-serif text-muted-foreground text-sm leading-5 sm:text-base">
 						Capture what you’re learning from Scripture with clarity and
 						purpose.
 					</p>
@@ -56,6 +57,7 @@ export function NewNotePage({
 						content: emptyNoteDocument,
 						passageId: initialPassageId?.toString() ?? "",
 						tags: [],
+						title: "",
 					}}
 					onCancel={() =>
 						returnPassageId

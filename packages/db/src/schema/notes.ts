@@ -31,6 +31,8 @@ export const notes = pgTable(
 			{ onDelete: "set null" },
 		),
 
+		title: text().notNull().default(""),
+
 		content: text().notNull(),
 
 		createdAt: timestamp("created_at", { withTimezone: true })

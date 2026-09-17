@@ -1,12 +1,11 @@
-import type {
-	RichTextDocument,
-	RichTextNode,
-} from "@berean-study/rich-text-editor/types";
+import {
+	emptyRichTextDocument,
+	hasRichTextContent,
+	type RichTextDocument,
+	type RichTextNode,
+} from "@berean-study/rich-text-editor";
 
-export const emptyNoteDocument: RichTextDocument = {
-	content: [{ type: "paragraph" }],
-	type: "doc",
-};
+export const emptyNoteDocument = emptyRichTextDocument;
 
 /**
  * Notes keep their structured document as JSON in the established text column.
@@ -41,7 +40,7 @@ export function getNoteContentText(content: string) {
 }
 
 export function hasNoteContent(document: RichTextDocument) {
-	return getDocumentText(document).trim().length > 0;
+	return hasRichTextContent(document);
 }
 
 function getDocumentText(document: RichTextDocument) {

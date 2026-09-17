@@ -1,4 +1,4 @@
-import type { RichTextDocument } from "./types";
+import type { RichTextDocument, RichTextNode } from "./types";
 
 export const emptyRichTextDocument: RichTextDocument = {
 	content: [{ type: "paragraph" }],
@@ -15,4 +15,15 @@ export function normalizeRichTextDocument(value: unknown): RichTextDocument {
 	return document.type === "doc" && Array.isArray(document.content)
 		? (document as RichTextDocument)
 		: emptyRichTextDocument;
+}
+
+/** Returns whether a document contains user-authored text or a structured inline reference. */
+export function hasRichTextContent(document: RichTextDocument) {
+	return hasMeaningfulNode(document);
+}
+
+function hasMeaningfulNode(node: RichTextNode): boolean {
+	if (typeof node.text === "string" && node.text.trim()) return true;
+	if (node.type === "bibleReference" || node.type === "citation") return true;
+	return Array.isArray(node.content) && node.content.some(hasMeaningfulNode);
 }

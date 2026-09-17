@@ -1,7 +1,7 @@
 import {
 	getWordCount,
 	type RichTextDocument,
-	RichTextEditor,
+	RichTextEditorWorkspace,
 	RichTextRenderer,
 } from "@berean-study/rich-text-editor";
 import {
@@ -15,6 +15,14 @@ import {
 	AlertDialogTitle,
 } from "@berean-study/ui/components/alert-dialog";
 import { Button } from "@berean-study/ui/components/button";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@berean-study/ui/components/dialog";
 import { FieldError } from "@berean-study/ui/components/field";
 import { Input } from "@berean-study/ui/components/input";
 import {
@@ -23,11 +31,13 @@ import {
 } from "@berean-study/ui/components/native-select";
 import { Spinner } from "@berean-study/ui/components/spinner";
 import { useForm } from "@tanstack/react-form";
+import { Link } from "@tanstack/react-router";
 import {
 	BookOpenIcon,
-	CircleHelpIcon,
+	CopyIcon,
+	ExternalLinkIcon,
 	FileTextIcon,
-	LightbulbIcon,
+	LinkIcon,
 	PlusIcon,
 	SaveIcon,
 	TagIcon,
@@ -41,11 +51,11 @@ import {
 	type NoteFormValues,
 } from "./note-autosave-status";
 import { hasNoteContent } from "./note-content";
-import { NoteStudyContext } from "./note-study-context";
 
 type PassageOption = Awaited<ReturnType<typeof getPassageOptions>>[number];
 type NoteEditorMode = "preview" | "write";
 const noteFormSchema = z.object({
+	title: z.string().trim().min(1, "Enter a title for your note.").max(200),
 	content: z
 		.custom<RichTextDocument>(
 			(value) =>
@@ -79,6 +89,14 @@ export function NoteForm({
 	const [submitError, setSubmitError] = useState<string | null>(null);
 	const [discardDialogOpen, setDiscardDialogOpen] = useState(false);
 	const [editorMode, setEditorMode] = useState<NoteEditorMode>("write");
+	const [autosaveStatus, setAutosaveStatus] = useState<
+		"idle" | "saving" | "saved" | "failed"
+	>("saved");
+	const [bibleReferencePickerOpen, setBibleReferencePickerOpen] =
+		useState(false);
+	const bibleReferenceResolver = useRef<
+		((reference: { label: string; passageId: number } | null) => void) | null
+	>(null);
 	const onSubmitRef = useRef(onSubmit);
 	const onAutosaveRef = useRef(onAutosave);
 	const onSaveDraftRef = useRef(onSaveDraft);
@@ -145,11 +163,36 @@ export function NoteForm({
 			active = false;
 		};
 	}, []);
+	useEffect(() => () => bibleReferenceResolver.current?.(null), []);
+	const requestBibleReference = useCallback(
+		() =>
+			new Promise<{ label: string; passageId: number } | null>((resolve) => {
+				bibleReferenceResolver.current?.(null);
+				bibleReferenceResolver.current = resolve;
+				setBibleReferencePickerOpen(true);
+			}),
+		[],
+	);
+	const closeBibleReferencePicker = useCallback((open: boolean) => {
+		setBibleReferencePickerOpen(open);
+		if (!open) {
+			bibleReferenceResolver.current?.(null);
+			bibleReferenceResolver.current = null;
+		}
+	}, []);
+	const selectBibleReference = useCallback((passage: PassageOption) => {
+		bibleReferenceResolver.current?.({
+			label: passage.label,
+			passageId: passage.id,
+		});
+		bibleReferenceResolver.current = null;
+		setBibleReferencePickerOpen(false);
+	}, []);
 
 	return (
 		<>
 			<form
-				className="note-composer mt-6"
+				className="note-composer mt-3"
 				onSubmit={(event) => {
 					event.preventDefault();
 					event.stopPropagation();
@@ -178,86 +221,186 @@ export function NoteForm({
 								/>
 							)}
 						</form.Subscribe>
-						<form.Subscribe selector={(state) => state.values.passageId}>
-							{(passageId) => (
-								<NoteStudyContext compact passageId={passageId} />
-							)}
-						</form.Subscribe>
 					</aside>
 					<main className="note-editor-card">
-						<label className="note-field-label" htmlFor="note-title">
-							Note Title <span aria-hidden="true">*</span>
-						</label>
-						<Input
-							id="note-title"
-							className="note-title-input"
-							placeholder="Enter note title..."
-						/>
 						<form.Field name="content">
 							{(field) => {
 								const error = field.state.meta.errors[0]?.message;
 								return (
-									<div className="mt-5" data-invalid={error ? true : undefined}>
-										<div className="mb-2 flex items-center justify-between gap-3">
-											<label className="note-field-label" htmlFor={field.name}>
-												Content <span aria-hidden="true">*</span>
-											</label>
-											<fieldset className="note-mode-toggle">
-												<legend className="sr-only">Note editor mode</legend>
-												<button
-													aria-pressed={editorMode === "write"}
-													className={
-														editorMode === "write" ? "is-active" : undefined
-													}
-													onClick={() => setEditorMode("write")}
-													type="button"
-												>
-													Write
-												</button>
-												<button
-													aria-pressed={editorMode === "preview"}
-													className={
-														editorMode === "preview" ? "is-active" : undefined
-													}
-													onClick={() => setEditorMode("preview")}
-													type="button"
-												>
-													Preview
-												</button>
-											</fieldset>
-										</div>
+									<div data-invalid={error ? true : undefined}>
 										{editorMode === "write" ? (
-											<RichTextEditor
-												ariaLabel="Note content"
-												editable
-												id={field.name}
-												onChange={field.handleChange}
-												placeholder="Start writing your note here…"
-												preset="member"
-												value={field.state.value}
-											/>
+											<form.Subscribe selector={(state) => state.values.title}>
+												{(title) => (
+													<form.Subscribe
+														selector={(state) => state.isSubmitting}
+													>
+														{(isSubmitting) => (
+															<RichTextEditorWorkspace
+																ariaLabel="Note content"
+																contentClassName="[&_.ProseMirror]:min-h-96"
+																editable
+																editorHeader={
+																	<>
+																		<form.Field name="title">
+																			{(titleField) => (
+																				<NoteTitleField field={titleField} />
+																			)}
+																		</form.Field>
+																		<div className="note-content-heading">
+																			<label
+																				className="note-field-label"
+																				htmlFor={field.name}
+																			>
+																				Content{" "}
+																				<span aria-hidden="true">*</span>
+																			</label>
+																			<EditorModeToggle
+																				editorMode={editorMode}
+																				onChange={setEditorMode}
+																			/>
+																		</div>
+																	</>
+																}
+																footer={
+																	<div className="note-editor-footer">
+																		<span>/ Type / for commands...</span>
+																		<form.Subscribe
+																			selector={(state) =>
+																				getWordCount(state.values.content)
+																			}
+																		>
+																			{(wordCount) => (
+																				<span>{wordCount} words</span>
+																			)}
+																		</form.Subscribe>
+																	</div>
+																}
+																focusedModeStatus={
+																	isSubmitting
+																		? "Saving…"
+																		: focusedSaveStatus(autosaveStatus)
+																}
+																focusedModeTitle={title || "Untitled note"}
+																id={field.name}
+																inspectorFooter={
+																	<div className="note-inspector-footer">
+																		<form.Subscribe
+																			selector={(state) => state.values.tags}
+																		>
+																			{(tags) => (
+																				<DraftTags
+																					tags={tags}
+																					onChange={(nextTags) =>
+																						form.setFieldValue("tags", nextTags)
+																					}
+																				/>
+																			)}
+																		</form.Subscribe>
+																		<NoteInspectorDetails
+																			content={field.state.value}
+																		/>
+																	</div>
+																}
+																onChange={field.handleChange}
+																onRequestBibleReference={requestBibleReference}
+																details={
+																	<NoteDetails status={autosaveStatus} />
+																}
+																organization={<NoteOrganization />}
+																placeholder="Start writing your note here…"
+																presentation="composer"
+																preset="member"
+																tags={
+																	<form.Subscribe
+																		selector={(state) => state.values.tags}
+																	>
+																		{(tags) => (
+																			<DraftTags
+																				tags={tags}
+																				onChange={(nextTags) =>
+																					form.setFieldValue("tags", nextTags)
+																				}
+																			/>
+																		)}
+																	</form.Subscribe>
+																}
+																value={field.state.value}
+															/>
+														)}
+													</form.Subscribe>
+												)}
+											</form.Subscribe>
 										) : (
-											<RichTextRenderer
-												ariaLabel="Note content preview"
-												document={field.state.value}
-												preset="member"
-											/>
+											<div className="note-preview-card">
+												<form.Field name="title">
+													{(titleField) => (
+														<NoteTitleField field={titleField} />
+													)}
+												</form.Field>
+												<div className="note-content-heading">
+													<label
+														className="note-field-label"
+														htmlFor={field.name}
+													>
+														Content <span aria-hidden="true">*</span>
+													</label>
+													<EditorModeToggle
+														editorMode={editorMode}
+														onChange={setEditorMode}
+													/>
+												</div>
+												<RichTextRenderer
+													ariaLabel="Note content preview"
+													document={field.state.value}
+													preset="member"
+												/>
+											</div>
 										)}
 										{error ? <FieldError>{error}</FieldError> : null}
 									</div>
 								);
 							}}
 						</form.Field>
-						<form.Subscribe
-							selector={(state) => ({
-								canSubmit: state.canSubmit,
-								isDirty: state.isDirty,
-								isSubmitting: state.isSubmitting,
-								values: state.values,
-							})}
-						>
-							{({ canSubmit, isDirty, isSubmitting, values }) => (
-								<div className="note-save-actions mt-5">
+					</main>
+					<form.Subscribe
+						selector={(state) => ({
+							canSubmit: state.canSubmit,
+							isDirty: state.isDirty,
+							isSubmitting: state.isSubmitting,
+							values: state.values,
+						})}
+					>
+						{({ canSubmit, isDirty, isSubmitting, values }) => (
+							<div className="note-save-actions">
+								{onAutosave ? (
+									<NoteAutosaveStatus
+										initialValues={initialValues}
+										isManualSaveInProgress={isSubmitting}
+										onSave={queueAutosave}
+										onStatusChange={setAutosaveStatus}
+										values={values}
+									/>
+								) : null}
+								<div className="note-save-buttons">
+									<Button
+										disabled={isSubmitting}
+										onClick={() =>
+											isDirty ? setDiscardDialogOpen(true) : onCancel()
+										}
+										type="button"
+										variant="ghost"
+									>
+										Cancel
+									</Button>
+									<Button
+										disabled={!canSubmit || isSubmitting}
+										onClick={() => void queueDraftSave(values)}
+										type="button"
+										variant="outline"
+									>
+										<FileTextIcon aria-hidden="true" data-icon="inline-start" />
+										Save as draft
+									</Button>
 									<Button
 										className="note-primary-save"
 										disabled={!canSubmit || isSubmitting}
@@ -270,103 +413,11 @@ export function NoteForm({
 										)}
 										{submitLabel}
 									</Button>
-									<Button
-										disabled={!canSubmit || isSubmitting}
-										onClick={() => void queueDraftSave(values)}
-										type="button"
-										variant="outline"
-									>
-										<FileTextIcon aria-hidden="true" data-icon="inline-start" />
-										Save as draft
-									</Button>
-									<Button
-										disabled={isSubmitting}
-										onClick={() =>
-											isDirty ? setDiscardDialogOpen(true) : onCancel()
-										}
-										type="button"
-										variant="outline"
-									>
-										Cancel
-									</Button>
-									{onAutosave ? (
-										<NoteAutosaveStatus
-											initialValues={initialValues}
-											isManualSaveInProgress={isSubmitting}
-											onSave={queueAutosave}
-											values={values}
-										/>
-									) : null}
-									{submitError ? <FieldError>{submitError}</FieldError> : null}
 								</div>
-							)}
-						</form.Subscribe>
-					</main>
-					<aside className="note-actions-column" aria-label="Note options">
-						<form.Subscribe selector={(state) => state.values.tags}>
-							{(tags) => (
-								<DraftTags
-									tags={tags}
-									onChange={(nextTags) => form.setFieldValue("tags", nextTags)}
-								/>
-							)}
-						</form.Subscribe>
-						<section className="note-side-card">
-							<h2>
-								<LightbulbIcon aria-hidden="true" /> Study Prompts
-							</h2>
-							<div className="note-prompts">
-								{[
-									"What does this text explicitly say?",
-									"How does this connect canonically?",
-									"What does this mean for my life today?",
-								].map((prompt) => (
-									<button key={prompt} type="button">
-										<CircleHelpIcon aria-hidden="true" />
-										{prompt}
-									</button>
-								))}
+								{submitError ? <FieldError>{submitError}</FieldError> : null}
 							</div>
-							<button className="note-more-prompts" type="button">
-								More study prompts <span aria-hidden="true">→</span>
-							</button>
-						</section>
-						<section className="note-side-card note-details">
-							<h2>
-								<FileTextIcon aria-hidden="true" /> Note Details
-							</h2>
-							<dl>
-								<div>
-									<dt>Created in</dt>
-									<dd>Notes</dd>
-								</div>
-								<div>
-									<dt>Status</dt>
-									<dd>
-										<i />
-										Draft
-									</dd>
-								</div>
-								<div>
-									<dt>Word count</dt>
-									<dd>
-										<form.Subscribe
-											selector={(state) => getWordCount(state.values.content)}
-										>
-											{(wordCount) => `${wordCount} words`}
-										</form.Subscribe>
-									</dd>
-								</div>
-								<div>
-									<dt>Auto-saved</dt>
-									<dd>
-										<i />
-										Just now
-									</dd>
-								</div>
-							</dl>
-						</section>
-					</aside>
+						)}
+					</form.Subscribe>
 				</div>
 			</form>
 			<AlertDialog onOpenChange={setDiscardDialogOpen} open={discardDialogOpen}>
@@ -385,7 +436,143 @@ export function NoteForm({
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
+			<PassagePickerDialog
+				error={
+					hasLoadError ? "Passages are unavailable. Please try again." : null
+				}
+				onOpenChange={closeBibleReferencePicker}
+				onSelect={selectBibleReference}
+				open={bibleReferencePickerOpen}
+				passages={passages}
+			/>
 		</>
+	);
+}
+
+function focusedSaveStatus(status: "idle" | "saving" | "saved" | "failed") {
+	if (status === "saving") return "Saving…";
+	if (status === "failed") return "Save failed";
+	if (status === "idle") return "Unsaved changes";
+	return "Saved";
+}
+
+function NoteTitleField({
+	field,
+}: {
+	field: {
+		handleBlur: () => void;
+		handleChange: (value: string) => void;
+		name: string;
+		state: {
+			meta: { errors: Array<unknown> };
+			value: string;
+		};
+	};
+}) {
+	const firstError = field.state.meta.errors[0];
+	const error =
+		firstError && typeof firstError === "object" && "message" in firstError
+			? String(firstError.message ?? "")
+			: undefined;
+	return (
+		<div data-invalid={error ? true : undefined}>
+			<label className="note-field-label" htmlFor={field.name}>
+				Note Title <span aria-hidden="true">*</span>
+			</label>
+			<Input
+				className="note-title-input"
+				id={field.name}
+				onBlur={field.handleBlur}
+				onChange={(event) => field.handleChange(event.target.value)}
+				placeholder="Enter note title..."
+				value={field.state.value}
+			/>
+			{error ? <FieldError>{error}</FieldError> : null}
+		</div>
+	);
+}
+
+function EditorModeToggle({
+	editorMode,
+	onChange,
+}: {
+	editorMode: NoteEditorMode;
+	onChange: (mode: NoteEditorMode) => void;
+}) {
+	return (
+		<fieldset className="note-mode-toggle">
+			<legend className="sr-only">Note editor mode</legend>
+			<button
+				aria-pressed={editorMode === "write"}
+				className={editorMode === "write" ? "is-active" : undefined}
+				onClick={() => onChange("write")}
+				type="button"
+			>
+				Write
+			</button>
+			<button
+				aria-pressed={editorMode === "preview"}
+				className={editorMode === "preview" ? "is-active" : undefined}
+				onClick={() => onChange("preview")}
+				type="button"
+			>
+				Preview
+			</button>
+		</fieldset>
+	);
+}
+
+function NoteOrganization() {
+	return (
+		<dl className="grid gap-1 text-muted-foreground">
+			<div className="flex justify-between gap-3">
+				<dt>Location</dt>
+				<dd className="text-foreground">Notes</dd>
+			</div>
+		</dl>
+	);
+}
+
+function NoteDetails({
+	status,
+}: {
+	status: "idle" | "saving" | "saved" | "failed";
+}) {
+	return (
+		<dl className="grid gap-1 text-muted-foreground">
+			<div className="flex justify-between gap-3">
+				<dt>Status</dt>
+				<dd className="text-foreground">Draft</dd>
+			</div>
+			<div className="flex justify-between gap-3">
+				<dt>Autosave</dt>
+				<dd className="text-foreground">{focusedSaveStatus(status)}</dd>
+			</div>
+		</dl>
+	);
+}
+
+function NoteInspectorDetails({ content }: { content: RichTextDocument }) {
+	return (
+		<section className="note-side-card note-inspector-details">
+			<h2>
+				<FileTextIcon aria-hidden="true" /> Note Details
+			</h2>
+			<dl>
+				<div>
+					<dt>Created</dt>
+					<dd>Just now</dd>
+				</div>
+				<div>
+					<dt>Last edited</dt>
+					<dd>Just now</dd>
+				</div>
+				<div>
+					<dt>Word count</dt>
+					<dd>{getWordCount(content)} words</dd>
+				</div>
+			</dl>
+		</section>
 	);
 }
 
@@ -403,17 +590,40 @@ function PassageCard({
 	const selected = passages?.find(
 		(passage) => passage.id.toString() === passageId,
 	);
+	const copyReference = () => {
+		if (selected && navigator.clipboard) {
+			void navigator.clipboard.writeText(selected.label);
+		}
+	};
 	return (
 		<section className="note-passage-card">
 			<h2>
 				<BookOpenIcon aria-hidden="true" /> Linked Passage
 			</h2>
-			<div className="note-passage-reference">
-				{selected?.label ?? "Choose a passage"}
-			</div>
-			<p className="note-passage-copy">
-				Select the Scripture passage that your note will remain connected to.
-			</p>
+			{selected ? (
+				<>
+					<Link
+						className="note-passage-preview"
+						search={{ passage: selected.id }}
+						to="/bible"
+					>
+						<span>{selected.label}</span>
+						<ExternalLinkIcon aria-hidden="true" />
+						<small>Open the linked Scripture passage</small>
+					</Link>
+					<p className="note-passage-change-label">
+						<LinkIcon aria-hidden="true" /> Change passage
+					</p>
+				</>
+			) : (
+				<>
+					<h3 className="note-passage-reference">Choose a passage</h3>
+					<p className="note-passage-copy">
+						Select the Scripture passage that your note will remain connected
+						to.
+					</p>
+				</>
+			)}
 			<NativeSelect
 				aria-label="Linked passage"
 				disabled={passages === null || Boolean(error)}
@@ -430,9 +640,23 @@ function PassageCard({
 				))}
 			</NativeSelect>
 			{error ? <FieldError>{error}</FieldError> : null}
-			<button className="note-browse-scripture" type="button">
-				Browse Scripture <span aria-hidden="true">→</span>
-			</button>
+			{selected ? (
+				<div className="note-passage-actions">
+					<Link search={{ passage: selected.id }} to="/bible">
+						<BookOpenIcon aria-hidden="true" /> Open in reader
+					</Link>
+					<button onClick={copyReference} type="button">
+						<CopyIcon aria-hidden="true" /> Copy reference
+					</button>
+					<Link search={{ passage: selected.id }} to="/bible">
+						<ExternalLinkIcon aria-hidden="true" /> View context
+					</Link>
+				</div>
+			) : (
+				<Link className="note-browse-scripture" to="/bible">
+					Browse Scripture <span aria-hidden="true">→</span>
+				</Link>
+			)}
 		</section>
 	);
 }
@@ -462,6 +686,7 @@ function DraftTags({
 			<h2>
 				<TagIcon aria-hidden="true" /> Tags
 			</h2>
+			<p>Add tags to organize your notes.</p>
 			<Input
 				onChange={(event) => setValue(event.target.value)}
 				onKeyDown={(event) => {
@@ -470,7 +695,7 @@ function DraftTags({
 						addTag();
 					}
 				}}
-				placeholder="Add tags (press Enter)..."
+				placeholder="Add a tag..."
 				value={value}
 			/>
 			<div className="note-tag-list">
@@ -489,5 +714,73 @@ function DraftTags({
 				<PlusIcon aria-hidden="true" /> Add tag
 			</button>
 		</section>
+	);
+}
+
+function PassagePickerDialog({
+	error,
+	onOpenChange,
+	onSelect,
+	open,
+	passages,
+}: {
+	error: string | null;
+	onOpenChange: (open: boolean) => void;
+	onSelect: (passage: PassageOption) => void;
+	open: boolean;
+	passages: PassageOption[] | null;
+}) {
+	const [passageId, setPassageId] = useState("");
+	const selectedPassage = passages?.find(
+		(passage) => passage.id.toString() === passageId,
+	);
+
+	useEffect(() => {
+		if (open) setPassageId("");
+	}, [open]);
+
+	return (
+		<Dialog onOpenChange={onOpenChange} open={open}>
+			<DialogContent>
+				<DialogHeader>
+					<DialogTitle>Insert Bible passage</DialogTitle>
+					<DialogDescription>
+						Choose the Scripture passage to reference in this note.
+					</DialogDescription>
+				</DialogHeader>
+				<NativeSelect
+					aria-label="Bible passage"
+					disabled={passages === null || Boolean(error)}
+					onChange={(event) => setPassageId(event.target.value)}
+					value={passageId}
+				>
+					<NativeSelectOption value="">
+						{passages === null ? "Loading passages…" : "Choose a passage"}
+					</NativeSelectOption>
+					{passages?.map((passage) => (
+						<NativeSelectOption key={passage.id} value={passage.id}>
+							{passage.label}
+						</NativeSelectOption>
+					))}
+				</NativeSelect>
+				{error ? <FieldError>{error}</FieldError> : null}
+				<DialogFooter>
+					<Button
+						onClick={() => onOpenChange(false)}
+						type="button"
+						variant="outline"
+					>
+						Cancel
+					</Button>
+					<Button
+						disabled={!selectedPassage}
+						onClick={() => selectedPassage && onSelect(selectedPassage)}
+						type="button"
+					>
+						Insert passage
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
 	);
 }

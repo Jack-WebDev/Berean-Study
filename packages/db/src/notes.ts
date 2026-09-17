@@ -12,6 +12,7 @@ type DbClient = ReturnType<typeof createDb>;
 export type CreateNoteInput = {
 	content: string;
 	passageId?: number | null;
+	title: string;
 };
 
 export type UpdateNoteInput = CreateNoteInput;
@@ -48,6 +49,7 @@ const noteSelection = {
 	id: notes.id,
 	passageId: notes.passageId,
 	passageTitle: passages.title,
+	title: notes.title,
 	updatedAt: notes.updatedAt,
 };
 
@@ -80,6 +82,7 @@ export async function listNotes(
 	if (input.query) {
 		const query = `%${escapeLikePattern(input.query)}%`;
 		const searchCondition = or(
+			ilike(notes.title, query),
 			ilike(notes.content, query),
 			ilike(books.name, query),
 			ilike(passages.title, query),

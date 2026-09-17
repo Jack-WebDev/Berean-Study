@@ -13,6 +13,8 @@ import {
 import type { Editor } from "@tiptap/core";
 import {
 	BookOpenIcon,
+	ChevronRightIcon,
+	EllipsisIcon,
 	Maximize2Icon,
 	Minimize2Icon,
 	MinusIcon,
@@ -46,6 +48,7 @@ type InspectorTab = "insert" | "document" | "references";
  */
 export function RichTextEditorWorkspace({
 	details,
+	editorHeader,
 	focusedModeStatus,
 	focusedModeTitle,
 	onChange,
@@ -53,6 +56,8 @@ export function RichTextEditorWorkspace({
 	onRequestBibleReference,
 	onRequestCitation,
 	organization,
+	inspectorFooter,
+	presentation = "default",
 	preset = "member",
 	tags,
 	value,
@@ -141,6 +146,7 @@ export function RichTextEditorWorkspace({
 					: "min-w-0"
 			}
 			data-focused={isFocused || undefined}
+			data-presentation={presentation}
 		>
 			<header
 				className={
@@ -190,16 +196,21 @@ export function RichTextEditorWorkspace({
 				className={
 					isFocused
 						? "flex min-h-0 flex-1"
-						: "grid min-w-0 gap-4 md:grid-cols-[minmax(0,1fr)_17rem]"
+						: "grid min-w-0 gap-2.5 lg:grid-cols-[minmax(0,1fr)_16.5rem]"
 				}
 			>
 				<div
 					className={
 						isFocused
 							? "mx-auto w-full min-w-0 max-w-[52rem] overflow-y-auto px-4 py-6 sm:px-6"
-							: "min-w-0"
+							: presentation === "composer"
+								? "min-w-0 overflow-hidden rounded-lg border border-border bg-card shadow-sm"
+								: "min-w-0"
 					}
 				>
+					{!isFocused && editorHeader ? (
+						<div className="p-4 pb-3">{editorHeader}</div>
+					) : null}
 					<div className={isFocused ? "hidden" : "mb-2 flex justify-end"}>
 						<button
 							aria-label="Focus editor"
@@ -228,6 +239,11 @@ export function RichTextEditorWorkspace({
 					</div>
 					<RichTextEditor
 						{...editorProps}
+						className={
+							presentation === "composer"
+								? "rounded-none border-x-0 border-b-0"
+								: undefined
+						}
 						onChange={handleChange}
 						onEditorReady={handleEditorReady}
 						onRequestBibleReference={onRequestBibleReference}
@@ -242,19 +258,28 @@ export function RichTextEditorWorkspace({
 							? isWideLayout && focusedInspectorOpen
 								? "w-72 shrink-0 overflow-y-auto border-border border-l bg-card"
 								: "hidden"
-							: "hidden min-h-0 border border-border bg-card lg:block"
+							: "hidden min-h-0 flex-col gap-2.5 lg:flex"
 					}
 				>
-					<WorkspaceInspector
-						details={details}
-						document={document}
-						editor={editor}
-						organization={organization}
-						actionContext={actionContext}
-						onTabChange={setInspectorTab}
-						tab={inspectorTab}
-						tags={tags}
-					/>
+					<div
+						className={
+							isFocused
+								? undefined
+								: "overflow-hidden rounded-lg border border-border bg-card shadow-sm"
+						}
+					>
+						<WorkspaceInspector
+							details={details}
+							document={document}
+							editor={editor}
+							organization={organization}
+							actionContext={actionContext}
+							onTabChange={setInspectorTab}
+							tab={inspectorTab}
+							tags={tags}
+						/>
+					</div>
+					{!isFocused ? inspectorFooter : null}
 				</aside>
 			</div>
 			<Sheet
@@ -417,7 +442,7 @@ function InsertPanel({
 				.filter((item) => available.has(item.id))
 				.map(({ description, icon: Icon, id, label }) => (
 					<button
-						className="flex items-start gap-2 rounded-sm px-2 py-2 text-left hover:bg-muted disabled:opacity-40"
+						className="flex items-start gap-2 rounded-md border border-border/70 bg-muted/20 px-3 py-3 text-left transition-colors hover:bg-muted disabled:opacity-40"
 						disabled={!editor}
 						key={id}
 						onClick={() =>
@@ -429,16 +454,36 @@ function InsertPanel({
 							aria-hidden="true"
 							className="mt-0.5 size-4 text-muted-foreground"
 						/>
-						<span className="grid gap-0.5">
+						<span className="grid flex-1 gap-0.5">
 							<span className="font-medium text-foreground text-xs">
 								{label}
 							</span>
+							<ChevronRightIcon
+								aria-hidden="true"
+								className="mt-1 size-3.5 text-muted-foreground"
+							/>
 							<span className="text-muted-foreground text-xs">
 								{description}
 							</span>
 						</span>
 					</button>
 				))}
+			<div className="flex items-start gap-2 rounded-md border border-border/70 bg-muted/20 px-3 py-3 text-left">
+				<EllipsisIcon
+					aria-hidden="true"
+					className="mt-0.5 size-4 text-muted-foreground"
+				/>
+				<span className="grid flex-1 gap-0.5">
+					<span className="font-medium text-foreground text-xs">More</span>
+					<span className="text-muted-foreground text-xs">
+						Explore more insert options
+					</span>
+				</span>
+				<ChevronRightIcon
+					aria-hidden="true"
+					className="mt-1 size-3.5 text-muted-foreground"
+				/>
+			</div>
 		</div>
 	);
 }

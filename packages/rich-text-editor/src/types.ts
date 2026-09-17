@@ -38,7 +38,10 @@ export type RichTextSelectionResult =
  */
 export type RichTextEditorProps = {
 	ariaLabel?: string;
+	className?: string;
+	contentClassName?: string;
 	editable?: boolean;
+	footer?: ReactNode;
 	id?: string;
 	onChange: (document: RichTextDocument) => void;
 	/** Opens a host-owned passage picker; the editor only inserts its result. */
@@ -68,6 +71,8 @@ export type RichTextRendererProps = {
 };
 
 export type RichTextEditorWorkspaceProps = RichTextEditorProps & {
+	/** Optional controls rendered above the writing surface. */
+	editorHeader?: ReactNode;
 	/** Host-provided context displayed only in the focused workspace header. */
 	focusedModeTitle?: ReactNode;
 	/** Host-owned save status displayed only in the focused workspace header. */
@@ -78,4 +83,8 @@ export type RichTextEditorWorkspaceProps = RichTextEditorProps & {
 	organization?: ReactNode;
 	/** Host-rendered resource details, such as status and timestamps. */
 	details?: ReactNode;
+	/** Supporting content displayed beneath the desktop inspector. */
+	inspectorFooter?: ReactNode;
+	/** Visual arrangement for a dedicated writing composer. */
+	presentation?: "composer" | "default";
 };

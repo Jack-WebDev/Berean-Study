@@ -43,6 +43,7 @@ export function EditNotePage({ noteId }: { noteId: number }) {
 				content: serializeNoteContent(values.content),
 				id: noteId,
 				passageId: values.passageId ? Number(values.passageId) : null,
+				title: values.title.trim(),
 			},
 		});
 		if (!updatedNote) throw new Error("Note not found.");
@@ -86,6 +87,7 @@ export function EditNotePage({ noteId }: { noteId: number }) {
 								content: parseNoteContent(note.content),
 								passageId: note.passageId?.toString() ?? "",
 								tags: note.tags.map((tag) => tag.name),
+								title: note.title || "Untitled note",
 							}}
 							key={note.id}
 							onCancel={() =>

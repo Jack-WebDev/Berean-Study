@@ -70,7 +70,7 @@ export function NotesList({
 						type="button"
 					>
 						<span className="notes-list-title truncate">
-							{notePreview(note.content).split(/[.!?]/)[0] || "Untitled note"}
+							{note.title || "Untitled note"}
 						</span>
 						<span className="flex min-w-0 items-center gap-2 text-primary text-xs">
 							<BookOpenIcon aria-hidden="true" className="size-3.5 shrink-0" />

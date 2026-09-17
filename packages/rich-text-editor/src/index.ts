@@ -15,6 +15,7 @@ export {
 } from "./document-utils";
 export {
 	emptyRichTextDocument,
+	hasRichTextContent,
 	normalizeRichTextDocument,
 } from "./document-validation";
 export {
