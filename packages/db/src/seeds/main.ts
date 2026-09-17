@@ -1,5 +1,7 @@
+import { sql } from "drizzle-orm";
+
 import * as seeds from "./index";
-import { createSeedContext } from "./utils";
+import { createSeedContext, db } from "./utils";
 
 type Seed = (
 	context: ReturnType<typeof createSeedContext>,
@@ -63,7 +65,19 @@ const orderedSeeds: Seed[] = [
 	seeds.seedInterpretiveQuestions,
 	seeds.seedInterpretationViews,
 	seeds.seedLiteraryUnits,
+	seeds.seedCollections,
 	seeds.seedNotes,
+	seeds.seedPrayers,
+	seeds.seedPrayerPassages,
+	seeds.seedPrayerReflections,
+	seeds.seedTestimonies,
+	seeds.seedTestimonyNotes,
+	seeds.seedTestimonyPassages,
+	seeds.seedTestimonyPrayers,
+	seeds.seedCommunityPosts,
+	seeds.seedCommunityPostPassages,
+	seeds.seedCommunityPostBookmarks,
+	seeds.seedCommunityReports,
 	seeds.seedOriginalLanguageNotes,
 	seeds.seedPassageRanges,
 	seeds.seedPersonAliases,
@@ -91,7 +105,63 @@ const orderedSeeds: Seed[] = [
 	seeds.seedWordOccurrences,
 ];
 
-export async function seedAll(count = 50): Promise<void> {
+const seedsByName = new Map(orderedSeeds.map((seed) => [seed.name, seed]));
+
+function toSeedName(value: string): string {
+	const baseName = value
+		.split("/")
+		.at(-1)
+		?.replace(/\.ts$/, "")
+		.replace(/[-_](\w)/g, (_, character: string) => character.toUpperCase());
+
+	if (!baseName) return "";
+	return baseName.startsWith("seed")
+		? baseName
+		: `seed${baseName.charAt(0).toUpperCase()}${baseName.slice(1)}`;
+}
+
+function seedsFromArgs(args: string[]): Seed[] {
+	const requested = args.flatMap((arg, index) => {
+		if (arg.startsWith("--specific=")) {
+			return [arg.split("=", 2)[1] ?? ""];
+		}
+		return arg === "--specific" ? [args[index + 1] ?? ""] : [];
+	});
+
+	if (requested.length === 0) return orderedSeeds;
+
+	return requested.map((value) => {
+		const name = toSeedName(value);
+		const seed = seedsByName.get(name);
+		if (seed) return seed;
+
+		const available = [...seedsByName.keys()]
+			.map((seedName) => seedName.slice(4))
+			.join(", ");
+		throw new Error(`Unknown seed '${value}'. Available seeds: ${available}.`);
+	});
+}
+
+export async function clearSeedData(): Promise<void> {
+	const tables = await db.execute<{ table_name: string }>(sql`
+		SELECT quote_ident(schemaname) || '.' || quote_ident(tablename) AS table_name
+		FROM pg_tables
+		WHERE schemaname = 'public'
+			AND tablename <> '__drizzle_migrations'
+	`);
+
+	const tableNames = tables.rows.map(({ table_name }) => table_name);
+	if (tableNames.length === 0) return;
+
+	await db.execute(
+		sql.raw(`TRUNCATE TABLE ${tableNames.join(", ")} RESTART IDENTITY CASCADE`),
+	);
+}
+
+export async function seedAll(
+	count = 50,
+	seedsToRun = orderedSeeds,
+): Promise<void> {
 	if (!Number.isSafeInteger(count) || count < 2) {
 		throw new Error(
 			"Seed count must be an integer of at least 2 for self-referencing relationships.",
@@ -99,19 +169,31 @@ export async function seedAll(count = 50): Promise<void> {
 	}
 
 	const context = createSeedContext();
-	for (const seed of orderedSeeds) {
+	for (const seed of seedsToRun) {
 		await seed(context, count);
 	}
 }
 
 function countFromArgs(args: string[]): number {
-	const countFlag = args.find((arg) => arg.startsWith("--count="));
+	const countFlag = args.find(
+		(arg) => arg.startsWith("--count=") || arg.startsWith("count="),
+	);
+	const countIndex = args.indexOf("--count");
 	const count =
-		countFlag?.split("=", 2)[1] ?? args[args.indexOf("--count") + 1];
+		countFlag?.split("=", 2)[1] ??
+		(countIndex === -1 ? undefined : args[countIndex + 1]);
 	return count ? Number(count) : 50;
 }
 
-void seedAll(countFromArgs(process.argv.slice(2)))
+async function main(args: string[]): Promise<void> {
+	if (args.includes("--reset")) {
+		await clearSeedData();
+	}
+
+	await seedAll(countFromArgs(args), seedsFromArgs(args));
+}
+
+void main(process.argv.slice(2))
 	.then(() => process.exit(0))
 	.catch((error: unknown) => {
 		console.error(error);

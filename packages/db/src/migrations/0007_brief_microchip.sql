@@ -1,0 +1,1 @@
+ALTER TABLE "notes" ADD CONSTRAINT "notes_id_user_id_unique" UNIQUE("id","user_id");

@@ -16,6 +16,7 @@
 		"db:studio": "drizzle-kit studio",
 		"db:migrate": "drizzle-kit migrate",
 		"db:seed": "tsx src/seeds/main.ts",
+		"db:seed:reset": "tsx src/seeds/main.ts --reset",
 		"db:rollback": "tsx src/scripts/rollback-migration.ts",
 		"db:start": "docker compose up -d",
 		"db:watch": "docker compose up",
@@ -25,6 +26,7 @@
 	"dependencies": {
 		"@berean-study/env": "workspace:*",
 		"@faker-js/faker": "^10.6.0",
+		"better-auth": "catalog:",
 		"dotenv": "catalog:",
 		"drizzle-orm": "^0.45.2",
 		"pg": "^8.22.0",
