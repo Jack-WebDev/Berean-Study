@@ -1,9 +1,9 @@
+export { RichTextEditor } from "./rich-text-editor";
 export type {
 	BibleReferenceAttributes,
 	CitationAttributes,
 	RichTextDocument,
-	RichTextEditorConfig,
+	RichTextEditorProps,
 	RichTextNode,
-	RichTextPreset,
 	RichTextSelectionResult,
 } from "./types";

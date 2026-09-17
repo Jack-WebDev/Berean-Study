@@ -6,18 +6,37 @@
 	"description": "Reusable structured rich-text editor contracts for Berean Study.",
 	"exports": {
 		".": {
-			"default": "./src/index.ts"
+			"types": "./dist/index.d.mts",
+			"import": "./dist/index.mjs"
 		},
 		"./types": {
-			"default": "./src/types.ts"
+			"types": "./dist/types.d.mts",
+			"import": "./dist/types.mjs"
 		}
 	},
 	"scripts": {
-		"check-types": "tsc -p tsconfig.json --noEmit"
+		"build": "tsdown",
+		"check-types": "tsc -p tsconfig.json --noEmit",
+		"test": "vitest run"
 	},
 	"devDependencies": {
 		"@berean-study/config": "workspace:*",
+		"@types/react": "catalog:",
+		"@types/react-dom": "catalog:",
+		"jsdom": "^30.0.1",
+		"tsdown": "catalog:",
 		"typescript": "catalog:",
-		"tsdown": "catalog:"
+		"vitest": "^5.0.1"
+	},
+	"dependencies": {
+		"@tiptap/core": "^3.31.3",
+		"@tiptap/extension-placeholder": "^3.31.3",
+		"@tiptap/extension-text-align": "^3.31.3",
+		"@tiptap/pm": "^3.31.3",
+		"@tiptap/react": "^3.31.3",
+		"@tiptap/starter-kit": "^3.31.3",
+		"lucide-react": "catalog:",
+		"react": "catalog:",
+		"react-dom": "catalog:"
 	}
 }
