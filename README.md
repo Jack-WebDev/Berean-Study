@@ -245,6 +245,27 @@ Open Drizzle Studio:
 pnpm run db:studio
 ```
 
+Seed all data:
+
+```bash
+pnpm run db:seed
+```
+
+Clear all application data (while preserving the database schema and migration history), then seed everything:
+
+```bash
+pnpm run db:seed:reset
+```
+
+Run one seed file by its filename, with or without the `.ts` extension:
+
+```bash
+pnpm db:seed --specific=auth
+pnpm db:seed --specific=auth.ts -- count=10
+```
+
+`--reset` can also be combined with `--specific`, for example `pnpm db:seed --reset --specific=auth`.
+
 ---
 
 ## Development

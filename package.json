@@ -17,6 +17,7 @@
 		"db:migrate": "turbo run db:migrate -F @berean-study/db --",
 		"db:rollback": "turbo run db:rollback -F @berean-study/db --",
 		"db:seed": "turbo run db:seed -F @berean-study/db --",
+		"db:seed:reset": "turbo run db:seed:reset -F @berean-study/db --",
 		"db:start": "turbo run db:start -F @berean-study/db --",
 		"db:watch": "turbo run db:watch -F @berean-study/db --",
 		"db:stop": "turbo run db:stop -F @berean-study/db --",

@@ -50,6 +50,20 @@
 			"when": 1789449168366,
 			"tag": "0006_stiff_magneto",
 			"breakpoints": true
+		},
+		{
+			"idx": 7,
+			"version": "7",
+			"when": 1789534347711,
+			"tag": "0007_brief_microchip",
+			"breakpoints": true
+		},
+		{
+			"idx": 8,
+			"version": "7",
+			"when": 1789534392330,
+			"tag": "0008_unusual_firestar",
+			"breakpoints": true
 		}
 	]
 }

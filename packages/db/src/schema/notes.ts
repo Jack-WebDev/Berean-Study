@@ -6,6 +6,7 @@ import {
 	pgTable,
 	text,
 	timestamp,
+	unique,
 } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
@@ -43,6 +44,7 @@ export const notes = pgTable(
 	},
 	(table) => [
 		index("notes_user_id_passage_id_idx").on(table.userId, table.passageId),
+		unique("notes_id_user_id_unique").on(table.id, table.userId),
 
 		check("notes_content_not_empty_check", sql`btrim(${table.content}) <> ''`),
 	],
