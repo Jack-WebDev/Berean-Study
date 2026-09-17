@@ -4,6 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { getDocumentReferences } from "../src/bible-reference-utils";
+import { RichTextEditor } from "../src/rich-text-editor";
 import { RichTextEditorWorkspace } from "../src/rich-text-editor-workspace";
 import type { RichTextDocument } from "../src/types";
 
@@ -63,8 +64,29 @@ afterEach(() => {
 });
 
 describe("RichTextEditorWorkspace", () => {
+	it("keeps the reusable editor free of workspace chrome", async () => {
+		const container = window.document.createElement("div");
+		window.document.body.append(container);
+		const root = createRoot(container);
+		mounted.push({ container, root });
+
+		await act(async () => {
+			root.render(
+				<RichTextEditor onChange={() => undefined} value={emptyDocument} />,
+			);
+		});
+
+		expect(button(container, "Focus editor")).toBeUndefined();
+		expect(container.textContent).not.toContain("Writing tools");
+	});
+
 	it("uses accessible tabs and respects preset capabilities", async () => {
-		const { container } = await mount({ preset: "member" });
+		const { container } = await mount({
+			details: <span>Host details</span>,
+			organization: <span>Host organization</span>,
+			preset: "member",
+			tags: <span>Host tags</span>,
+		});
 
 		expect(tab(container, "Insert").getAttribute("aria-selected")).toBe("true");
 		expect(button(container, "Table")).toBeTruthy();
@@ -76,6 +98,9 @@ describe("RichTextEditorWorkspace", () => {
 		expect(tab(container, "Document").getAttribute("aria-selected")).toBe(
 			"true",
 		);
+		expect(container.textContent).toContain("Host tags");
+		expect(container.textContent).toContain("Host organization");
+		expect(container.textContent).toContain("Host details");
 
 		const contributor = await mount({
 			onRequestBibleReference: () => ({ label: "John 3:16", passageId: 316 }),

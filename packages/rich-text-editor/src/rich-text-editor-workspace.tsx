@@ -284,11 +284,7 @@ export function RichTextEditorWorkspace({
 }
 
 function useMediaQuery(query: string) {
-	const [matches, setMatches] = useState(() =>
-		typeof window === "undefined" || !window.matchMedia
-			? false
-			: window.matchMedia(query).matches,
-	);
+	const [matches, setMatches] = useState(false);
 
 	useEffect(() => {
 		if (!window.matchMedia) return;

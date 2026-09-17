@@ -2,38 +2,63 @@
 
 `@berean-study/rich-text-editor` is the reusable, structured writing primitive for Berean Study. It owns editing, schema validation, formatting controls, and document rendering. Features own titles, persistence, autosave, pickers, and surrounding layout.
 
-## Use the editor
+## RichTextEditor: reusable editing primitive
 
 ```tsx
 import { RichTextEditor, type RichTextDocument } from "@berean-study/rich-text-editor";
 
 <RichTextEditor
   onChange={(document: RichTextDocument) => setContent(document)}
-  placeholder="Write your prayer…"
+  placeholder="Write your reflection…"
   preset="member"
   value={content}
 />
 ```
 
-Use `preset="member"` for prayers, testimonies, and notes. Use `preset="contributor"` for editorial writing; it additionally enables citations.
+Use `preset="member"` for member-authored writing. Use `preset="contributor"` for editorial writing; it additionally enables citations.
 
 The editor document is Tiptap JSON (`RichTextDocument`). Store that structured JSON as appropriate for the consuming feature; do not flatten it to HTML or text for persistence.
+
+Small consumers use `RichTextEditor` directly. It does not render an inspector, Focused Mode chrome, or resource metadata.
+
+## RichTextEditorWorkspace: optional writing environment
+
+Use `RichTextEditorWorkspace` for a larger writing surface. It wraps the same `RichTextEditor` instance and adds the `EditorInspector` (Insert, Document, and References), responsive inspector access, and temporary Focused Mode.
+
+```tsx
+import { RichTextEditorWorkspace } from "@berean-study/rich-text-editor";
+
+<RichTextEditorWorkspace
+  details={<DocumentDetails saveState={saveState} />}
+  focusedModeStatus={saveState}
+  focusedModeTitle={title}
+  onChange={setContent}
+  organization={<p>Romans study</p>}
+  preset="member"
+  tags={<TagEditor tags={tags} onChange={setTags} />}
+  value={content}
+/>
+```
+
+`tags`, `organization`, `details`, `focusedModeTitle`, and `focusedModeStatus` are host-rendered extension points. The workspace does not persist them, fetch their data, or know about the feature that supplied them.
+
+Focused Mode is a temporary fixed-viewport presentation of the existing workspace. It does not use browser fullscreen, create another editor, or serialize/reconstruct the document. The inspector starts closed in Focused Mode; its active tab is retained when opened.
 
 ## Reuse examples
 
 ```tsx
 <RichTextEditor
-  onChange={setPrayer}
-  placeholder="Write your prayer…"
+  onChange={setReflection}
+  placeholder="Write your reflection…"
   preset="member"
-  value={prayer}
+  value={reflection}
 />
 
 <RichTextEditor
-  onChange={setTestimony}
-  placeholder="Tell your story…"
+  onChange={setJournalEntry}
+  placeholder="Write your journal entry…"
   preset="member"
-  value={testimony}
+  value={journalEntry}
 />
 ```
 
@@ -61,9 +86,7 @@ Render persisted content with the shared schema, not a separate HTML renderer:
 <RichTextRenderer document={content} preset="contributor" />
 ```
 
-Malformed root documents normalize to an empty document. Use `RichTextRenderer` for reader pages and previews. `RichTextEditor` is the focused editing primitive; `RichTextEditorWorkspace` is an optional writing shell with an outline, references, statistics, and host-provided organization/details panels.
-
-Notes use `RichTextEditor` with the member preset and serialize the JSON document at the existing Note persistence boundary. Their Write/Preview control uses `RichTextRenderer`, so preview is the same structured content—not a second model.
+Malformed root documents normalize to an empty document. Use `RichTextRenderer` for reader pages and previews. Its schema is shared with both `RichTextEditor` and `RichTextEditorWorkspace`, so preview is structured content—not a second model.
 
 ## Adding a custom extension
 
