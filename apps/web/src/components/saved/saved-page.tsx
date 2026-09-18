@@ -7,14 +7,12 @@ import {
 	Empty,
 	EmptyDescription,
 	EmptyHeader,
-	EmptyMedia,
 	EmptyTitle,
 } from "@berean-study/ui/components/empty";
 import {
 	ToggleGroup,
 	ToggleGroupItem,
 } from "@berean-study/ui/components/toggle-group";
-import { BookmarkIcon, HighlighterIcon } from "lucide-react";
 
 const savedViews = ["highlights", "bookmarks"] as const;
 
@@ -77,14 +75,13 @@ function HighlightsView({
 		return (
 			<SavedEmptyState
 				description="Highlights you make while reading Scripture will appear here."
-				icon={HighlighterIcon}
 				title="No highlights yet"
 			/>
 		);
 	}
 
 	return (
-		<ul className="overflow-hidden rounded-lg border bg-card">
+		<ul className="border-y">
 			{highlights.map((highlight) => (
 				<li
 					className="border-border border-b px-5 py-4 last:border-b-0"
@@ -107,14 +104,13 @@ function BookmarksView({ bookmarks }: { bookmarks: readonly SavedBookmark[] }) {
 		return (
 			<SavedEmptyState
 				description="Passages you bookmark while studying Scripture will appear here."
-				icon={BookmarkIcon}
 				title="No bookmarks yet"
 			/>
 		);
 	}
 
 	return (
-		<ul className="overflow-hidden rounded-lg border bg-card">
+		<ul className="border-y">
 			{bookmarks.map((bookmark) => (
 				<li
 					className="border-border border-b px-5 py-4 font-medium text-sm last:border-b-0"
@@ -129,19 +125,14 @@ function BookmarksView({ bookmarks }: { bookmarks: readonly SavedBookmark[] }) {
 
 function SavedEmptyState({
 	description,
-	icon: Icon,
 	title,
 }: {
 	description: string;
-	icon: typeof BookmarkIcon;
 	title: string;
 }) {
 	return (
-		<Empty className="min-h-64 border">
+		<Empty className="min-h-64">
 			<EmptyHeader>
-				<EmptyMedia variant="icon">
-					<Icon aria-hidden="true" />
-				</EmptyMedia>
 				<EmptyTitle>{title}</EmptyTitle>
 				<EmptyDescription>{description}</EmptyDescription>
 			</EmptyHeader>

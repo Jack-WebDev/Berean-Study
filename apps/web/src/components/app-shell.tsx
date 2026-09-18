@@ -220,6 +220,7 @@ function NavigationMenuItem({
 	const isParentRoute = pathname === item.href || pathname === `${item.href}/`;
 	const isChildRoute = isCurrentRoute && !isParentRoute;
 	const Icon = item.icon;
+	const submenuId = `navigation-submenu-${item.href.replaceAll("/", "-").slice(1)}`;
 
 	return (
 		<Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
@@ -235,6 +236,7 @@ function NavigationMenuItem({
 					<span>{item.label}</span>
 				</SidebarMenuButton>
 				<CollapsibleTrigger
+					aria-controls={submenuId}
 					aria-expanded={isExpanded}
 					aria-label={`${isExpanded ? "Collapse" : "Expand"} ${item.label} navigation`}
 					render={<SidebarMenuAction />}
@@ -244,7 +246,7 @@ function NavigationMenuItem({
 						className={isExpanded ? "rotate-90" : undefined}
 					/>
 				</CollapsibleTrigger>
-				<CollapsibleContent>
+				<CollapsibleContent id={submenuId} keepMounted>
 					<SidebarMenuSub>
 						{item.children?.map((child) => (
 							<NavigationSubmenuLink

@@ -1,13 +1,14 @@
 import type { RecentLibraryActivity } from "@berean-study/db/recent-library-activity";
 import { Separator } from "@berean-study/ui/components/separator";
 import { Skeleton } from "@berean-study/ui/components/skeleton";
+import { cn } from "@berean-study/ui/lib/utils";
 import { Link } from "@tanstack/react-router";
 import {
 	ArrowRightIcon,
+	BookmarkIcon,
 	FileTextIcon,
 	FolderIcon,
 	HeartIcon,
-	ScrollTextIcon,
 } from "lucide-react";
 
 export type RecentLibraryActivityState =
@@ -21,13 +22,27 @@ export function RecentLibraryActivitySection({
 	state: RecentLibraryActivityState;
 }) {
 	return (
-		<section aria-labelledby="recent-heading" className="max-w-3xl">
-			<h2
-				className="font-serif text-2xl tracking-[-0.015em]"
-				id="recent-heading"
-			>
-				Recent
-			</h2>
+		<section aria-labelledby="recent-heading">
+			<div className="flex items-end justify-between gap-4">
+				<div>
+					<h2
+						className="font-serif text-2xl tracking-[-0.015em]"
+						id="recent-heading"
+					>
+						Recent
+					</h2>
+					<p className="mt-0.5 text-muted-foreground text-sm">
+						Your latest notes, prayers, testimonies, and collections.
+					</p>
+				</div>
+				<Link
+					className="hidden items-center gap-1 font-medium text-primary text-sm hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:inline-flex"
+					to="/history"
+				>
+					View all
+					<ArrowRightIcon aria-hidden="true" className="size-4" />
+				</Link>
+			</div>
 			{state.status === "loading" ? <RecentLibraryActivityLoading /> : null}
 			{state.status === "error" ? <RecentLibraryActivityUnavailable /> : null}
 			{state.status === "ready" ? (
@@ -47,7 +62,7 @@ function RecentLibraryActivityList({
 	items: RecentLibraryActivity[];
 }) {
 	return (
-		<div className="mt-4">
+		<div className="mt-2 border-border border-y">
 			{items.map((item, index) => (
 				<div key={`${item.kind}-${item.id}`}>
 					{index > 0 ? <Separator /> : null}
@@ -59,27 +74,42 @@ function RecentLibraryActivityList({
 }
 
 function RecentLibraryActivityLink({ item }: { item: RecentLibraryActivity }) {
-	const Icon = getActivityIcon(item.kind);
+	const {
+		description,
+		icon: Icon,
+		iconClassName,
+	} = getActivityPresentation(item.kind);
 	const content = (
 		<>
-			<Icon aria-hidden="true" className="size-4 text-muted-foreground" />
+			<span
+				className={cn(
+					"flex size-10 shrink-0 items-center justify-center rounded-full",
+					iconClassName,
+				)}
+			>
+				<Icon aria-hidden="true" className="size-5" strokeWidth={1.8} />
+			</span>
 			<span className="min-w-0 flex-1">
-				<span className="block truncate font-medium text-sm">
-					{getActivityLabel(item)}
-				</span>
+				<span className="block truncate font-medium text-sm">{item.title}</span>
 				<span className="mt-0.5 block text-muted-foreground text-sm">
-					{formatActivityDate(item.updatedAt)}
+					{description}
 				</span>
 			</span>
+			<time
+				className="hidden shrink-0 text-muted-foreground text-sm sm:block"
+				dateTime={item.updatedAt.toISOString()}
+			>
+				{formatActivityDate(item.updatedAt)}
+			</time>
 			<ArrowRightIcon
 				aria-hidden="true"
-				className="size-4 text-muted-foreground"
+				className="size-4 shrink-0 text-primary"
 			/>
 		</>
 	);
 
 	const className =
-		"flex items-center gap-4 py-4 transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+		"flex items-center gap-4 py-2.5 transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 	switch (item.kind) {
 		case "collection":
@@ -125,6 +155,9 @@ function RecentLibraryActivityLoading() {
 			<Separator className="my-4" />
 			<Skeleton className="h-5 w-56" />
 			<Skeleton className="mt-2 h-4 w-20" />
+			<Separator className="my-4" />
+			<Skeleton className="h-5 w-44" />
+			<Skeleton className="mt-2 h-4 w-28" />
 		</div>
 	);
 }
@@ -145,22 +178,33 @@ function RecentLibraryActivityUnavailable() {
 	);
 }
 
-function getActivityIcon(kind: RecentLibraryActivity["kind"]) {
+function getActivityPresentation(kind: RecentLibraryActivity["kind"]) {
 	switch (kind) {
 		case "collection":
-			return FolderIcon;
+			return {
+				description: "Saved study collection",
+				icon: FolderIcon,
+				iconClassName: "library-collection-icon",
+			};
 		case "note":
-			return FileTextIcon;
+			return {
+				description: "Personal study note",
+				icon: FileTextIcon,
+				iconClassName: "library-note-icon",
+			};
 		case "prayer":
-			return HeartIcon;
+			return {
+				description: "Personal prayer",
+				icon: HeartIcon,
+				iconClassName: "library-prayer-icon",
+			};
 		case "testimony":
-			return ScrollTextIcon;
+			return {
+				description: "Personal testimony",
+				icon: BookmarkIcon,
+				iconClassName: "library-saved-icon",
+			};
 	}
-}
-
-function getActivityLabel(item: RecentLibraryActivity) {
-	const kind = item.kind[0].toUpperCase() + item.kind.slice(1);
-	return `${kind}: ${item.title}`;
 }
 
 function formatActivityDate(value: Date) {

@@ -2,7 +2,6 @@ import {
 	Empty,
 	EmptyDescription,
 	EmptyHeader,
-	EmptyMedia,
 	EmptyTitle,
 } from "@berean-study/ui/components/empty";
 import {
@@ -11,8 +10,6 @@ import {
 	TabsList,
 	TabsTrigger,
 } from "@berean-study/ui/components/tabs";
-import type { LucideIcon } from "lucide-react";
-import { HeartIcon, ScrollTextIcon } from "lucide-react";
 
 const faithViews = ["prayers", "testimonies"] as const;
 
@@ -49,14 +46,12 @@ export function FaithRecordsPage({
 					<TabsContent value="prayers">
 						<FaithEmptyState
 							description="Prayers you record during your study will appear here."
-							icon={HeartIcon}
 							title="No prayers yet"
 						/>
 					</TabsContent>
 					<TabsContent value="testimonies">
 						<FaithEmptyState
 							description="Testimonies you record during your study will appear here."
-							icon={ScrollTextIcon}
 							title="No testimonies yet"
 						/>
 					</TabsContent>
@@ -68,19 +63,14 @@ export function FaithRecordsPage({
 
 function FaithEmptyState({
 	description,
-	icon: Icon,
 	title,
 }: {
 	description: string;
-	icon: LucideIcon;
 	title: string;
 }) {
 	return (
-		<Empty className="min-h-64 border">
+		<Empty className="min-h-64">
 			<EmptyHeader>
-				<EmptyMedia variant="icon">
-					<Icon aria-hidden="true" />
-				</EmptyMedia>
 				<EmptyTitle>{title}</EmptyTitle>
 				<EmptyDescription>{description}</EmptyDescription>
 			</EmptyHeader>

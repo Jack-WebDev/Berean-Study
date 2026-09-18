@@ -1,12 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
-
+import type { LibraryDestinationCountsState } from "@/components/library/library-destinations";
 import {
 	type ContinueReadingState,
 	LibraryPage,
 } from "@/components/library/library-page";
 import type { RecentLibraryActivityState } from "@/components/library/recent-library-activity";
-import { getReaderHomeOverview } from "@/functions/get-reader-home-overview";
-import { getRecentLibraryActivity } from "@/functions/get-recent-library-activity";
+import type { RecentlyStudiedState } from "@/components/library/recently-studied";
+import {
+	getContinueReading,
+	getLibraryDestinationCounts,
+	getRecentLibraryActivity,
+	getRecentlyStudied,
+} from "@/functions/get-library-overview";
 
 export const Route = createFileRoute("/_auth/library/")({
 	component: LibraryRoute,
@@ -14,12 +19,26 @@ export const Route = createFileRoute("/_auth/library/")({
 	pendingComponent: LibraryLoadingRoute,
 });
 
+type LibraryData = {
+	continueReading: ContinueReadingState;
+	destinationCounts: LibraryDestinationCountsState;
+	recentActivity: RecentLibraryActivityState;
+	recentlyStudied: RecentlyStudiedState;
+};
+
 function LibraryRoute() {
-	const { continueReading, recentActivity } = Route.useLoaderData();
+	const {
+		continueReading,
+		destinationCounts,
+		recentActivity,
+		recentlyStudied,
+	} = Route.useLoaderData();
 	return (
 		<LibraryPage
 			continueReading={continueReading}
+			destinationCounts={destinationCounts}
 			recentActivity={recentActivity}
+			recentlyStudied={recentlyStudied}
 		/>
 	);
 }
@@ -28,41 +47,66 @@ function LibraryLoadingRoute() {
 	return (
 		<LibraryPage
 			continueReading={{ status: "loading" }}
+			destinationCounts={{ status: "loading" }}
 			recentActivity={{ status: "loading" }}
+			recentlyStudied={{ status: "loading" }}
 		/>
 	);
 }
 
-async function loadLibraryData() {
-	const [continueReading, recentActivity] = await Promise.all([
-		loadContinueReading(),
-		loadRecentLibraryActivity(),
-	]);
+async function loadLibraryData(): Promise<LibraryData> {
+	const [continueReading, destinationCounts, recentActivity, recentlyStudied] =
+		await Promise.all([
+			loadSection(
+				getContinueReading(),
+				(value) => ({
+					...value,
+					status: "ready" as const,
+				}),
+				{ status: "error" },
+			),
+			loadSection(
+				getLibraryDestinationCounts(),
+				(counts) => ({
+					counts,
+					status: "ready" as const,
+				}),
+				{ status: "error" },
+			),
+			loadSection(
+				getRecentLibraryActivity(),
+				(items) => ({
+					items,
+					status: "ready" as const,
+				}),
+				{ status: "error" },
+			),
+			loadSection(
+				getRecentlyStudied(),
+				(items) => ({
+					items,
+					status: "ready" as const,
+				}),
+				{ status: "error" },
+			),
+		]);
 
-	return { continueReading, recentActivity };
+	return {
+		continueReading,
+		destinationCounts,
+		recentActivity,
+		recentlyStudied,
+	};
 }
 
-async function loadContinueReading(): Promise<ContinueReadingState> {
+async function loadSection<Result, State>(
+	request: Promise<Result>,
+	toReadyState: (result: Result) => State,
+	errorState: State,
+): Promise<State> {
 	try {
-		const overview = await getReaderHomeOverview();
-
-		return {
-			continueReading: overview?.continueReading ?? null,
-			lastStudiedAt:
-				overview?.recentlyRead.find(
-					({ passageId }) => passageId === overview.continueReading?.passageId,
-				)?.visitedAt ?? null,
-			status: "ready",
-		};
+		return toReadyState(await request);
 	} catch {
-		return { status: "error" };
-	}
-}
-
-async function loadRecentLibraryActivity(): Promise<RecentLibraryActivityState> {
-	try {
-		return { items: await getRecentLibraryActivity(), status: "ready" };
-	} catch {
-		return { status: "error" };
+		return errorState;
 	}
 }
