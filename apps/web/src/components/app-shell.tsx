@@ -24,6 +24,7 @@ import {
 	SidebarProvider,
 	SidebarSeparator,
 } from "@berean-study/ui/components/sidebar";
+import { cn } from "@berean-study/ui/lib/utils";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { ChevronRightIcon, MoonIcon, SearchIcon, SunIcon } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
@@ -227,7 +228,10 @@ function NavigationMenuItem({
 			<SidebarMenuItem>
 				<SidebarMenuButton
 					aria-current={isParentRoute ? "page" : undefined}
-					className={isChildRoute ? "bg-sidebar-accent/50" : undefined}
+					className={cn(
+						"h-10 rounded-lg px-3 text-sm",
+						isChildRoute && "bg-sidebar-accent/50",
+					)}
 					isActive={isParentRoute}
 					render={<Link to={item.href} />}
 					tooltip={item.label}
@@ -239,7 +243,9 @@ function NavigationMenuItem({
 					aria-controls={submenuId}
 					aria-expanded={isExpanded}
 					aria-label={`${isExpanded ? "Collapse" : "Expand"} ${item.label} navigation`}
-					render={<SidebarMenuAction />}
+					render={
+						<SidebarMenuAction className="peer-data-[size=default]/menu-button:top-2.5" />
+					}
 				>
 					<ChevronRightIcon
 						aria-hidden="true"
@@ -300,6 +306,7 @@ function NavigationSubmenuLink({
 		<SidebarMenuSubItem>
 			<SidebarMenuSubButton
 				aria-current={isActive ? "page" : undefined}
+				className="rounded-md"
 				isActive={isActive}
 				render={<Link to={child.href} />}
 			>
