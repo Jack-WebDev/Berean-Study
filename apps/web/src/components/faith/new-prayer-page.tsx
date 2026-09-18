@@ -1,19 +1,29 @@
 import {
+	emptyRichTextDocument,
 	getWordCount,
 	type RichTextDocument,
-	RichTextEditor,
+	RichTextEditorWorkspace,
+	RichTextRenderer,
 } from "@berean-study/rich-text-editor";
-import { Badge } from "@berean-study/ui/components/badge";
 import { Button } from "@berean-study/ui/components/button";
-import { Card, CardContent } from "@berean-study/ui/components/card";
 import {
 	Field,
 	FieldDescription,
+	FieldError,
 	FieldGroup,
 	FieldLabel,
 } from "@berean-study/ui/components/field";
 import { Input } from "@berean-study/ui/components/input";
-import { Separator } from "@berean-study/ui/components/separator";
+import {
+	InputGroup,
+	InputGroupAddon,
+	InputGroupButton,
+	InputGroupInput,
+} from "@berean-study/ui/components/input-group";
+import {
+	NativeSelect,
+	NativeSelectOption,
+} from "@berean-study/ui/components/native-select";
 import {
 	ToggleGroup,
 	ToggleGroupItem,
@@ -22,412 +32,461 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import {
 	ArrowLeftIcon,
 	BookOpenIcon,
-	Clock3Icon,
-	EyeIcon,
-	LeafIcon,
-	LockIcon,
+	CopyIcon,
+	ExternalLinkIcon,
+	LinkIcon,
 	PlusIcon,
-	SearchIcon,
-	UsersRoundIcon,
+	SaveIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import { getPassageOptions } from "@/functions/passages";
+import { createPrayer } from "@/functions/prayers";
 
-const starterPrayer: RichTextDocument = {
-	type: "doc",
-	content: [
-		{
-			type: "paragraph",
-			content: [
-				{
-					type: "text",
-					text: "Lord, I come to You today with a sincere heart.",
-				},
-			],
-		},
-		{
-			type: "paragraph",
-			content: [
-				{
-					type: "text",
-					text: "Help me discern Your will and trust Your timing. Give me wisdom and clarity as I consider the next steps in my life, and help me to walk in faith, knowing that You are with me.",
-				},
-			],
-		},
-		{
-			type: "paragraph",
-			content: [
-				{
-					type: "text",
-					text: "Teach me to be patient in the waiting and to remain faithful, even when the path is unclear. May Your peace guard my heart and mind as I seek to follow You.",
-				},
-			],
-		},
-		{
-			type: "paragraph",
-			content: [{ type: "text", text: "In Jesus’ name, Amen." }],
-		},
-	],
-};
+type PrayerEditorMode = "preview" | "write";
+export type PassageOption = Awaited<
+	ReturnType<typeof getPassageOptions>
+>[number];
 
 export function NewPrayerPage() {
-	const navigate = useNavigate();
-	const [title, setTitle] = useState("Guidance for next season");
-	const [content, setContent] = useState(starterPrayer);
-	const [visibility, setVisibility] = useState("private");
-	const [category, setCategory] = useState("Guidance");
+	const navigate = useNavigate({ from: "/library/prayers/new" });
+	const [title, setTitle] = useState("");
+	const [content, setContent] = useState<RichTextDocument>(
+		emptyRichTextDocument,
+	);
+	const [category, setCategory] = useState("");
+	const [passageId, setPassageId] = useState("");
+	const [passages, setPassages] = useState<PassageOption[] | null>(null);
+	const [hasPassageLoadError, setHasPassageLoadError] = useState(false);
+	const [editorMode, setEditorMode] = useState<PrayerEditorMode>("write");
+	const [isSaving, setIsSaving] = useState(false);
+	const [submitError, setSubmitError] = useState<string | null>(null);
+
+	useEffect(() => {
+		let active = true;
+		void getPassageOptions()
+			.then((options) => {
+				if (active) setPassages(options);
+			})
+			.catch(() => {
+				if (active) setHasPassageLoadError(true);
+			});
+		return () => {
+			active = false;
+		};
+	}, []);
+
+	const savePrayer = async () => {
+		const trimmedTitle = title.trim();
+		if (!trimmedTitle) {
+			setSubmitError("Enter a title for your prayer.");
+			return;
+		}
+		setIsSaving(true);
+		setSubmitError(null);
+		try {
+			await createPrayer({
+				data: {
+					category: category || null,
+					content: JSON.stringify(content),
+					passageId: passageId ? Number(passageId) : null,
+					title: trimmedTitle,
+				},
+			});
+			toast.success("Prayer saved.");
+			navigate({ to: "/library/prayers" });
+		} catch {
+			setSubmitError("We couldn't save your prayer. Please try again.");
+		} finally {
+			setIsSaving(false);
+		}
+	};
 
 	return (
-		<div className="min-h-full px-5 py-5 sm:px-8 lg:px-12">
-			<main className="mx-auto flex w-full max-w-7xl flex-col gap-3">
-				<header className="relative">
-					<h1 className="font-serif text-4xl text-primary tracking-[-0.035em] sm:text-5xl">
+		<div className="min-h-full bg-background px-4 py-6 text-foreground sm:px-6 lg:px-8">
+			<div className="mx-auto w-full max-w-340">
+				<header>
+					<Link
+						className="inline-flex items-center gap-2 font-medium text-primary text-xs hover:underline"
+						to="/library/prayers"
+					>
+						<ArrowLeftIcon aria-hidden="true" className="size-3.5" />
+						Prayers{" "}
+						<span className="text-muted-foreground">/ Create prayer</span>
+					</Link>
+					<h1 className="mt-3 font-serif text-3xl leading-10 tracking-[-0.03em] sm:text-4xl">
 						New Prayer
 					</h1>
-					<p className="mt-1 text-muted-foreground">
+					<p className="mt-1 font-serif text-muted-foreground text-sm leading-5 sm:text-base">
 						Record a prayer so you can revisit it and reflect on God’s
 						faithfulness over time.
 					</p>
-					<div className="absolute top-0 right-0 hidden w-72 text-center text-muted-foreground text-xs italic leading-4 xl:block">
-						“Do not be anxious about anything, but in everything by prayer and
-						supplication with thanksgiving let your requests be made known to
-						God.”<span className="mt-2 block not-italic">Philippians 4:6</span>
-					</div>
 				</header>
-				<NewPrayerBenefits />
-				<div className="grid gap-3 xl:grid-cols-[minmax(0,1.55fr)_minmax(23rem,.95fr)]">
-					<form
-						className="min-w-0"
-						onSubmit={(event) => {
+				<form
+					className="note-composer mt-3"
+					onKeyDown={(event) => {
+						if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
 							event.preventDefault();
-							navigate({ to: "/library/prayers" });
-						}}
-					>
-						<Card className="gap-0 rounded-xl py-0 shadow-sm ring-foreground/8">
-							<CardContent className="p-4">
-								<Link
-									className="inline-flex items-center gap-2 text-primary text-xs hover:underline"
-									to="/library/prayers"
-								>
-									<ArrowLeftIcon className="size-3.5" />
-									Back to Prayers
-								</Link>
-								<h2 className="mt-3 font-serif text-xl">Prayer Details</h2>
-								<FieldGroup className="mt-2 gap-3">
-									<Field>
-										<FieldLabel htmlFor="prayer-title">Prayer title</FieldLabel>
-										<Input
-											className="h-8 rounded-md"
-											id="prayer-title"
-											onChange={(event) => setTitle(event.target.value)}
-											value={title}
-										/>
-									</Field>
-									<Field>
-										<FieldLabel>Prayer body</FieldLabel>
-										<RichTextEditor
-											ariaLabel="Prayer body"
-											contentClassName="[&_.ProseMirror]:min-h-44 [&_.ProseMirror]:px-5 [&_.ProseMirror]:py-3"
-											footer={
-												<div className="flex justify-end px-3 py-1.5 text-[10px] text-muted-foreground">
-													{getWordCount(content)} words
-												</div>
-											}
-											onChange={setContent}
-											placeholder="Write your prayer…"
-											value={content}
-										/>
-									</Field>
-									<Field>
-										<FieldLabel>Visibility</FieldLabel>
-										<ToggleGroup
-											className="grid w-full grid-cols-2 gap-2"
-											onValueChange={(value) => {
-												if (value) setVisibility(value);
-											}}
-											type="single"
-											value={visibility}
-										>
-											<ToggleGroupItem
-												className="h-auto justify-start rounded-lg border px-3 py-2 text-left data-pressed:border-primary data-pressed:bg-primary/5"
-												value="private"
-											>
-												<LockIcon className="size-4" data-icon="inline-start" />
-												<span>
-													<span className="block font-medium">Private</span>
-													<span className="block font-normal text-[10px] text-muted-foreground">
-														Only you can see this prayer
-													</span>
-												</span>
-											</ToggleGroupItem>
-											<ToggleGroupItem
-												className="h-auto justify-start rounded-lg border px-3 py-2 text-left data-pressed:border-primary data-pressed:bg-primary/5"
-												value="public"
-											>
-												<UsersRoundIcon
-													className="size-4"
-													data-icon="inline-start"
-												/>
-												<span>
-													<span className="block font-medium">Public</span>
-													<span className="block font-normal text-[10px] text-muted-foreground">
-														Others in the community can see this
-													</span>
-												</span>
-											</ToggleGroupItem>
-										</ToggleGroup>
-										<FieldDescription>
-											Choose who can view this prayer. You can reflect on it
-											later.
-										</FieldDescription>
-									</Field>
-									<Field>
-										<FieldLabel>
-											Category{" "}
-											<span className="font-normal text-muted-foreground">
-												(optional)
-											</span>
-										</FieldLabel>
-										<ToggleGroup
-											className="flex w-full flex-wrap gap-2"
-											onValueChange={(value) => {
-												if (value) setCategory(value);
-											}}
-											type="single"
-											value={category}
-										>
-											{[
-												"Guidance",
-												"Family",
-												"Healing",
-												"Work",
-												"Thanksgiving",
-											].map((item) => (
-												<ToggleGroupItem
-													className="h-6 rounded-full bg-muted px-4 text-[11px] data-pressed:bg-primary/10 data-pressed:text-primary"
-													key={item}
-													value={item}
-												>
-													{item}
-												</ToggleGroupItem>
-											))}
-											<Button
-												className="h-6 rounded-full px-3 text-[11px]"
-												size="xs"
-												type="button"
-												variant="outline"
-											>
-												<PlusIcon data-icon="inline-start" />
-												Add custom
-											</Button>
-										</ToggleGroup>
-									</Field>
-									<Field>
-										<FieldLabel htmlFor="scripture">
-											Related Scripture{" "}
-											<span className="font-normal text-muted-foreground">
-												(optional)
-											</span>
-										</FieldLabel>
-										<div className="relative">
-											<SearchIcon className="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
-											<Input
-												className="h-8 rounded-md pl-8"
-												id="scripture"
-												placeholder="Search for a passage (e.g. John 3:16, Psalm 23, faith...)"
+							void savePrayer();
+						}
+					}}
+					onSubmit={(event) => {
+						event.preventDefault();
+						void savePrayer();
+					}}
+				>
+					<div className="prayer-composer-layout">
+						<aside className="note-context-column" aria-label="Passage context">
+							<PrayerPassageCard
+								error={
+									hasPassageLoadError
+										? "Passages are unavailable. Please try again."
+										: undefined
+								}
+								onChange={setPassageId}
+								passageId={passageId}
+								passages={passages}
+							/>
+						</aside>
+						<main className="note-editor-card">
+							{editorMode === "write" ? (
+								<RichTextEditorWorkspace
+									ariaLabel="Prayer content"
+									contentClassName="[&_.ProseMirror]:min-h-96"
+									editable
+									editorHeader={
+										<>
+											<PrayerEditorHeader
+												category={category}
+												onCategoryChange={setCategory}
+												onTitleChange={setTitle}
+												title={title}
 											/>
+											<div className="note-content-heading">
+												<label
+													className="note-field-label"
+													htmlFor="prayer-content"
+												>
+													Prayer <span aria-hidden="true">*</span>
+												</label>
+												<EditorModeToggle
+													editorMode={editorMode}
+													onChange={setEditorMode}
+												/>
+											</div>
+										</>
+									}
+									footer={
+										<div className="note-editor-footer">
+											<span>/ Type / for commands...</span>
+											<span>{getWordCount(content)} words</span>
 										</div>
-									</Field>
-								</FieldGroup>
-								<div className="mt-2 rounded-lg bg-muted/60 px-3 py-2 text-xs">
-									<div className="flex items-start gap-2">
-										<BookOpenIcon className="mt-0.5 size-4 text-primary" />
-										<div>
-											<p className="font-medium">Proverbs 3:5–6</p>
-											<p className="text-[10px] text-muted-foreground leading-3">
-												Trust in the Lord with all your heart, and lean not on
-												your own understanding; in all your ways acknowledge
-												him, and he will make your paths straight.
-											</p>
-										</div>
-									</div>
-								</div>
-								<div className="mt-2 flex items-start gap-2 rounded-lg bg-muted/60 px-3 py-2 text-xs">
-									<BookOpenIcon className="mt-0.5 size-4 text-primary" />
-									<div>
-										<p className="font-medium">Future reflection</p>
-										<p className="text-[10px] text-muted-foreground">
-											After saving this prayer, you can return later to add
-											reflections on how God has worked through it.
-										</p>
-									</div>
-								</div>
-								<div className="mt-3 flex justify-between gap-2">
-									<Button
-										className="rounded-lg"
-										render={<Link to="/library/prayers" />}
-										size="sm"
-										variant="outline"
-									>
-										Cancel
-									</Button>
-									<div className="flex gap-2">
-										<Button
-											className="rounded-lg"
-											size="sm"
-											type="button"
-											variant="outline"
+									}
+									focusedModeStatus={isSaving ? "Saving…" : "Unsaved changes"}
+									focusedModeTitle={title || "Untitled prayer"}
+									id="prayer-content"
+									onChange={setContent}
+									organization={<PrayerOrganization />}
+									placeholder="Write your prayer…"
+									presentation="composer"
+									preset="member"
+									value={content}
+								/>
+							) : (
+								<div className="note-preview-card">
+									<PrayerEditorHeader
+										category={category}
+										onCategoryChange={setCategory}
+										onTitleChange={setTitle}
+										title={title}
+									/>
+									<div className="note-content-heading">
+										<label
+											className="note-field-label"
+											htmlFor="prayer-content-preview"
 										>
-											Save Draft
-										</Button>
-										<Button className="rounded-lg px-5" size="sm" type="submit">
-											<PlusIcon data-icon="inline-start" />
-											Save Prayer
-										</Button>
+											Prayer <span aria-hidden="true">*</span>
+										</label>
+										<EditorModeToggle
+											editorMode={editorMode}
+											onChange={setEditorMode}
+										/>
 									</div>
+									<RichTextRenderer
+										ariaLabel="Prayer content preview"
+										document={content}
+										preset="member"
+									/>
 								</div>
-							</CardContent>
-						</Card>
-					</form>
-					<PrayerPreview
-						category={category}
-						content={content}
-						title={title}
-						visibility={visibility}
-					/>
-				</div>
-			</main>
+							)}
+						</main>
+						<div className="prayer-save-actions">
+							<Button
+								disabled={isSaving}
+								onClick={() => navigate({ to: "/library/prayers" })}
+								type="button"
+								variant="ghost"
+							>
+								Cancel
+							</Button>
+							<div className="note-save-buttons">
+								<Button disabled={isSaving} type="submit">
+									{isSaving ? null : (
+										<SaveIcon aria-hidden="true" data-icon="inline-start" />
+									)}
+									{isSaving ? "Saving…" : "Save prayer"}
+								</Button>
+							</div>
+						</div>
+						{submitError ? <FieldError>{submitError}</FieldError> : null}
+					</div>
+				</form>
+			</div>
 		</div>
 	);
 }
 
-function NewPrayerBenefits() {
-	const benefits = [
-		{
-			icon: LockIcon,
-			title: "Private by default",
-			copy: "Your prayers are private unless you choose to share them.",
-		},
-		{
-			icon: LeafIcon,
-			title: "Linked to study",
-			copy: "Attach Scripture to keep your prayers rooted in God’s Word.",
-		},
-		{
-			icon: Clock3Icon,
-			title: "Reflections later",
-			copy: "Return anytime to add reflections and see how God has worked.",
-		},
-	];
+export function PrayerPassageCard({
+	error,
+	onChange,
+	passageId,
+	passages,
+}: {
+	error?: string;
+	onChange: (value: string) => void;
+	passageId: string;
+	passages: PassageOption[] | null;
+}) {
+	const selected = passages?.find(
+		(passage) => passage.id.toString() === passageId,
+	);
+	const copyReference = () => {
+		if (selected && navigator.clipboard) {
+			void navigator.clipboard.writeText(selected.label);
+		}
+	};
+
 	return (
-		<section className="grid gap-3 md:grid-cols-3" aria-label="Prayer features">
-			{benefits.map(({ icon: Icon, title, copy }) => (
-				<Card
-					className="flex-row items-center gap-3 rounded-xl px-4 py-2.5 shadow-sm ring-foreground/8"
-					key={title}
-				>
-					<div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/8 text-primary">
-						<Icon className="size-5" />
-					</div>
-					<div>
-						<h2 className="font-serif text-sm">{title}</h2>
-						<p className="text-[11px] text-muted-foreground leading-3">
-							{copy}
-						</p>
-					</div>
-				</Card>
-			))}
+		<section className="note-passage-card">
+			<h2>
+				<BookOpenIcon aria-hidden="true" /> Linked Passage
+			</h2>
+			{selected ? (
+				<>
+					<Link
+						className="note-passage-preview"
+						search={{ passage: selected.id }}
+						to="/bible"
+					>
+						<span>{selected.label}</span>
+						<ExternalLinkIcon aria-hidden="true" />
+						<small>Open the linked Scripture passage</small>
+					</Link>
+					<p className="note-passage-change-label">
+						<LinkIcon aria-hidden="true" /> Change passage
+					</p>
+				</>
+			) : (
+				<>
+					<h3 className="note-passage-reference">Choose a passage</h3>
+					<p className="note-passage-copy">
+						Select the Scripture passage that this prayer will remain connected
+						to.
+					</p>
+				</>
+			)}
+			<NativeSelect
+				aria-label="Linked passage"
+				disabled={passages === null || Boolean(error)}
+				onChange={(event) => onChange(event.target.value)}
+				value={passageId}
+			>
+				<NativeSelectOption value="">
+					{passages === null ? "Loading passages…" : "Choose a passage"}
+				</NativeSelectOption>
+				{passages?.map((passage) => (
+					<NativeSelectOption key={passage.id} value={passage.id}>
+						{passage.label}
+					</NativeSelectOption>
+				))}
+			</NativeSelect>
+			{error ? <FieldError>{error}</FieldError> : null}
+			{selected ? (
+				<div className="note-passage-actions">
+					<Link search={{ passage: selected.id }} to="/bible">
+						<BookOpenIcon aria-hidden="true" /> Open in reader
+					</Link>
+					<button onClick={copyReference} type="button">
+						<CopyIcon aria-hidden="true" /> Copy reference
+					</button>
+				</div>
+			) : (
+				<Link className="note-browse-scripture" to="/bible">
+					Browse Scripture <span aria-hidden="true">→</span>
+				</Link>
+			)}
 		</section>
 	);
 }
 
-function PrayerPreview({
+function PrayerTitleField({
+	onChange,
+	value,
+}: {
+	onChange: (value: string) => void;
+	value: string;
+}) {
+	return (
+		<div>
+			<label className="note-field-label" htmlFor="prayer-title">
+				Prayer Title <span aria-hidden="true">*</span>
+			</label>
+			<Input
+				className="note-title-input"
+				id="prayer-title"
+				onChange={(event) => onChange(event.target.value)}
+				placeholder="Enter prayer title..."
+				value={value}
+			/>
+		</div>
+	);
+}
+
+function PrayerEditorHeader({
 	category,
-	content,
+	onCategoryChange,
+	onTitleChange,
 	title,
-	visibility,
 }: {
 	category: string;
-	content: RichTextDocument;
+	onCategoryChange: (value: string) => void;
+	onTitleChange: (value: string) => void;
 	title: string;
-	visibility: string;
 }) {
-	const text =
-		content.content
-			?.flatMap((node) => node.content?.map((child) => child.text ?? "") ?? [])
-			.filter(Boolean) ?? [];
 	return (
-		<aside>
-			<Card className="gap-0 rounded-xl py-2 shadow-sm ring-foreground/8 xl:sticky xl:top-6">
-				<CardContent className="px-2">
-					<div className="h-27 rounded-lg bg-[url('/landing/cta-hills.png')] bg-center bg-cover" />
-					<div className="px-3 pt-2">
-						<p className="flex items-center gap-1 text-muted-foreground text-xs">
-							<EyeIcon className="size-3" /> Preview{" "}
-							<span className="ml-auto text-[10px]">
-								This is how your prayer will appear
-							</span>
-						</p>
-						<h2 className="mt-1 font-serif text-2xl leading-7">
-							{title || "Untitled prayer"}
-						</h2>
-						<div className="mt-1 flex items-center gap-2 text-muted-foreground text-xs">
-							<span>April 24, 2025</span>
-							<Badge className="rounded-full" variant="outline">
-								<LockIcon className="size-3" />
-								{visibility === "private" ? "Private" : "Public"}
-							</Badge>
-						</div>
-						<Badge
-							className="mt-2 rounded-full bg-primary/10 text-primary"
-							variant="secondary"
-						>
-							{category}
-						</Badge>
-						<div className="mt-3 flex flex-col gap-2 text-sm leading-4">
-							{text.map((paragraph, index) => (
-								<p key={`${paragraph}-${index}`}>{paragraph}</p>
-							))}
-						</div>
-						<PreviewSection icon={BookOpenIcon} title="Related Scripture">
-							<p className="font-medium">Proverbs 3:5–6</p>
-							<p>
-								Trust in the Lord with all your heart, and lean not on your own
-								understanding; in all your ways acknowledge him, and he will
-								make your paths straight.
-							</p>
-						</PreviewSection>
-						<PreviewSection icon={Clock3Icon} title="Reflection reminder">
-							<p>Reflections can be added later as you revisit this prayer.</p>
-						</PreviewSection>
-						<Separator className="my-4" />
-						<p className="text-center font-serif text-muted-foreground text-xs italic">
-							Keep it simple. Write honestly. Return later to reflect.
-							<br />
-							God sees your heart, and He is always near.
-						</p>
-					</div>
-				</CardContent>
-			</Card>
-		</aside>
+		<FieldGroup className="gap-3">
+			<Field>
+				<PrayerTitleField onChange={onTitleChange} value={title} />
+			</Field>
+			<PrayerCategories category={category} onChange={onCategoryChange} />
+		</FieldGroup>
 	);
 }
 
-function PreviewSection({
-	children,
-	icon: Icon,
-	title,
+function EditorModeToggle({
+	editorMode,
+	onChange,
 }: {
-	children: React.ReactNode;
-	icon: typeof BookOpenIcon;
-	title: string;
+	editorMode: PrayerEditorMode;
+	onChange: (mode: PrayerEditorMode) => void;
 }) {
 	return (
-		<section className="mt-3 rounded-lg bg-muted/60 p-3 text-muted-foreground text-xs">
-			<h3 className="flex items-center gap-2 font-medium text-foreground">
-				<Icon className="size-4 text-primary" />
-				{title}
-			</h3>
-			<div className="mt-1 leading-3">{children}</div>
-		</section>
+		<fieldset className="note-mode-toggle">
+			<legend className="sr-only">Prayer editor mode</legend>
+			<button
+				aria-pressed={editorMode === "write"}
+				className={editorMode === "write" ? "is-active" : undefined}
+				onClick={() => onChange("write")}
+				type="button"
+			>
+				Write
+			</button>
+			<button
+				aria-pressed={editorMode === "preview"}
+				className={editorMode === "preview" ? "is-active" : undefined}
+				onClick={() => onChange("preview")}
+				type="button"
+			>
+				Preview
+			</button>
+		</fieldset>
+	);
+}
+
+export function PrayerCategories({
+	category,
+	onChange,
+}: {
+	category: string;
+	onChange: (value: string) => void;
+}) {
+	const [customCategory, setCustomCategory] = useState("");
+	const categories = [
+		"Guidance",
+		"Family",
+		"Healing",
+		"Work",
+		"Thanksgiving",
+		...(category &&
+		!["Guidance", "Family", "Healing", "Work", "Thanksgiving"].includes(
+			category,
+		)
+			? [category]
+			: []),
+	];
+	const addCustomCategory = () => {
+		const nextCategory = customCategory.trim();
+		if (!nextCategory) return;
+		onChange(nextCategory);
+		setCustomCategory("");
+	};
+
+	return (
+		<Field>
+			<FieldLabel>Category (optional)</FieldLabel>
+			<ToggleGroup
+				className="flex w-full flex-wrap gap-2"
+				multiple={false}
+				onValueChange={(values) => onChange(values[0] ?? "")}
+				value={category ? [category] : []}
+			>
+				{categories.map((item) => (
+					<ToggleGroupItem
+						className="h-6 rounded-full bg-muted px-3 text-[11px] data-pressed:bg-primary/10 data-pressed:text-primary"
+						key={item}
+						value={item}
+					>
+						{item}
+					</ToggleGroupItem>
+				))}
+			</ToggleGroup>
+			<FieldDescription>
+				{category ? `Selected category: ${category}` : "No category selected."}
+			</FieldDescription>
+			<InputGroup>
+				<InputGroupInput
+					aria-label="Custom category"
+					onChange={(event) => setCustomCategory(event.target.value)}
+					onKeyDown={(event) => {
+						if (event.key !== "Enter") return;
+						event.preventDefault();
+						addCustomCategory();
+					}}
+					placeholder="Add a custom category"
+					value={customCategory}
+				/>
+				<InputGroupAddon align="inline-end">
+					<InputGroupButton
+						disabled={!customCategory.trim()}
+						onClick={addCustomCategory}
+						variant="outline"
+					>
+						<PlusIcon aria-hidden="true" data-icon="inline-start" />
+						Add custom
+					</InputGroupButton>
+				</InputGroupAddon>
+			</InputGroup>
+		</Field>
+	);
+}
+
+function PrayerOrganization() {
+	return (
+		<dl className="grid gap-1 text-muted-foreground">
+			<div className="flex justify-between gap-3">
+				<dt>Location</dt>
+				<dd className="text-foreground">Prayers</dd>
+			</div>
+		</dl>
 	);
 }

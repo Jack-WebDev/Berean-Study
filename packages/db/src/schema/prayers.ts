@@ -26,6 +26,8 @@ export const prayers = pgTable(
 
 		content: text("content").notNull(),
 
+		category: text("category"),
+
 		createdAt: timestamp("created_at", {
 			withTimezone: true,
 		})
@@ -36,7 +38,8 @@ export const prayers = pgTable(
 			withTimezone: true,
 		})
 			.notNull()
-			.defaultNow(),
+			.defaultNow()
+			.$onUpdate(() => new Date()),
 	},
 	(table) => [
 		index("prayers_user_created_at_idx").on(table.userId, table.createdAt),
