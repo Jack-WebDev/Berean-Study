@@ -68,6 +68,9 @@ export function MobileNavigation({
 		administrationNavigationItems,
 		permissionKeys,
 	);
+	const libraryItem = primaryNavigationItems.find(
+		(item) => item.href === "/library",
+	);
 
 	return (
 		<Drawer
@@ -90,7 +93,7 @@ export function MobileNavigation({
 						) : (
 							<MobileNavigationLink
 								item={item}
-								isActive={isCurrentLocation(pathname, item.href)}
+								isActive={isCurrentLocation(pathname, item)}
 								key={item.href}
 							/>
 						),
@@ -123,15 +126,25 @@ export function MobileNavigation({
 					</DrawerDescription>
 				</DrawerHeader>
 				<div className="min-h-0 overflow-y-auto px-3 pb-6">
+					{libraryItem ? (
+						<MoreNavigationSection
+							items={[libraryItem]}
+							label="Library"
+							onNavigate={() => setMoreOpen(false)}
+							pathname={pathname}
+						/>
+					) : null}
 					<MoreNavigationSection
 						items={secondaryNavigationItems}
 						onNavigate={() => setMoreOpen(false)}
+						pathname={pathname}
 					/>
 					{editorialItems.length > 0 && (
 						<MoreNavigationSection
 							items={editorialItems}
 							label="Editorial"
 							onNavigate={() => setMoreOpen(false)}
+							pathname={pathname}
 						/>
 					)}
 					{administrationItems.length > 0 && (
@@ -139,6 +152,7 @@ export function MobileNavigation({
 							items={administrationItems}
 							label="Administration"
 							onNavigate={() => setMoreOpen(false)}
+							pathname={pathname}
 						/>
 					)}
 				</div>
@@ -151,10 +165,12 @@ function MoreNavigationSection({
 	items,
 	label,
 	onNavigate,
+	pathname,
 }: {
 	items: readonly NavigationItem[];
 	label?: string;
 	onNavigate: () => void;
+	pathname: string;
 }) {
 	return (
 		<section className="py-2">
@@ -164,29 +180,67 @@ function MoreNavigationSection({
 				</p>
 			)}
 			<div className="flex flex-col">
-				{items.map((item) => {
-					const Icon = item.icon;
-					return (
-						<a
-							className="flex min-h-11 items-center gap-3 rounded-md px-2 text-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-							href={item.href}
-							key={item.href}
-							onClick={onNavigate}
-						>
-							<Icon
-								aria-hidden="true"
-								className="size-4 text-muted-foreground"
-							/>
-							<span className="flex-1">{item.label}</span>
-							<span aria-hidden="true" className="text-muted-foreground">
-								›
-							</span>
-						</a>
-					);
-				})}
+				{items.map((item) => (
+					<MoreNavigationItem
+						item={item}
+						key={item.href}
+						onNavigate={onNavigate}
+						pathname={pathname}
+					/>
+				))}
 			</div>
 			<Separator className="mt-2" />
 		</section>
+	);
+}
+
+function MoreNavigationItem({
+	item,
+	onNavigate,
+	pathname,
+}: {
+	item: NavigationItem;
+	onNavigate: () => void;
+	pathname: string;
+}) {
+	const Icon = item.icon;
+	const isActive = isCurrentLocation(pathname, item);
+	const isChildActive = item.children?.some((child) =>
+		isCurrentLocation(pathname, child),
+	);
+	const isSelected = isActive && !isChildActive;
+
+	return (
+		<div>
+			<a
+				aria-current={isSelected ? "page" : undefined}
+				className={cn(
+					"flex min-h-11 items-center gap-3 rounded-md px-2 text-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+					isChildActive && "bg-muted/50",
+					isSelected && "bg-muted font-medium",
+				)}
+				href={item.href}
+				onClick={onNavigate}
+			>
+				<Icon aria-hidden="true" className="size-4 text-muted-foreground" />
+				<span className="min-w-0 flex-1">{item.label}</span>
+				<span aria-hidden="true" className="text-muted-foreground">
+					›
+				</span>
+			</a>
+			{item.children?.length ? (
+				<div className="ml-7 border-muted border-l pl-2">
+					{item.children.map((child) => (
+						<MoreNavigationItem
+							item={child}
+							key={child.href}
+							onNavigate={onNavigate}
+							pathname={pathname}
+						/>
+					))}
+				</div>
+			) : null}
+		</div>
 	);
 }
 
@@ -235,6 +289,8 @@ function mobileNavigationClassName(isActive: boolean) {
 	);
 }
 
-function isCurrentLocation(pathname: string, href: string) {
-	return pathname === href || pathname.startsWith(`${href}/`);
+function isCurrentLocation(pathname: string, item: NavigationItem) {
+	return [item.href, ...(item.activePaths ?? [])].some(
+		(href) => pathname === href || pathname.startsWith(`${href}/`),
+	);
 }

@@ -1,4 +1,9 @@
 import { Button } from "@berean-study/ui/components/button";
+import {
+	Collapsible,
+	CollapsibleContent,
+	CollapsibleTrigger,
+} from "@berean-study/ui/components/collapsible";
 import { Kbd } from "@berean-study/ui/components/kbd";
 import {
 	Sidebar,
@@ -10,6 +15,7 @@ import {
 	SidebarHeader,
 	SidebarInset,
 	SidebarMenu,
+	SidebarMenuAction,
 	SidebarMenuButton,
 	SidebarMenuItem,
 	SidebarMenuSub,
@@ -19,7 +25,7 @@ import {
 	SidebarSeparator,
 } from "@berean-study/ui/components/sidebar";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { MoonIcon, SearchIcon, SunIcon } from "lucide-react";
+import { ChevronRightIcon, MoonIcon, SearchIcon, SunIcon } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 
 import {
@@ -185,47 +191,122 @@ function NavigationMenu({
 }) {
 	return (
 		<SidebarMenu>
-			{items.map((item) => {
-				const Icon = item.icon;
-				const isActive = isCurrentLocation(pathname, item.href);
-
-				return (
-					<SidebarMenuItem key={item.href}>
-						<SidebarMenuButton
-							aria-current={isActive ? "page" : undefined}
-							render={<a href={item.href} />}
-							isActive={isActive}
-							tooltip={item.label}
-							className="h-10 rounded-lg px-3 text-sm"
-						>
-							<Icon aria-hidden="true" />
-							<span>{item.label}</span>
-						</SidebarMenuButton>
-						{item.children ? (
-							<SidebarMenuSub>
-								{item.children.map((child) => {
-									const ChildIcon = child.icon;
-									const isChildActive = isCurrentLocation(pathname, child.href);
-
-									return (
-										<SidebarMenuSubItem key={child.href}>
-											<SidebarMenuSubButton
-												aria-current={isChildActive ? "page" : undefined}
-												isActive={isChildActive}
-												render={<a href={child.href} />}
-											>
-												<ChildIcon aria-hidden="true" />
-												<span>{child.label}</span>
-											</SidebarMenuSubButton>
-										</SidebarMenuSubItem>
-									);
-								})}
-							</SidebarMenuSub>
-						) : null}
-					</SidebarMenuItem>
-				);
-			})}
+			{items.map((item) => (
+				<NavigationMenuItem item={item} key={item.href} pathname={pathname} />
+			))}
 		</SidebarMenu>
+	);
+}
+
+function NavigationMenuItem({
+	item,
+	pathname,
+}: {
+	item: NavigationItem;
+	pathname: string;
+}) {
+	const hasChildren = Boolean(item.children?.length);
+	const isCurrentRoute = isCurrentLocation(pathname, item);
+	const [isExpanded, setIsExpanded] = useState(isCurrentRoute);
+
+	useEffect(() => {
+		if (isCurrentLocation(pathname, item)) setIsExpanded(true);
+	}, [item, pathname]);
+
+	if (!hasChildren) {
+		return <NavigationLink item={item} isActive={isCurrentRoute} />;
+	}
+
+	const isParentRoute = pathname === item.href || pathname === `${item.href}/`;
+	const isChildRoute = isCurrentRoute && !isParentRoute;
+	const Icon = item.icon;
+	const submenuId = `navigation-submenu-${item.href.replaceAll("/", "-").slice(1)}`;
+
+	return (
+		<Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
+			<SidebarMenuItem>
+				<SidebarMenuButton
+					aria-current={isParentRoute ? "page" : undefined}
+					className={isChildRoute ? "bg-sidebar-accent/50" : undefined}
+					isActive={isParentRoute}
+					render={<Link to={item.href} />}
+					tooltip={item.label}
+				>
+					<Icon aria-hidden="true" />
+					<span>{item.label}</span>
+				</SidebarMenuButton>
+				<CollapsibleTrigger
+					aria-controls={submenuId}
+					aria-expanded={isExpanded}
+					aria-label={`${isExpanded ? "Collapse" : "Expand"} ${item.label} navigation`}
+					render={<SidebarMenuAction />}
+				>
+					<ChevronRightIcon
+						aria-hidden="true"
+						className={isExpanded ? "rotate-90" : undefined}
+					/>
+				</CollapsibleTrigger>
+				<CollapsibleContent id={submenuId} keepMounted>
+					<SidebarMenuSub>
+						{item.children?.map((child) => (
+							<NavigationSubmenuLink
+								child={child}
+								isActive={isCurrentLocation(pathname, child)}
+								key={child.href}
+							/>
+						))}
+					</SidebarMenuSub>
+				</CollapsibleContent>
+			</SidebarMenuItem>
+		</Collapsible>
+	);
+}
+
+function NavigationLink({
+	item,
+	isActive,
+}: {
+	item: NavigationItem;
+	isActive: boolean;
+}) {
+	const Icon = item.icon;
+
+	return (
+		<SidebarMenuItem>
+			<SidebarMenuButton
+				aria-current={isActive ? "page" : undefined}
+				isActive={isActive}
+				render={<Link to={item.href} />}
+				tooltip={item.label}
+				className="h-10 rounded-lg px-3 text-sm"
+			>
+				<Icon aria-hidden="true" />
+				<span>{item.label}</span>
+			</SidebarMenuButton>
+		</SidebarMenuItem>
+	);
+}
+
+function NavigationSubmenuLink({
+	child,
+	isActive,
+}: {
+	child: NavigationItem;
+	isActive: boolean;
+}) {
+	const ChildIcon = child.icon;
+
+	return (
+		<SidebarMenuSubItem>
+			<SidebarMenuSubButton
+				aria-current={isActive ? "page" : undefined}
+				isActive={isActive}
+				render={<Link to={child.href} />}
+			>
+				<ChildIcon aria-hidden="true" />
+				<span>{child.label}</span>
+			</SidebarMenuSubButton>
+		</SidebarMenuSubItem>
 	);
 }
 
@@ -291,8 +372,10 @@ function ApplicationToolbar({ onOpenSearch }: { onOpenSearch: () => void }) {
 	);
 }
 
-export function isCurrentLocation(pathname: string, href: string) {
-	return (
-		pathname === href || (href !== "/home" && pathname.startsWith(`${href}/`))
+export function isCurrentLocation(pathname: string, item: NavigationItem) {
+	return [item.href, ...(item.activePaths ?? [])].some(
+		(href) =>
+			pathname === href ||
+			(href !== "/home" && pathname.startsWith(`${href}/`)),
 	);
 }
