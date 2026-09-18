@@ -78,6 +78,13 @@
 			"when": 1789624657432,
 			"tag": "0010_typical_hiroim",
 			"breakpoints": true
+		},
+		{
+			"idx": 11,
+			"version": "7",
+			"when": 1789696302772,
+			"tag": "0011_powerful_beast",
+			"breakpoints": true
 		}
 	]
 }

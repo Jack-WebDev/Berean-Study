@@ -1,0 +1,1 @@
+ALTER TABLE "prayers" ADD COLUMN "category" text;

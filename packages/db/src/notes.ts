@@ -161,8 +161,8 @@ export async function getNote(db: DbClient, userId: string, noteId: number) {
 			userNoteCollections,
 			eq(userNoteCollections.id, notes.collectionId),
 		)
-		.innerJoin(passages, eq(passages.id, notes.passageId))
-		.innerJoin(books, eq(books.id, passages.bookId))
+		.leftJoin(passages, eq(passages.id, notes.passageId))
+		.leftJoin(books, eq(books.id, passages.bookId))
 		.where(and(eq(notes.id, noteId), eq(notes.userId, userId)))
 		.limit(1);
 

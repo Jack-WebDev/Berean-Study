@@ -52,7 +52,7 @@ export function EditNotePage({ noteId }: { noteId: number }) {
 
 	return (
 		<div className="min-h-full bg-background px-5 py-8 text-foreground sm:px-8 lg:px-12">
-			<div className="mx-auto w-full max-w-4xl">
+			<div className="mx-auto w-full max-w-360">
 				{note === undefined ? (
 					<p
 						aria-live="polite"
@@ -103,7 +103,7 @@ export function EditNotePage({ noteId }: { noteId: number }) {
 								toast.success("Note updated.");
 								navigate({
 									to: "/library/notes",
-									search: { addToCollection: true, note: note.id },
+									search: { note: note.id },
 								});
 							}}
 							submitLabel="Save changes"
