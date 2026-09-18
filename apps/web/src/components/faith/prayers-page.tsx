@@ -183,11 +183,10 @@ function PrayerRow({
 }) {
 	return (
 		<div className={isSelected ? "rounded-lg bg-muted/65" : ""}>
-			<Link
+			<button
 				className="flex w-full items-center gap-3 px-2 py-2.5 text-left"
 				onClick={onSelect}
-				params={{ prayerId: prayer.id }}
-				to="/library/prayers/$prayerId"
+				type="button"
 			>
 				<div className="flex size-14 shrink-0 items-center justify-center rounded-md bg-[url('/landing/cta-hills.png')] bg-center bg-cover text-primary">
 					<BookOpenIcon className="size-5" />
@@ -210,7 +209,7 @@ function PrayerRow({
 					<span>{formatDate(prayer.createdAt)}</span>
 				</div>
 				<ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
-			</Link>
+			</button>
 			{showSeparator ? <Separator className="mx-2 w-auto" /> : null}
 		</div>
 	);
