@@ -160,23 +160,23 @@ export function SavedPage({
 						</p>
 						<Tabs
 							aria-label="Saved content"
-							className="mt-5"
+							className="mt-5 border-0"
 							onValueChange={(nextView) => onViewChange(nextView as SavedView)}
 							value={view}
 						>
 							<TabsList
-								className="h-10 gap-1 rounded-xl bg-transparent p-0"
+								className="h-10 gap-2 bg-transparent p-0"
 								variant="line"
 							>
 								<TabsTrigger
-									className="h-10 rounded-xl px-5 text-sm data-active:bg-secondary data-active:text-foreground data-active:after:hidden"
+									className="h-10 flex-none rounded-full px-5 text-muted-foreground text-sm hover:text-foreground data-active:bg-secondary data-active:text-primary data-active:after:hidden"
 									value="bookmarks"
 								>
 									<BookmarkIcon aria-hidden="true" data-icon="inline-start" />
 									Bookmarks
 								</TabsTrigger>
 								<TabsTrigger
-									className="h-10 rounded-xl px-5 text-sm data-active:bg-secondary data-active:text-foreground data-active:after:hidden"
+									className="h-10 flex-none rounded-full px-5 text-muted-foreground text-sm hover:text-foreground data-active:bg-secondary data-active:text-primary data-active:after:hidden"
 									value="highlights"
 								>
 									<HighlighterIcon
