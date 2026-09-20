@@ -126,26 +126,32 @@ export async function updatePrayer(
 	userId: string,
 	input: UpdatePrayerInput,
 ) {
-	const [prayer] = await db
-		.update(prayers)
-		.set({
-			category: input.category,
-			content: input.content,
-			title: input.title,
-		})
-		.where(and(eq(prayers.id, input.id), eq(prayers.userId, userId)))
-		.returning();
-	if (!prayer) return null;
-	if (input.passageId !== undefined) {
-		await db
-			.delete(prayerPassages)
-			.where(eq(prayerPassages.prayerId, prayer.id));
-		if (input.passageId) {
-			await db
-				.insert(prayerPassages)
-				.values({ passageId: input.passageId, prayerId: prayer.id });
+	const prayer = await db.transaction(async (tx) => {
+		const [updatedPrayer] = await tx
+			.update(prayers)
+			.set({
+				category: input.category,
+				content: input.content,
+				title: input.title,
+			})
+			.where(and(eq(prayers.id, input.id), eq(prayers.userId, userId)))
+			.returning();
+		if (!updatedPrayer) return null;
+
+		if (input.passageId !== undefined) {
+			await tx
+				.delete(prayerPassages)
+				.where(eq(prayerPassages.prayerId, updatedPrayer.id));
+			if (input.passageId) {
+				await tx
+					.insert(prayerPassages)
+					.values({ passageId: input.passageId, prayerId: updatedPrayer.id });
+			}
 		}
-	}
+
+		return updatedPrayer;
+	});
+	if (!prayer) return null;
 	return getPrayer(db, userId, prayer.id);
 }
 
@@ -154,22 +160,26 @@ export async function createPrayer(
 	userId: string,
 	input: CreatePrayerInput,
 ): Promise<PrayerSummary> {
-	const [prayer] = await db
-		.insert(prayers)
-		.values({
-			category: input.category,
-			content: input.content,
-			title: input.title,
-			userId,
-		})
-		.returning();
+	const prayer = await db.transaction(async (tx) => {
+		const [createdPrayer] = await tx
+			.insert(prayers)
+			.values({
+				category: input.category,
+				content: input.content,
+				title: input.title,
+				userId,
+			})
+			.returning();
 
-	if (!prayer) throw new Error("Unable to create prayer.");
-	if (input.passageId) {
-		await db
-			.insert(prayerPassages)
-			.values({ passageId: input.passageId, prayerId: prayer.id });
-	}
+		if (!createdPrayer) throw new Error("Unable to create prayer.");
+		if (input.passageId) {
+			await tx
+				.insert(prayerPassages)
+				.values({ passageId: input.passageId, prayerId: createdPrayer.id });
+		}
+
+		return createdPrayer;
+	});
 	return { ...prayer, passageId: input.passageId ?? null, reflectionCount: 0 };
 }
 
@@ -211,7 +221,7 @@ export async function listLibraryReflections(
 	}
 
 	const where = and(...conditions);
-	const [rows, [{ total }]] = await Promise.all([
+	const [rows, totalRows] = await Promise.all([
 		db
 			.select({
 				content: prayerReflections.content,
@@ -242,6 +252,7 @@ export async function listLibraryReflections(
 			.innerJoin(prayers, eq(prayerReflections.prayerId, prayers.id))
 			.where(where),
 	]);
+	const total = totalRows[0]?.total ?? 0;
 
 	const counts = await getReflectionCounts(db, [
 		...new Set(rows.map((row) => row.prayerId)),

@@ -11,6 +11,10 @@ import {
 	RecentLibraryActivitySection,
 	type RecentLibraryActivityState,
 } from "./recent-library-activity";
+import {
+	RecentlyStudiedSection,
+	type RecentlyStudiedState,
+} from "./recently-studied";
 
 export type ContinueReadingState =
 	| {
@@ -29,10 +33,12 @@ export function LibraryPage({
 	continueReading,
 	destinationCounts,
 	recentActivity,
+	recentlyStudied,
 }: {
 	continueReading: ContinueReadingState;
 	destinationCounts: LibraryDestinationCountsState;
 	recentActivity: RecentLibraryActivityState;
+	recentlyStudied: RecentlyStudiedState;
 }) {
 	return (
 		<div className="min-h-full px-5 py-6 sm:px-8 lg:px-12">
@@ -48,6 +54,7 @@ export function LibraryPage({
 				</header>
 
 				<ContinueReading state={continueReading} />
+				<RecentlyStudiedSection state={recentlyStudied} />
 				<RecentLibraryActivitySection state={recentActivity} />
 				<LibraryDestinations counts={destinationCounts} />
 			</main>

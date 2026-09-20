@@ -77,7 +77,8 @@ export async function listRecentLibraryActivity(
 	];
 
 	return activity
-		.toSorted((left, right) => {
+		.slice()
+		.sort((left, right) => {
 			const updatedAtDifference =
 				right.updatedAt.getTime() - left.updatedAt.getTime();
 			return updatedAtDifference || right.id - left.id;

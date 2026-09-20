@@ -10,7 +10,6 @@ import {
 	ArrowRightIcon,
 	BookMarkedIcon,
 	BookOpenIcon,
-	ChevronRightIcon,
 	Clock3Icon,
 	SparklesIcon,
 } from "lucide-react";

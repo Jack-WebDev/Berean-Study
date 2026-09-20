@@ -9,7 +9,9 @@
 			"default": "./src/*.ts"
 		}
 	},
-	"scripts": {},
+	"scripts": {
+		"check-types": "tsc -p tsconfig.json --noEmit"
+	},
 	"dependencies": {
 		"@berean-study/db": "workspace:*",
 		"@berean-study/emailkit": "workspace:*",

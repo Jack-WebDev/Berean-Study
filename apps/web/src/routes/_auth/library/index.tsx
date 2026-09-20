@@ -57,38 +57,10 @@ function LibraryLoadingRoute() {
 async function loadLibraryData(): Promise<LibraryData> {
 	const [continueReading, destinationCounts, recentActivity, recentlyStudied] =
 		await Promise.all([
-			loadSection(
-				getContinueReading(),
-				(value) => ({
-					...value,
-					status: "ready" as const,
-				}),
-				{ status: "error" },
-			),
-			loadSection(
-				getLibraryDestinationCounts(),
-				(counts) => ({
-					counts,
-					status: "ready" as const,
-				}),
-				{ status: "error" },
-			),
-			loadSection(
-				getRecentLibraryActivity(),
-				(items) => ({
-					items,
-					status: "ready" as const,
-				}),
-				{ status: "error" },
-			),
-			loadSection(
-				getRecentlyStudied(),
-				(items) => ({
-					items,
-					status: "ready" as const,
-				}),
-				{ status: "error" },
-			),
+			loadContinueReading(),
+			loadDestinationCounts(),
+			loadRecentActivity(),
+			loadRecentlyStudied(),
 		]);
 
 	return {
@@ -99,14 +71,34 @@ async function loadLibraryData(): Promise<LibraryData> {
 	};
 }
 
-async function loadSection<Result, State>(
-	request: Promise<Result>,
-	toReadyState: (result: Result) => State,
-	errorState: State,
-): Promise<State> {
+async function loadContinueReading(): Promise<ContinueReadingState> {
 	try {
-		return toReadyState(await request);
+		return { ...(await getContinueReading()), status: "ready" };
 	} catch {
-		return errorState;
+		return { status: "error" };
+	}
+}
+
+async function loadDestinationCounts(): Promise<LibraryDestinationCountsState> {
+	try {
+		return { counts: await getLibraryDestinationCounts(), status: "ready" };
+	} catch {
+		return { status: "error" };
+	}
+}
+
+async function loadRecentActivity(): Promise<RecentLibraryActivityState> {
+	try {
+		return { items: await getRecentLibraryActivity(), status: "ready" };
+	} catch {
+		return { status: "error" };
+	}
+}
+
+async function loadRecentlyStudied(): Promise<RecentlyStudiedState> {
+	try {
+		return { items: await getRecentlyStudied(), status: "ready" };
+	} catch {
+		return { status: "error" };
 	}
 }

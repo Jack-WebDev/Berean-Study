@@ -1,5 +1,6 @@
 import { relations } from "drizzle-orm";
 import {
+	bigint,
 	boolean,
 	index,
 	integer,
@@ -91,6 +92,13 @@ export const verification = pgTable(
 	},
 	(table) => [index("verification_identifier_idx").on(table.identifier)],
 );
+
+/** Persistent request counters used by Better Auth's database rate limiter. */
+export const rateLimit = pgTable("rate_limit", {
+	key: text("key").primaryKey(),
+	count: integer("count").notNull(),
+	lastRequest: bigint("last_request", { mode: "number" }).notNull(),
+});
 
 export const twoFactor = pgTable(
 	"two_factor",

@@ -251,41 +251,43 @@ export async function setNoteTags(
 		).values(),
 	);
 
-	await db
-		.delete(noteTagAssignments)
-		.where(eq(noteTagAssignments.noteId, noteId));
+	return db.transaction(async (tx) => {
+		await tx
+			.delete(noteTagAssignments)
+			.where(eq(noteTagAssignments.noteId, noteId));
 
-	if (tags.length === 0) return [];
+		if (tags.length === 0) return [];
 
-	for (const tag of tags) {
-		await db
+		await tx
 			.insert(userNoteTags)
-			.values({
-				name: tag.name,
-				normalizedName: tag.normalizedName,
-				userId,
-			})
+			.values(
+				tags.map((tag) => ({
+					name: tag.name,
+					normalizedName: tag.normalizedName,
+					userId,
+				})),
+			)
 			.onConflictDoNothing();
-	}
 
-	const storedTags = await db
-		.select({ id: userNoteTags.id, name: userNoteTags.name })
-		.from(userNoteTags)
-		.where(
-			and(
-				eq(userNoteTags.userId, userId),
-				inArray(
-					userNoteTags.normalizedName,
-					tags.map((tag) => tag.normalizedName),
+		const storedTags = await tx
+			.select({ id: userNoteTags.id, name: userNoteTags.name })
+			.from(userNoteTags)
+			.where(
+				and(
+					eq(userNoteTags.userId, userId),
+					inArray(
+						userNoteTags.normalizedName,
+						tags.map((tag) => tag.normalizedName),
+					),
 				),
-			),
-		);
+			);
 
-	await db
-		.insert(noteTagAssignments)
-		.values(storedTags.map((tag) => ({ noteId, tagId: tag.id })));
+		await tx
+			.insert(noteTagAssignments)
+			.values(storedTags.map((tag) => ({ noteId, tagId: tag.id })));
 
-	return storedTags;
+		return storedTags;
+	});
 }
 
 /** Creates or reuses a private collection for the supplied user. */
