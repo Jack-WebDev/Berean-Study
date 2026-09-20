@@ -3,7 +3,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
 	FaithRecordsPage,
 	type FaithView,
-} from "@/components/faith/faith-records-page";
+} from "@/components/prayer/faith-records-page";
 
 export const Route = createFileRoute("/_auth/library/testimonies")({
 	component: TestimoniesRoute,
