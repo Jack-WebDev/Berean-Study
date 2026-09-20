@@ -60,7 +60,6 @@ export const primaryNavigationItems = [
 		icon: LibraryIcon,
 		label: "Library",
 	},
-	{ href: "/search", icon: SearchIcon, label: "Search" },
 ] as const satisfies readonly NavigationItem[];
 
 export const secondaryNavigationItems = [

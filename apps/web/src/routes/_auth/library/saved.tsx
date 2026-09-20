@@ -2,28 +2,24 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { z } from "zod";
 
 import { SavedPage, type SavedView } from "@/components/saved/saved-page";
-import { getSavedItems } from "@/functions/saved-items";
 
 export const Route = createFileRoute("/_auth/library/saved")({
 	component: SavedRoute,
-	loader: () => getSavedItems(),
 	validateSearch: z.object({
-		view: z.enum(["highlights", "bookmarks"]).default("highlights"),
+		tab: z.enum(["bookmarks", "highlights"]).catch("bookmarks"),
 	}),
 });
 
 function SavedRoute() {
-	const { view } = Route.useSearch();
-	const savedItems = Route.useLoaderData();
+	const { tab } = Route.useSearch();
 	const navigate = useNavigate({ from: "/library/saved" });
 
 	return (
 		<SavedPage
 			onViewChange={(nextView: SavedView) =>
-				navigate({ to: "/library/saved", search: { view: nextView } })
+				navigate({ to: "/library/saved", search: { tab: nextView } })
 			}
-			savedItems={savedItems}
-			view={view}
+			view={tab}
 		/>
 	);
 }
