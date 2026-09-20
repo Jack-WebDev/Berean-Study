@@ -12,7 +12,7 @@ export function PrayerLibraryTabs({ active }: { active: LibraryTab }) {
 			<LibraryTab
 				active={active}
 				label="Testimonies"
-				to="/library/testimonies"
+				to="/library/testimonials"
 			/>
 			<LibraryTab
 				active={active}
@@ -30,7 +30,7 @@ function LibraryTab({
 }: {
 	active: LibraryTab;
 	label: string;
-	to: "/library/prayers" | "/library/reflections" | "/library/testimonies";
+	to: "/library/prayers" | "/library/reflections" | "/library/testimonials";
 }) {
 	const selected = active === label.toLowerCase();
 	return (
