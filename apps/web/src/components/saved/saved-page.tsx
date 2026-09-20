@@ -26,46 +26,70 @@ import {
 	BookmarkIcon,
 	BookOpenIcon,
 	EllipsisVerticalIcon,
+	FileTextIcon,
+	FolderIcon,
 	Grid2X2Icon,
+	HandHeartIcon,
 	HighlighterIcon,
 	LayoutListIcon,
-	LibraryBigIcon,
 	SearchIcon,
 	UsersRoundIcon,
 } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
+import { HighlightsContent } from "./highlights-content";
 
 const bookmarkFilters = [
-	{ label: "All (4)", value: "all" },
-	{ label: "Scripture (1)", value: "scripture" },
-	{ label: "Community (3)", value: "community" },
+	{ label: "All", value: "all" },
+	{ label: "Scripture", value: "scripture" },
+	{ label: "Community", value: "community" },
 ] as const;
 
 type BookmarkFilter = (typeof bookmarkFilters)[number]["value"];
 
-type SavedItem = {
-	author?: string;
-	authorInitials?: string;
-	badge: string;
-	badgeIcon: "community" | "collection" | "scripture";
-	badgeTone: "blue" | "green" | "purple" | "gold";
+type BookmarkItem = ScriptureBookmark | CommunityBookmark;
+
+type BookmarkItemBase = {
 	description: string;
+	href: string;
 	id: string;
-	kind: Exclude<BookmarkFilter, "all">;
-	meta?: string;
 	savedAt: string;
 	title: string;
-	translation?: string;
 	thumbnailPosition: string;
 };
 
-const savedItems: readonly SavedItem[] = [
+type ScriptureBookmark = BookmarkItemBase & {
+	kind: "scripture";
+	translation: string;
+};
+
+type CommunityBookmark = BookmarkItemBase & {
+	author: string;
+	authorInitials: string;
+	kind: "community";
+	meta?: string;
+	resourceType: CommunityResourceType;
+};
+
+type BadgeTone = "blue" | "green" | "purple" | "gold";
+
+const communityBookmarkTypes = {
+	Collection: { icon: FolderIcon, tone: "gold" },
+	Note: { icon: FileTextIcon, tone: "blue" },
+	Prayer: { icon: HandHeartIcon, tone: "purple" },
+	Testimony: { icon: UsersRoundIcon, tone: "green" },
+} as const satisfies Record<
+	string,
+	{ icon: typeof BookOpenIcon; tone: BadgeTone }
+>;
+
+type CommunityResourceType = keyof typeof communityBookmarkTypes;
+
+const savedItems: readonly BookmarkItem[] = [
 	{
-		badge: "Scripture",
-		badgeIcon: "scripture",
-		badgeTone: "blue",
 		description:
 			"For God so loved the world, that he gave his only Son, that whoever believes in him should not perish but have eternal life.",
+		href: "/bible?passage=John%203%3A16",
 		id: "john-3-16",
 		kind: "scripture",
 		savedAt: "Saved today, 10:24 AM",
@@ -76,13 +100,12 @@ const savedItems: readonly SavedItem[] = [
 	{
 		author: "Sarah Mitchell",
 		authorInitials: "SM",
-		badge: "Testimony · Community",
-		badgeIcon: "community",
-		badgeTone: "green",
 		description:
 			"After a long season of uncertainty, God showed me His faithfulness in ways I never expected. This testimony is a reminder that He is always working…",
+		href: "#faithfulness-waiting",
 		id: "faithfulness-waiting",
 		kind: "community",
+		resourceType: "Testimony",
 		savedAt: "Saved yesterday, 4:17 PM",
 		title: "God’s Faithfulness in the Waiting",
 		thumbnailPosition: "object-[30%_55%]",
@@ -90,13 +113,12 @@ const savedItems: readonly SavedItem[] = [
 	{
 		author: "James Carter",
 		authorInitials: "JC",
-		badge: "Prayer · Community",
-		badgeIcon: "community",
-		badgeTone: "purple",
 		description:
 			"Please join me in praying for my family during this season. We are facing some difficult decisions and would appreciate your prayers for wisdom and peace.",
+		href: "#pray-family",
 		id: "pray-family",
 		kind: "community",
+		resourceType: "Prayer",
 		savedAt: "Saved Mar 12, 2024",
 		title: "Pray for My Family",
 		thumbnailPosition: "object-[64%_46%]",
@@ -104,17 +126,29 @@ const savedItems: readonly SavedItem[] = [
 	{
 		author: "Grace Walker",
 		authorInitials: "GW",
-		badge: "Collection · Community",
-		badgeIcon: "collection",
-		badgeTone: "gold",
 		description:
 			"A collection of verses that have brought me hope and peace during difficult seasons.",
+		href: "#hard-seasons",
 		id: "hard-seasons",
 		kind: "community",
 		meta: "12 passages",
+		resourceType: "Collection",
 		savedAt: "Saved Mar 8, 2024",
 		title: "Encouragement for Hard Seasons",
 		thumbnailPosition: "object-[76%_65%]",
+	},
+	{
+		author: "Michael Carter",
+		authorInitials: "MC",
+		description:
+			"Paul’s argument here changed the way I think about suffering, hope, and the faithfulness of God.",
+		href: "#romans-8-suffering",
+		id: "romans-8-suffering",
+		kind: "community",
+		resourceType: "Note",
+		savedAt: "Saved Mar 5, 2024",
+		title: "What Romans 8 taught me about suffering",
+		thumbnailPosition: "object-[42%_52%]",
 	},
 ];
 
@@ -128,13 +162,19 @@ export function SavedPage({
 	view: SavedView;
 }) {
 	const [activeFilter, setActiveFilter] = useState<BookmarkFilter>("all");
+	const [bookmarks, setBookmarks] = useState(savedItems);
 	const [searchQuery, setSearchQuery] = useState("");
 	const [viewMode, setViewMode] = useState<"grid" | "list">("list");
-	const visibleItems = savedItems.filter((item) => {
+	const bookmarkCounts = {
+		all: bookmarks.length,
+		community: bookmarks.filter((item) => item.kind === "community").length,
+		scripture: bookmarks.filter((item) => item.kind === "scripture").length,
+	};
+	const visibleItems = bookmarks.filter((item) => {
 		const matchesFilter = activeFilter === "all" || item.kind === activeFilter;
 		const searchableText = [
-			item.author,
-			item.badge,
+			item.kind === "community" ? item.author : undefined,
+			bookmarkBadgeLabel(item),
 			item.description,
 			item.title,
 		].join(" ");
@@ -146,6 +186,24 @@ export function SavedPage({
 				.includes(searchQuery.toLocaleLowerCase())
 		);
 	});
+	const removeBookmark = (bookmark: BookmarkItem) => {
+		setBookmarks((current) =>
+			current.filter((item) => item.id !== bookmark.id),
+		);
+		toast("Bookmark removed", {
+			action: {
+				label: "Undo",
+				onClick: () => {
+					setBookmarks((current) => {
+						const bookmarkIds = new Set(current.map((item) => item.id));
+						bookmarkIds.add(bookmark.id);
+
+						return savedItems.filter((item) => bookmarkIds.has(item.id));
+					});
+				},
+			},
+		});
+	};
 
 	return (
 		<div className="min-h-full px-5 py-7 sm:px-8 sm:py-9 lg:px-12">
@@ -195,34 +253,50 @@ export function SavedPage({
 					<section aria-label="Saved bookmarks" className="flex flex-col gap-4">
 						<SavedControls
 							activeFilter={activeFilter}
+							bookmarkCounts={bookmarkCounts}
 							onFilterChange={setActiveFilter}
 							onSearchChange={setSearchQuery}
 							onViewModeChange={setViewMode}
 							searchQuery={searchQuery}
 							viewMode={viewMode}
 						/>
-						<p className="font-medium text-muted-foreground text-sm">
-							{visibleItems.length} saved item
-							{visibleItems.length === 1 ? "" : "s"}
+						<p aria-live="polite" className="text-muted-foreground text-sm">
+							{getSavedItemsLabel(visibleItems.length, activeFilter)}
 						</p>
 						<ul className="flex flex-col gap-2">
 							{visibleItems.map((item) => (
-								<SavedItemCard item={item} key={item.id} />
+								<SavedItemCard
+									item={item}
+									key={item.id}
+									onRemove={removeBookmark}
+								/>
 							))}
 						</ul>
 					</section>
 				) : (
-					<HighlightsPlaceholder />
+					<HighlightsContent />
 				)}
 			</main>
 		</div>
 	);
 }
 
+function getSavedItemsLabel(count: number, filter: BookmarkFilter) {
+	if (filter === "scripture") {
+		return `${count} Scripture bookmark${count === 1 ? "" : "s"}`;
+	}
+
+	if (filter === "community") {
+		return `${count} Community bookmark${count === 1 ? "" : "s"}`;
+	}
+
+	return `${count} saved item${count === 1 ? "" : "s"}`;
+}
+
 function SavedExplainer() {
 	return (
 		<aside className="flex gap-3 rounded-xl border border-border/75 bg-secondary/35 p-3.5">
-			<div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-accent/20 text-[color:oklch(0.62_0.12_85)]">
+			<div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-accent/20 text-[oklch(0.62_0.12_85)]">
 				<BookOpenIcon aria-hidden="true" className="size-5" />
 			</div>
 			<div className="min-w-0">
@@ -233,7 +307,7 @@ function SavedExplainer() {
 					wording only.
 				</p>
 				<button
-					className="mt-2 inline-flex items-center gap-1 font-medium text-[0.7rem] text-[color:oklch(0.62_0.12_85)]"
+					className="mt-2 inline-flex items-center gap-1 font-medium text-[0.7rem] text-[oklch(0.62_0.12_85)]"
 					type="button"
 				>
 					Learn more <span aria-hidden="true">→</span>
@@ -245,6 +319,7 @@ function SavedExplainer() {
 
 function SavedControls({
 	activeFilter,
+	bookmarkCounts,
 	onFilterChange,
 	onSearchChange,
 	onViewModeChange,
@@ -252,6 +327,7 @@ function SavedControls({
 	viewMode,
 }: {
 	activeFilter: BookmarkFilter;
+	bookmarkCounts: Record<BookmarkFilter, number>;
 	onFilterChange: (filter: BookmarkFilter) => void;
 	onSearchChange: (query: string) => void;
 	onViewModeChange: (viewMode: "grid" | "list") => void;
@@ -273,7 +349,7 @@ function SavedControls({
 			>
 				{bookmarkFilters.map((filter) => (
 					<ToggleGroupItem
-						className="h-9 rounded-full border-border/70 bg-card px-4 text-xs data-[pressed]:border-transparent data-[pressed]:bg-secondary data-[pressed]:text-foreground"
+						className="h-9 rounded-full border-border/70 bg-card px-4 text-primary text-xs data-pressed:border-transparent data-pressed:bg-secondary data-pressed:text-primary"
 						key={filter.value}
 						value={filter.value}
 					>
@@ -282,11 +358,11 @@ function SavedControls({
 						) : filter.value === "community" ? (
 							<UsersRoundIcon aria-hidden="true" data-icon="inline-start" />
 						) : null}
-						{filter.label}
+						{filter.label} ({bookmarkCounts[filter.value]})
 					</ToggleGroupItem>
 				))}
 			</ToggleGroup>
-			<div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row lg:ml-auto lg:max-w-[41rem]">
+			<div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row lg:ml-auto lg:max-w-164">
 				<label className="min-w-0 flex-1" htmlFor="saved-search">
 					<span className="sr-only">Search saved items</span>
 					<InputGroup className="h-9 rounded-lg border-border/70 bg-card">
@@ -304,19 +380,26 @@ function SavedControls({
 				</label>
 				<label className="w-full sm:w-36" htmlFor="saved-sort">
 					<span className="sr-only">Sort saved items</span>
-					<NativeSelect className="w-full" id="saved-sort">
+					<NativeSelect
+						className="w-full **:data-[slot=native-select]:rounded-lg **:data-[slot=native-select]:border-border/70 **:data-[slot=native-select]:bg-card"
+						id="saved-sort"
+					>
 						<NativeSelectOption value="recent">Most Recent</NativeSelectOption>
 						<NativeSelectOption value="oldest">Oldest</NativeSelectOption>
 					</NativeSelect>
 				</label>
 				<label className="w-full sm:w-32" htmlFor="saved-date">
 					<span className="sr-only">Saved date range</span>
-					<NativeSelect className="w-full" id="saved-date">
+					<NativeSelect
+						className="w-full **:data-[slot=native-select]:rounded-lg **:data-[slot=native-select]:border-border/70 **:data-[slot=native-select]:bg-card"
+						id="saved-date"
+					>
 						<NativeSelectOption value="all-time">All Time</NativeSelectOption>
 					</NativeSelect>
 				</label>
 				<ToggleGroup
 					aria-label="Saved item layout"
+					className="overflow-hidden rounded-lg"
 					onValueChange={(values) => {
 						const nextViewMode = values[0] as "grid" | "list" | undefined;
 						if (nextViewMode) onViewModeChange(nextViewMode);
@@ -327,14 +410,14 @@ function SavedControls({
 				>
 					<ToggleGroupItem
 						aria-label="List view"
-						className="size-9"
+						className="size-9 rounded-l-lg border-border/70 bg-card data-pressed:border-transparent data-pressed:bg-secondary data-pressed:text-primary"
 						value="list"
 					>
 						<LayoutListIcon aria-hidden="true" />
 					</ToggleGroupItem>
 					<ToggleGroupItem
 						aria-label="Grid view"
-						className="size-9"
+						className="size-9 rounded-r-lg border-border/70 bg-card data-pressed:border-transparent data-pressed:bg-secondary data-pressed:text-primary"
 						value="grid"
 					>
 						<Grid2X2Icon aria-hidden="true" />
@@ -345,20 +428,24 @@ function SavedControls({
 	);
 }
 
-function SavedItemCard({ item }: { item: SavedItem }) {
+function SavedItemCard({
+	item,
+	onRemove,
+}: {
+	item: BookmarkItem;
+	onRemove: (item: BookmarkItem) => void;
+}) {
 	const BadgeIcon =
-		item.badgeIcon === "scripture"
+		item.kind === "scripture"
 			? BookOpenIcon
-			: item.badgeIcon === "collection"
-				? LibraryBigIcon
-				: UsersRoundIcon;
+			: communityBookmarkTypes[item.resourceType].icon;
 	return (
 		<li>
 			<article className="group relative grid min-h-28 grid-cols-[5rem_minmax(0,1fr)_auto] gap-3 rounded-xl border border-border/70 bg-card p-3 shadow-[0_2px_8px_color-mix(in_oklab,var(--foreground),transparent_95%)] transition-colors hover:bg-secondary/20 sm:grid-cols-[6.25rem_minmax(0,1fr)_auto] sm:gap-4">
 				<a
 					aria-label={`Open ${item.title}`}
 					className="absolute inset-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-					href={`#${item.id}`}
+					href={item.href}
 				>
 					<span className="sr-only">Open {item.title}</span>
 				</a>
@@ -368,21 +455,24 @@ function SavedItemCard({ item }: { item: SavedItem }) {
 					src="/library-verse-bg.png"
 				/>
 				<div className="relative min-w-0 self-center">
-					<Badge className={badgeClassName(item.badgeTone)} variant="secondary">
+					<Badge
+						className={badgeClassName(bookmarkBadgeTone(item))}
+						variant="secondary"
+					>
 						<BadgeIcon aria-hidden="true" data-icon="inline-start" />
-						{item.badge}
+						{bookmarkBadgeLabel(item)}
 					</Badge>
 					<div className="mt-1 flex min-w-0 items-baseline gap-2">
 						<h2 className="truncate font-serif text-base leading-5 tracking-[-0.015em] sm:text-lg">
 							{item.title}
 						</h2>
-						{item.translation ? (
+						{item.kind === "scripture" ? (
 							<span className="shrink-0 text-[0.65rem] text-muted-foreground">
 								{item.translation}
 							</span>
 						) : null}
 					</div>
-					{item.author ? (
+					{item.kind === "community" ? (
 						<div className="mt-1 flex items-center gap-1.5 text-[0.7rem] text-muted-foreground">
 							<Avatar size="sm">
 								<AvatarFallback>{item.authorInitials}</AvatarFallback>
@@ -391,32 +481,40 @@ function SavedItemCard({ item }: { item: SavedItem }) {
 						</div>
 					) : null}
 					<p className="mt-1 line-clamp-2 text-muted-foreground text-xs leading-4 sm:text-sm sm:leading-5">
-						{item.meta ? `${item.meta} · ` : ""}
+						{item.kind === "community" && item.meta ? `${item.meta} · ` : ""}
 						{item.description}
 					</p>
 				</div>
-				<div className="relative flex flex-col items-end justify-between gap-2 pl-1 text-right">
+				<div className="relative flex items-center gap-4 self-end pl-1 text-right">
 					<BookmarkIcon
 						aria-hidden="true"
-						className="size-4 fill-[color:oklch(0.68_0.13_85)] text-[color:oklch(0.68_0.13_85)]"
+						className="size-4 fill-[oklch(0.68_0.13_85)] text-[oklch(0.68_0.13_85)]"
 					/>
 					<span className="hidden whitespace-nowrap text-[0.7rem] text-muted-foreground sm:block">
 						{item.savedAt}
 					</span>
-					<SavedItemMenu title={item.title} />
+					<SavedItemMenu item={item} onRemove={onRemove} />
 				</div>
 			</article>
 		</li>
 	);
 }
 
-function SavedItemMenu({ title }: { title: string }) {
+function SavedItemMenu({
+	item,
+	onRemove,
+}: {
+	item: BookmarkItem;
+	onRemove: (item: BookmarkItem) => void;
+}) {
+	const openLabel = item.kind === "scripture" ? "Open passage" : "Open post";
+
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger
 				render={
 					<Button
-						aria-label={`Options for ${title}`}
+						aria-label={`Options for ${item.title}`}
 						className="size-7 rounded-md"
 						size="icon-sm"
 						type="button"
@@ -428,8 +526,13 @@ function SavedItemMenu({ title }: { title: string }) {
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="end" className="w-40 rounded-lg p-1">
 				<DropdownMenuGroup>
-					<DropdownMenuItem>Open item</DropdownMenuItem>
-					<DropdownMenuItem variant="destructive">
+					<DropdownMenuItem render={<a href={item.href} />}>
+						{openLabel}
+					</DropdownMenuItem>
+					<DropdownMenuItem
+						onClick={() => onRemove(item)}
+						variant="destructive"
+					>
 						Remove bookmark
 					</DropdownMenuItem>
 				</DropdownMenuGroup>
@@ -438,22 +541,19 @@ function SavedItemMenu({ title }: { title: string }) {
 	);
 }
 
-function HighlightsPlaceholder() {
-	return (
-		<section className="rounded-xl border border-border/70 bg-card px-5 py-12 text-center">
-			<HighlighterIcon
-				aria-hidden="true"
-				className="mx-auto size-5 text-muted-foreground"
-			/>
-			<h2 className="mt-3 font-serif text-lg">Your Scripture highlights</h2>
-			<p className="mt-1 text-muted-foreground text-sm">
-				Highlights you make while reading Scripture will appear here.
-			</p>
-		</section>
-	);
+function bookmarkBadgeLabel(item: BookmarkItem) {
+	return item.kind === "scripture"
+		? "Scripture"
+		: `${item.resourceType} · Community`;
 }
 
-function badgeClassName(tone: SavedItem["badgeTone"]) {
+function bookmarkBadgeTone(item: BookmarkItem): BadgeTone {
+	if (item.kind === "scripture") return "blue";
+
+	return communityBookmarkTypes[item.resourceType].tone;
+}
+
+function badgeClassName(tone: BadgeTone) {
 	return {
 		blue: "rounded-full border-0 bg-[color:oklch(0.94_0.035_245)] text-[color:oklch(0.42_0.12_245)]",
 		gold: "rounded-full border-0 bg-[color:oklch(0.94_0.045_85)] text-[color:oklch(0.52_0.1_75)]",
