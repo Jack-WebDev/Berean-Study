@@ -10,7 +10,7 @@ import {
 	FieldLabel,
 } from "@berean-study/ui/components/field";
 import { Input } from "@berean-study/ui/components/input";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { ArrowLeftIcon, SaveIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -19,7 +19,6 @@ import { getPrayer, updatePrayer } from "@/functions/prayers";
 import { PrayerCategories, PrayerPassageCard } from "./new-prayer-page";
 
 export function EditPrayerPage({ prayerId }: { prayerId: number }) {
-	const navigate = useNavigate({ from: "/library/prayers/$prayerId/edit" });
 	const [loaded, setLoaded] = useState(false);
 	const [notFound, setNotFound] = useState(false);
 	const [title, setTitle] = useState("");
@@ -84,7 +83,6 @@ export function EditPrayerPage({ prayerId }: { prayerId: number }) {
 			});
 			if (!prayer) throw new Error("Prayer not found.");
 			toast.success("Prayer updated.");
-			navigate({ to: "/library/prayers/$prayerId", params: { prayerId } });
 		} catch {
 			toast.error("We couldn't update your prayer. Please try again.");
 		} finally {
@@ -101,7 +99,7 @@ export function EditPrayerPage({ prayerId }: { prayerId: number }) {
 				<Link
 					className="inline-flex items-center gap-2 font-medium text-primary text-xs hover:underline"
 					params={{ prayerId }}
-					to="/library/prayers/$prayerId"
+					to="/library/prayers"
 				>
 					<ArrowLeftIcon aria-hidden="true" className="size-3.5" /> Prayer
 				</Link>
@@ -158,12 +156,7 @@ export function EditPrayerPage({ prayerId }: { prayerId: number }) {
 							/>
 						</main>
 						<div className="prayer-save-actions">
-							<Button
-								render={
-									<Link params={{ prayerId }} to="/library/prayers/$prayerId" />
-								}
-								variant="ghost"
-							>
+							<Button render={<Link to="/library/prayers" />} variant="ghost">
 								Cancel
 							</Button>
 							<Button disabled={isSaving} type="submit">

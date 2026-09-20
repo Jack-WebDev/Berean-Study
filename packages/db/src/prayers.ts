@@ -28,6 +28,13 @@ export type PrayerSummary = {
 	updatedAt: Date;
 };
 
+export type PrayerReflection = {
+	content: string;
+	createdAt: Date;
+	id: number;
+	prayerId: number;
+};
+
 export async function listPrayers(db: DbClient, userId: string) {
 	const rows = await db
 		.select({
@@ -70,16 +77,28 @@ export async function getPrayer(db: DbClient, userId: string, id: number) {
 		})
 		.from(prayers)
 		.where(and(eq(prayers.id, id), eq(prayers.userId, userId)));
-	if (!prayer) return null;
-	const [passage] = await db
-		.select({ passageId: prayerPassages.passageId })
-		.from(prayerPassages)
-		.where(eq(prayerPassages.prayerId, id));
-	const reflectionCounts = await getReflectionCounts(db, [id]);
+
+	if (!prayer) {
+		return null;
+	}
+
+	const [[passage], reflections] = await Promise.all([
+		db
+			.select({
+				passageId: prayerPassages.passageId,
+			})
+			.from(prayerPassages)
+			.where(eq(prayerPassages.prayerId, id))
+			.limit(1),
+
+		listPrayerReflections(db, userId, id),
+	]);
+
 	return {
 		...prayer,
 		passageId: passage?.passageId ?? null,
-		reflectionCount: reflectionCounts.get(id) ?? 0,
+		reflectionCount: reflections.length,
+		reflections,
 	};
 }
 
@@ -133,6 +152,108 @@ export async function createPrayer(
 			.values({ passageId: input.passageId, prayerId: prayer.id });
 	}
 	return { ...prayer, passageId: input.passageId ?? null, reflectionCount: 0 };
+}
+
+export async function listPrayerReflections(
+	db: DbClient,
+	userId: string,
+	prayerId: number,
+): Promise<PrayerReflection[]> {
+	return db
+		.select({
+			content: prayerReflections.content,
+			createdAt: prayerReflections.createdAt,
+			id: prayerReflections.id,
+			prayerId: prayerReflections.prayerId,
+		})
+		.from(prayerReflections)
+		.innerJoin(prayers, eq(prayerReflections.prayerId, prayers.id))
+		.where(
+			and(eq(prayerReflections.prayerId, prayerId), eq(prayers.userId, userId)),
+		)
+		.orderBy(desc(prayerReflections.createdAt), desc(prayerReflections.id));
+}
+
+export async function getPrayerReflection(
+	db: DbClient,
+	userId: string,
+	prayerId: number,
+	reflectionId: number,
+): Promise<PrayerReflection | null> {
+	const [reflection] = await db
+		.select({
+			content: prayerReflections.content,
+			createdAt: prayerReflections.createdAt,
+			id: prayerReflections.id,
+			prayerId: prayerReflections.prayerId,
+		})
+		.from(prayerReflections)
+		.innerJoin(prayers, eq(prayerReflections.prayerId, prayers.id))
+		.where(
+			and(
+				eq(prayerReflections.id, reflectionId),
+				eq(prayerReflections.prayerId, prayerId),
+				eq(prayers.userId, userId),
+			),
+		);
+	return reflection ?? null;
+}
+
+export async function createPrayerReflection(
+	db: DbClient,
+	userId: string,
+	input: { content: string; prayerId: number },
+): Promise<PrayerReflection | null> {
+	const [prayer] = await db
+		.select({ id: prayers.id })
+		.from(prayers)
+		.where(and(eq(prayers.id, input.prayerId), eq(prayers.userId, userId)));
+	if (!prayer) return null;
+	const [reflection] = await db
+		.insert(prayerReflections)
+		.values({ content: input.content, prayerId: prayer.id })
+		.returning();
+	return reflection ?? null;
+}
+
+export async function updatePrayerReflection(
+	db: DbClient,
+	userId: string,
+	input: { content: string; prayerId: number; reflectionId: number },
+): Promise<PrayerReflection | null> {
+	const reflection = await getPrayerReflection(
+		db,
+		userId,
+		input.prayerId,
+		input.reflectionId,
+	);
+	if (!reflection) return null;
+	const [updated] = await db
+		.update(prayerReflections)
+		.set({ content: input.content })
+		.where(eq(prayerReflections.id, input.reflectionId))
+		.returning();
+	return updated ?? null;
+}
+
+export async function deletePrayerReflection(
+	db: DbClient,
+	userId: string,
+	prayerId: number,
+	reflectionId: number,
+) {
+	const reflection = await getPrayerReflection(
+		db,
+		userId,
+		prayerId,
+		reflectionId,
+	);
+	if (!reflection) return false;
+	const [deleted] = await db
+		.delete(prayerReflections)
+		.where(eq(prayerReflections.id, reflectionId))
+		.returning({ id: prayerReflections.id });
+	return Boolean(deleted);
 }
 
 async function getReflectionCounts(db: DbClient, prayerIds: number[]) {
