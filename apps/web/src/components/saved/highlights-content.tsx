@@ -1,6 +1,12 @@
 import { Badge } from "@berean-study/ui/components/badge";
 import { Button } from "@berean-study/ui/components/button";
 import {
+	Empty,
+	EmptyDescription,
+	EmptyHeader,
+	EmptyTitle,
+} from "@berean-study/ui/components/empty";
+import {
 	InputGroup,
 	InputGroupAddon,
 	InputGroupInput,
@@ -81,6 +87,69 @@ export function HighlightsContent({
 			aria-label="Saved Scripture highlights"
 			className="flex flex-col gap-4"
 		>
+			{highlights.length === 0 ? (
+				<Empty className="min-h-64 rounded-xl border border-border/70 bg-card py-12">
+					<EmptyHeader>
+						<EmptyTitle className="font-serif text-lg">
+							No highlights yet
+						</EmptyTitle>
+						<EmptyDescription className="max-w-64 text-sm">
+							Scripture text you highlight while studying will appear here.
+						</EmptyDescription>
+					</EmptyHeader>
+				</Empty>
+			) : (
+				<HighlightsList
+					book={book}
+					color={color}
+					highlights={visibleHighlights}
+					onBookChange={setBook}
+					onColorChange={setColor}
+					onSearchQueryChange={setSearchQuery}
+					onSortChange={setSort}
+					onTestamentChange={setTestament}
+					searchQuery={searchQuery}
+					sort={sort}
+					testament={testament}
+					viewMode={viewMode}
+					onViewModeChange={setViewMode}
+				/>
+			)}
+		</section>
+	);
+}
+
+function HighlightsList({
+	book,
+	color,
+	highlights,
+	onBookChange,
+	onColorChange,
+	onSearchQueryChange,
+	onSortChange,
+	onTestamentChange,
+	onViewModeChange,
+	searchQuery,
+	sort,
+	testament,
+	viewMode,
+}: {
+	book: string;
+	color: HighlightColor | "all";
+	highlights: readonly SavedHighlightFixture[];
+	onBookChange: (book: string) => void;
+	onColorChange: (color: HighlightColor | "all") => void;
+	onSearchQueryChange: (query: string) => void;
+	onSortChange: (sort: "oldest" | "recent") => void;
+	onTestamentChange: (testament: HighlightTestament | "all") => void;
+	onViewModeChange: (viewMode: "grid" | "list") => void;
+	searchQuery: string;
+	sort: "oldest" | "recent";
+	testament: HighlightTestament | "all";
+	viewMode: "grid" | "list";
+}) {
+	return (
+		<>
 			<div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap lg:flex-nowrap">
 				<label className="min-w-0 flex-1" htmlFor="highlight-search">
 					<span className="sr-only">Search your highlights</span>
@@ -90,7 +159,7 @@ export function HighlightsContent({
 						</InputGroupAddon>
 						<InputGroupInput
 							id="highlight-search"
-							onChange={(event) => setSearchQuery(event.target.value)}
+							onChange={(event) => onSearchQueryChange(event.target.value)}
 							placeholder="Search your highlights..."
 							type="search"
 							value={searchQuery}
@@ -102,7 +171,7 @@ export function HighlightsContent({
 					<NativeSelect
 						className="w-full **:data-[slot=native-select]:rounded-lg **:data-[slot=native-select]:border-border/70 **:data-[slot=native-select]:bg-card"
 						id="highlight-book"
-						onChange={(event) => setBook(event.target.value)}
+						onChange={(event) => onBookChange(event.target.value)}
 						value={book}
 					>
 						<NativeSelectOption value="all">All Books</NativeSelectOption>
@@ -118,7 +187,9 @@ export function HighlightsContent({
 						className="w-full **:data-[slot=native-select]:rounded-lg **:data-[slot=native-select]:border-border/70 **:data-[slot=native-select]:bg-card"
 						id="highlight-testament"
 						onChange={(event) =>
-							setTestament(event.target.value as HighlightTestament | "all")
+							onTestamentChange(
+								event.target.value as HighlightTestament | "all",
+							)
 						}
 						value={testament}
 					>
@@ -133,7 +204,7 @@ export function HighlightsContent({
 						className="w-full **:data-[slot=native-select]:rounded-lg **:data-[slot=native-select]:border-border/70 **:data-[slot=native-select]:bg-card"
 						id="highlight-color"
 						onChange={(event) =>
-							setColor(event.target.value as HighlightColor | "all")
+							onColorChange(event.target.value as HighlightColor | "all")
 						}
 						value={color}
 					>
@@ -150,7 +221,7 @@ export function HighlightsContent({
 						className="w-full **:data-[slot=native-select]:rounded-lg **:data-[slot=native-select]:border-border/70 **:data-[slot=native-select]:bg-card"
 						id="highlight-sort"
 						onChange={(event) =>
-							setSort(event.target.value as "oldest" | "recent")
+							onSortChange(event.target.value as "oldest" | "recent")
 						}
 						value={sort}
 					>
@@ -163,7 +234,7 @@ export function HighlightsContent({
 					className="overflow-hidden rounded-lg"
 					onValueChange={(values) => {
 						const nextViewMode = values[0] as "grid" | "list" | undefined;
-						if (nextViewMode) setViewMode(nextViewMode);
+						if (nextViewMode) onViewModeChange(nextViewMode);
 					}}
 					spacing={0}
 					value={[viewMode]}
@@ -187,8 +258,8 @@ export function HighlightsContent({
 			</div>
 
 			<p aria-live="polite" className="text-muted-foreground text-sm">
-				{visibleHighlights.length} highlight
-				{visibleHighlights.length === 1 ? "" : "s"}
+				{highlights.length} highlight
+				{highlights.length === 1 ? "" : "s"}
 			</p>
 
 			<ul
@@ -197,14 +268,14 @@ export function HighlightsContent({
 					viewMode === "grid" ? "grid sm:grid-cols-2" : "flex flex-col",
 				)}
 			>
-				{visibleHighlights.map((highlight) => (
+				{highlights.map((highlight) => (
 					<li key={highlight.id}>
 						<HighlightCard highlight={highlight} />
 					</li>
 				))}
 			</ul>
 
-			{visibleHighlights.length === 0 ? (
+			{highlights.length === 0 ? (
 				<div className="rounded-xl border border-border/70 bg-card px-5 py-12 text-center">
 					<HighlighterIcon
 						aria-hidden="true"
@@ -216,7 +287,7 @@ export function HighlightsContent({
 					</p>
 				</div>
 			) : null}
-		</section>
+		</>
 	);
 }
 
