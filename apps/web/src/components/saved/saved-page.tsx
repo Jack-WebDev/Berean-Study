@@ -35,9 +35,10 @@ import {
 	SearchIcon,
 	UsersRoundIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { HighlightsContent } from "./highlights-content";
+import type { BookmarkItem, SavedHighlightFixture } from "./saved-fixtures";
 
 const bookmarkFilters = [
 	{ label: "All", value: "all" },
@@ -46,30 +47,6 @@ const bookmarkFilters = [
 ] as const;
 
 type BookmarkFilter = (typeof bookmarkFilters)[number]["value"];
-
-type BookmarkItem = ScriptureBookmark | CommunityBookmark;
-
-type BookmarkItemBase = {
-	description: string;
-	href: string;
-	id: string;
-	savedAt: string;
-	title: string;
-	thumbnailPosition: string;
-};
-
-type ScriptureBookmark = BookmarkItemBase & {
-	kind: "scripture";
-	translation: string;
-};
-
-type CommunityBookmark = BookmarkItemBase & {
-	author: string;
-	authorInitials: string;
-	kind: "community";
-	meta?: string;
-	resourceType: CommunityResourceType;
-};
 
 type BadgeTone = "blue" | "green" | "purple" | "gold";
 
@@ -83,75 +60,6 @@ const communityBookmarkTypes = {
 	{ icon: typeof BookOpenIcon; tone: BadgeTone }
 >;
 
-type CommunityResourceType = keyof typeof communityBookmarkTypes;
-
-const savedItems: readonly BookmarkItem[] = [
-	{
-		description:
-			"For God so loved the world, that he gave his only Son, that whoever believes in him should not perish but have eternal life.",
-		href: "/bible?passage=John%203%3A16",
-		id: "john-3-16",
-		kind: "scripture",
-		savedAt: "Saved today, 10:24 AM",
-		title: "John 3:16",
-		thumbnailPosition: "object-[48%_35%]",
-		translation: "ESV",
-	},
-	{
-		author: "Sarah Mitchell",
-		authorInitials: "SM",
-		description:
-			"After a long season of uncertainty, God showed me His faithfulness in ways I never expected. This testimony is a reminder that He is always working…",
-		href: "#faithfulness-waiting",
-		id: "faithfulness-waiting",
-		kind: "community",
-		resourceType: "Testimony",
-		savedAt: "Saved yesterday, 4:17 PM",
-		title: "God’s Faithfulness in the Waiting",
-		thumbnailPosition: "object-[30%_55%]",
-	},
-	{
-		author: "James Carter",
-		authorInitials: "JC",
-		description:
-			"Please join me in praying for my family during this season. We are facing some difficult decisions and would appreciate your prayers for wisdom and peace.",
-		href: "#pray-family",
-		id: "pray-family",
-		kind: "community",
-		resourceType: "Prayer",
-		savedAt: "Saved Mar 12, 2024",
-		title: "Pray for My Family",
-		thumbnailPosition: "object-[64%_46%]",
-	},
-	{
-		author: "Grace Walker",
-		authorInitials: "GW",
-		description:
-			"A collection of verses that have brought me hope and peace during difficult seasons.",
-		href: "#hard-seasons",
-		id: "hard-seasons",
-		kind: "community",
-		meta: "12 passages",
-		resourceType: "Collection",
-		savedAt: "Saved Mar 8, 2024",
-		title: "Encouragement for Hard Seasons",
-		thumbnailPosition: "object-[76%_65%]",
-	},
-	{
-		author: "Michael Carter",
-		authorInitials: "MC",
-		description:
-			"Paul’s argument here changed the way I think about suffering, hope, and the faithfulness of God.",
-		href: "#romans-8-suffering",
-		id: "romans-8-suffering",
-		kind: "community",
-		resourceType: "Note",
-		savedAt: "Saved Mar 5, 2024",
-		title: "What Romans 8 taught me about suffering",
-		thumbnailPosition: "object-[42%_52%]",
-	},
-];
-
 export type SavedView = "bookmarks" | "highlights";
 
 export function SavedPage({
@@ -162,9 +70,26 @@ export function SavedPage({
 	view: SavedView;
 }) {
 	const [activeFilter, setActiveFilter] = useState<BookmarkFilter>("all");
-	const [bookmarks, setBookmarks] = useState(savedItems);
+	const [bookmarks, setBookmarks] = useState<BookmarkItem[]>([]);
+	const [highlights, setHighlights] = useState<SavedHighlightFixture[]>([]);
 	const [searchQuery, setSearchQuery] = useState("");
 	const [viewMode, setViewMode] = useState<"grid" | "list">("list");
+
+	useEffect(() => {
+		if (!import.meta.env.DEV) return;
+
+		let isCurrent = true;
+		void import("./saved-fixtures").then(({ savedFixtures }) => {
+			if (!isCurrent) return;
+
+			setBookmarks([...savedFixtures.bookmarks]);
+			setHighlights([...savedFixtures.highlights]);
+		});
+
+		return () => {
+			isCurrent = false;
+		};
+	}, []);
 	const bookmarkCounts = {
 		all: bookmarks.length,
 		community: bookmarks.filter((item) => item.kind === "community").length,
@@ -194,12 +119,11 @@ export function SavedPage({
 			action: {
 				label: "Undo",
 				onClick: () => {
-					setBookmarks((current) => {
-						const bookmarkIds = new Set(current.map((item) => item.id));
-						bookmarkIds.add(bookmark.id);
-
-						return savedItems.filter((item) => bookmarkIds.has(item.id));
-					});
+					setBookmarks((current) =>
+						current.some((item) => item.id === bookmark.id)
+							? current
+							: [...current, bookmark],
+					);
 				},
 			},
 		});
@@ -274,7 +198,7 @@ export function SavedPage({
 						</ul>
 					</section>
 				) : (
-					<HighlightsContent />
+					<HighlightsContent highlights={highlights} />
 				)}
 			</main>
 		</div>
