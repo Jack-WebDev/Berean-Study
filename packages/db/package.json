@@ -10,6 +10,8 @@
 		}
 	},
 	"scripts": {
+		"check-types": "tsc -p tsconfig.json --noEmit",
+		"test": "testkit-vitest run --config vitest.config.ts",
 		"db:push": "drizzle-kit push",
 		"db:generate": "tsx src/scripts/generate-migration.ts",
 		"db:migrate:deploy": "drizzle-kit migrate",
@@ -34,9 +36,11 @@
 	},
 	"devDependencies": {
 		"@berean-study/config": "workspace:*",
+		"@berean-study/testkit": "workspace:*",
 		"@types/pg": "^8.20.0",
 		"drizzle-kit": "^0.31.10",
 		"tsx": "^4.23.13",
-		"typescript": "catalog:"
+		"typescript": "catalog:",
+		"vitest": "catalog:"
 	}
 }

@@ -1,26 +1,24 @@
+import { env } from "@berean-study/env/server";
 import { render } from "@react-email/render";
-
 import nodemailer from "nodemailer";
 import React from "react";
 import { getResend } from "./client";
 
-const EMAIL_PROVIDER = process.env.EMAIL_PROVIDER ?? "smtp";
 let smtpTransporter: nodemailer.Transporter | null = null;
 
 function getFrom(from?: string) {
-	const v = from?.trim() || process.env.RESEND_FROM_EMAIL?.trim();
+	const v = from?.trim() || env.RESEND_FROM_EMAIL.trim();
 
-	if (!v) throw new Error("RESEND_FROM_EMAIL is not set");
 	return v;
 }
 
 function smtpTransportOptions(connectionTimeout?: number) {
 	return {
-		host: process.env.SMTP_HOST ?? "localhost",
-		port: Number(process.env.SMTP_PORT ?? 1025),
-		secure: (process.env.SMTP_SECURE ?? "false") === "true",
-		auth: process.env.SMTP_USER
-			? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS ?? "" }
+		host: env.SMTP_HOST,
+		port: env.SMTP_PORT,
+		secure: env.SMTP_SECURE,
+		auth: env.SMTP_USER
+			? { user: env.SMTP_USER, pass: env.SMTP_PASS }
 			: undefined,
 		connectionTimeout,
 	};
@@ -51,7 +49,7 @@ export async function sendEmail<TProps extends Record<string, unknown>>(
 	const html = await render(element, { pretty: true });
 	const text = await render(element, { plainText: true });
 
-	if (EMAIL_PROVIDER === "smtp") {
+	if (env.EMAIL_PROVIDER === "smtp") {
 		await getSmtpTransporter().sendMail({
 			from,
 			to: opts.to,

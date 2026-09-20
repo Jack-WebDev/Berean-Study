@@ -1,4 +1,4 @@
-import { createDb } from "@berean-study/db";
+import { db } from "@berean-study/db";
 import * as schema from "@berean-study/db/schema/auth";
 import { sendPasswordResetEmail } from "@berean-study/emailkit";
 import { env } from "@berean-study/env/server";
@@ -18,8 +18,6 @@ import {
 } from "./security-notifications";
 
 export function createAuth() {
-	const db = createDb();
-
 	return betterAuth({
 		appName: "Berean Study",
 		database: drizzleAdapter(db, {
@@ -28,6 +26,21 @@ export function createAuth() {
 			schema: schema,
 		}),
 		trustedOrigins: [env.BETTER_AUTH_URL],
+		rateLimit: {
+			enabled: true,
+			storage: "database",
+			window: 60,
+			max: 60,
+			customRules: {
+				"/sign-in/email": { window: 60, max: 5 },
+				"/sign-in/email-otp": { window: 60, max: 3 },
+				"/sign-up/email": { window: 60 * 60, max: 5 },
+				"/request-password-reset": { window: 60 * 60, max: 3 },
+				"/email-otp/*": { window: 60 * 10, max: 3 },
+				"/forget-password/*": { window: 60 * 10, max: 3 },
+				"/two-factor/*": { window: 60 * 15, max: 5 },
+			},
+		},
 		emailAndPassword: {
 			enabled: true,
 			minPasswordLength: 12,

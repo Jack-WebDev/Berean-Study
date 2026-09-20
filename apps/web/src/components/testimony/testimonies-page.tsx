@@ -80,7 +80,8 @@ export function TestimoniesPage() {
 								.toLowerCase()
 								.includes(query.trim().toLowerCase())),
 				)
-				.toSorted((a, b) =>
+				.slice()
+				.sort((a, b) =>
 					sort === "title"
 						? a.title.localeCompare(b.title)
 						: sort === "oldest"

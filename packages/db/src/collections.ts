@@ -283,9 +283,19 @@ export async function setCollectionsForPassage(
 	);
 
 	await db.transaction(async (tx) => {
+		const ownedCollectionIds = tx
+			.select({ id: collections.id })
+			.from(collections)
+			.where(eq(collections.userId, userId));
+
 		await tx
 			.delete(collectionPassages)
-			.where(eq(collectionPassages.passageId, passageId));
+			.where(
+				and(
+					eq(collectionPassages.passageId, passageId),
+					inArray(collectionPassages.collectionId, ownedCollectionIds),
+				),
+			);
 		if (uniqueCollectionIds.length > 0) {
 			await tx.insert(collectionPassages).values(
 				uniqueCollectionIds.map((collectionId) => ({
