@@ -1,3 +1,4 @@
+import type { PrayerReflection } from "@berean-study/db/prayers";
 import {
 	emptyRichTextDocument,
 	getDocumentText,
@@ -27,8 +28,8 @@ import {
 	PlusIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-
-import { listPrayers } from "@/functions/prayers";
+import { getPrayer, listPrayers } from "@/functions/prayers";
+import { PrayerLibraryTabs } from "./library-tabs";
 
 type Prayer = Awaited<ReturnType<typeof listPrayers>>[number];
 
@@ -71,17 +72,7 @@ export function PrayersPage() {
 						God.”<span className="mt-2 block not-italic">Philippians 4:6</span>
 					</div>
 					<div className="mt-5 flex items-center justify-between gap-3">
-						<div className="flex h-10 items-center rounded-lg bg-muted/55 p-1">
-							<span className="inline-flex h-8 min-w-28 items-center justify-center rounded-md bg-background px-5 font-medium text-sm shadow-sm">
-								Prayers
-							</span>
-							<Link
-								className="inline-flex h-8 min-w-28 items-center justify-center rounded-md px-5 text-muted-foreground text-sm hover:text-foreground"
-								to="/library/testimonies"
-							>
-								Testimonies
-							</Link>
-						</div>
+						<PrayerLibraryTabs active="prayers" />
 						<Button
 							className="h-9 rounded-lg px-4 shadow-sm"
 							render={<Link to="/library/prayers/new" />}
@@ -268,20 +259,127 @@ function PrayerDetail({ prayer }: { prayer: Prayer | null }) {
 						</p>
 						<Separator className="my-3" />
 						<section>
-							<h3 className="flex items-center gap-2 font-medium text-xs">
-								<FileTextIcon className="size-3.5 text-primary" />
-								Reflections
-							</h3>
-							<p className="mt-2 rounded-lg bg-muted/60 p-3 text-muted-foreground text-xs">
-								{prayer.reflectionCount === 0
-									? "No reflections have been added yet."
-									: `${prayer.reflectionCount} reflection${prayer.reflectionCount === 1 ? "" : "s"} added.`}
-							</p>
+							<div className="flex items-center justify-between gap-2">
+								<h3 className="flex items-center gap-2 font-medium text-xs">
+									<FileTextIcon className="size-3.5 text-primary" />
+									Reflections
+								</h3>
+								<Button
+									render={
+										<Link
+											params={{ prayerId: prayer.id }}
+											to="/library/prayers/$prayerId/reflections/new"
+										/>
+									}
+									size="sm"
+								>
+									<PlusIcon data-icon="inline-start" /> Add reflection
+								</Button>
+							</div>
+							<PrayerReflections
+								prayerId={prayer.id}
+								reflectionCount={prayer.reflectionCount}
+							/>
 						</section>
 					</div>
 				</CardContent>
 			</Card>
 		</aside>
+	);
+}
+
+function PrayerReflections({
+	prayerId,
+	reflectionCount,
+}: {
+	prayerId: number;
+	reflectionCount: number;
+}) {
+	const [reflections, setReflections] = useState<
+		NonNullable<Awaited<ReturnType<typeof getPrayer>>>["reflections"] | null
+	>(null);
+	const [showAllReflections, setShowAllReflections] = useState(false);
+
+	useEffect(() => {
+		let active = true;
+		setReflections(null);
+		setShowAllReflections(false);
+		void getPrayer({ data: { id: prayerId } })
+			.then((prayer) => {
+				if (active) setReflections(prayer?.reflections ?? []);
+			})
+			.catch(() => {
+				if (active) setReflections([]);
+			});
+		return () => {
+			active = false;
+		};
+	}, [prayerId]);
+
+	if (reflectionCount === 0) {
+		return (
+			<div className="mt-2 rounded-lg bg-muted/60 p-3 text-muted-foreground text-xs">
+				<p>
+					Look back on this prayer and record what you&apos;re learning, seeing,
+					or experiencing.
+				</p>
+				<p className="mt-2 font-medium text-foreground">No reflections yet.</p>
+			</div>
+		);
+	}
+
+	if (reflections === null) {
+		return (
+			<p className="mt-2 text-muted-foreground text-xs">Loading reflections…</p>
+		);
+	}
+
+	const visibleReflections = showAllReflections
+		? reflections
+		: reflections.slice(0, 3);
+
+	return (
+		<div className="mt-2 space-y-2">
+			<p className="text-muted-foreground text-xs">
+				Look back on this prayer and record what you&apos;re learning, seeing,
+				or experiencing.
+			</p>
+			{visibleReflections.map((reflection: PrayerReflection) => (
+				<article className="rounded-lg bg-muted/60 p-3" key={reflection.id}>
+					<div className="flex items-start justify-between gap-2">
+						<p className="text-[11px] text-muted-foreground">
+							{formatDate(reflection.createdAt)}
+						</p>
+						<Button
+							render={
+								<Link
+									params={{ prayerId, reflectionId: reflection.id }}
+									to="/library/prayers/$prayerId/reflections/$reflectionId/edit"
+								/>
+							}
+							size="sm"
+							variant="ghost"
+						>
+							<PencilIcon /> Edit
+						</Button>
+					</div>
+					<p className="mt-1 line-clamp-3 text-xs leading-4">
+						{getPrayerText(reflection.content)}
+					</p>
+				</article>
+			))}
+			{reflectionCount > 3 ? (
+				<button
+					className="inline-flex font-medium text-primary text-xs hover:underline"
+					onClick={() => setShowAllReflections((showAll) => !showAll)}
+					type="button"
+				>
+					{showAllReflections
+						? "Show fewer"
+						: `View all reflections (${reflectionCount})`}
+				</button>
+			) : null}
+		</div>
 	);
 }
 

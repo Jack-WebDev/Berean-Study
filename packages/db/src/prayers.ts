@@ -1,4 +1,4 @@
-import { and, count, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, inArray, or } from "drizzle-orm";
 
 import type { createDb } from "./index";
 import { prayerPassages } from "./schema/prayer_passages";
@@ -26,6 +26,32 @@ export type PrayerSummary = {
 	reflectionCount: number;
 	title: string;
 	updatedAt: Date;
+};
+
+export type PrayerReflection = {
+	content: string;
+	createdAt: Date;
+	id: number;
+	prayerId: number;
+};
+
+export type LibraryReflection = PrayerReflection & {
+	prayer: {
+		category: string | null;
+		content: string;
+		createdAt: Date;
+		id: number;
+		title: string;
+	};
+	prayerReflectionCount: number;
+};
+
+export type ListLibraryReflectionsInput = {
+	category?: string;
+	limit: number;
+	offset: number;
+	query?: string;
+	sort: "oldest" | "recent";
 };
 
 export async function listPrayers(db: DbClient, userId: string) {
@@ -70,16 +96,28 @@ export async function getPrayer(db: DbClient, userId: string, id: number) {
 		})
 		.from(prayers)
 		.where(and(eq(prayers.id, id), eq(prayers.userId, userId)));
-	if (!prayer) return null;
-	const [passage] = await db
-		.select({ passageId: prayerPassages.passageId })
-		.from(prayerPassages)
-		.where(eq(prayerPassages.prayerId, id));
-	const reflectionCounts = await getReflectionCounts(db, [id]);
+
+	if (!prayer) {
+		return null;
+	}
+
+	const [[passage], reflections] = await Promise.all([
+		db
+			.select({
+				passageId: prayerPassages.passageId,
+			})
+			.from(prayerPassages)
+			.where(eq(prayerPassages.prayerId, id))
+			.limit(1),
+
+		listPrayerReflections(db, userId, id),
+	]);
+
 	return {
 		...prayer,
 		passageId: passage?.passageId ?? null,
-		reflectionCount: reflectionCounts.get(id) ?? 0,
+		reflectionCount: reflections.length,
+		reflections,
 	};
 }
 
@@ -135,6 +173,180 @@ export async function createPrayer(
 	return { ...prayer, passageId: input.passageId ?? null, reflectionCount: 0 };
 }
 
+export async function listPrayerReflections(
+	db: DbClient,
+	userId: string,
+	prayerId: number,
+): Promise<PrayerReflection[]> {
+	return db
+		.select({
+			content: prayerReflections.content,
+			createdAt: prayerReflections.createdAt,
+			id: prayerReflections.id,
+			prayerId: prayerReflections.prayerId,
+		})
+		.from(prayerReflections)
+		.innerJoin(prayers, eq(prayerReflections.prayerId, prayers.id))
+		.where(
+			and(eq(prayerReflections.prayerId, prayerId), eq(prayers.userId, userId)),
+		)
+		.orderBy(desc(prayerReflections.createdAt), desc(prayerReflections.id));
+}
+
+/** Returns a page of reflections with their parent-prayer context. */
+export async function listLibraryReflections(
+	db: DbClient,
+	userId: string,
+	input: ListLibraryReflectionsInput,
+): Promise<{ reflections: LibraryReflection[]; total: number }> {
+	const conditions = [eq(prayers.userId, userId)];
+	if (input.category) conditions.push(eq(prayers.category, input.category));
+	if (input.query) {
+		const query = `%${escapeLikePattern(input.query)}%`;
+		const searchCondition = or(
+			ilike(prayerReflections.content, query),
+			ilike(prayers.title, query),
+		);
+		if (searchCondition) conditions.push(searchCondition);
+	}
+
+	const where = and(...conditions);
+	const [rows, [{ total }]] = await Promise.all([
+		db
+			.select({
+				content: prayerReflections.content,
+				createdAt: prayerReflections.createdAt,
+				id: prayerReflections.id,
+				prayerCategory: prayers.category,
+				prayerContent: prayers.content,
+				prayerCreatedAt: prayers.createdAt,
+				prayerId: prayerReflections.prayerId,
+				prayerTitle: prayers.title,
+			})
+			.from(prayerReflections)
+			.innerJoin(prayers, eq(prayerReflections.prayerId, prayers.id))
+			.where(where)
+			.orderBy(
+				input.sort === "oldest"
+					? asc(prayerReflections.createdAt)
+					: desc(prayerReflections.createdAt),
+				input.sort === "oldest"
+					? asc(prayerReflections.id)
+					: desc(prayerReflections.id),
+			)
+			.limit(input.limit)
+			.offset(input.offset),
+		db
+			.select({ total: count() })
+			.from(prayerReflections)
+			.innerJoin(prayers, eq(prayerReflections.prayerId, prayers.id))
+			.where(where),
+	]);
+
+	const counts = await getReflectionCounts(db, [
+		...new Set(rows.map((row) => row.prayerId)),
+	]);
+	return {
+		reflections: rows.map((row) => ({
+			content: row.content,
+			createdAt: row.createdAt,
+			id: row.id,
+			prayerId: row.prayerId,
+			prayer: {
+				category: row.prayerCategory,
+				content: row.prayerContent,
+				createdAt: row.prayerCreatedAt,
+				id: row.prayerId,
+				title: row.prayerTitle,
+			},
+			prayerReflectionCount: counts.get(row.prayerId) ?? 0,
+		})),
+		total: Number(total),
+	};
+}
+
+export async function getPrayerReflection(
+	db: DbClient,
+	userId: string,
+	prayerId: number,
+	reflectionId: number,
+): Promise<PrayerReflection | null> {
+	const [reflection] = await db
+		.select({
+			content: prayerReflections.content,
+			createdAt: prayerReflections.createdAt,
+			id: prayerReflections.id,
+			prayerId: prayerReflections.prayerId,
+		})
+		.from(prayerReflections)
+		.innerJoin(prayers, eq(prayerReflections.prayerId, prayers.id))
+		.where(
+			and(
+				eq(prayerReflections.id, reflectionId),
+				eq(prayerReflections.prayerId, prayerId),
+				eq(prayers.userId, userId),
+			),
+		);
+	return reflection ?? null;
+}
+
+export async function createPrayerReflection(
+	db: DbClient,
+	userId: string,
+	input: { content: string; prayerId: number },
+): Promise<PrayerReflection | null> {
+	const [prayer] = await db
+		.select({ id: prayers.id })
+		.from(prayers)
+		.where(and(eq(prayers.id, input.prayerId), eq(prayers.userId, userId)));
+	if (!prayer) return null;
+	const [reflection] = await db
+		.insert(prayerReflections)
+		.values({ content: input.content, prayerId: prayer.id })
+		.returning();
+	return reflection ?? null;
+}
+
+export async function updatePrayerReflection(
+	db: DbClient,
+	userId: string,
+	input: { content: string; prayerId: number; reflectionId: number },
+): Promise<PrayerReflection | null> {
+	const reflection = await getPrayerReflection(
+		db,
+		userId,
+		input.prayerId,
+		input.reflectionId,
+	);
+	if (!reflection) return null;
+	const [updated] = await db
+		.update(prayerReflections)
+		.set({ content: input.content })
+		.where(eq(prayerReflections.id, input.reflectionId))
+		.returning();
+	return updated ?? null;
+}
+
+export async function deletePrayerReflection(
+	db: DbClient,
+	userId: string,
+	prayerId: number,
+	reflectionId: number,
+) {
+	const reflection = await getPrayerReflection(
+		db,
+		userId,
+		prayerId,
+		reflectionId,
+	);
+	if (!reflection) return false;
+	const [deleted] = await db
+		.delete(prayerReflections)
+		.where(eq(prayerReflections.id, reflectionId))
+		.returning({ id: prayerReflections.id });
+	return Boolean(deleted);
+}
+
 async function getReflectionCounts(db: DbClient, prayerIds: number[]) {
 	if (prayerIds.length === 0) return new Map<number, number>();
 	const rows = await db
@@ -155,4 +367,8 @@ async function getPassageIds(db: DbClient, prayerIds: number[]) {
 		.from(prayerPassages)
 		.where(inArray(prayerPassages.prayerId, prayerIds));
 	return new Map(rows.map((row) => [row.prayerId, row.passageId]));
+}
+
+function escapeLikePattern(value: string) {
+	return value.replace(/[\\%_]/g, "\\$&");
 }
