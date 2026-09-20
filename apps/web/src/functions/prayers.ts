@@ -5,6 +5,7 @@ import {
 	deletePrayerReflection as deletePrayerReflectionInDb,
 	getPrayer as getPrayerFromDb,
 	getPrayerReflection as getPrayerReflectionFromDb,
+	listLibraryReflections as listLibraryReflectionsFromDb,
 	listPrayers as listPrayersFromDb,
 	updatePrayer as updatePrayerInDb,
 	updatePrayerReflection as updatePrayerReflectionInDb,
@@ -35,6 +36,25 @@ export const listPrayers = createServerFn({ method: "GET" })
 	.middleware([authMiddleware])
 	.handler(({ context }) =>
 		listPrayersFromDb(createDb(), requireUserId(context.session)),
+	);
+
+export const listLibraryReflections = createServerFn({ method: "GET" })
+	.middleware([authMiddleware])
+	.validator(
+		z.object({
+			category: z.string().trim().min(1).max(50).optional(),
+			limit: z.number().int().min(1).max(50).default(20),
+			offset: z.number().int().min(0).default(0),
+			query: z.string().trim().max(200).optional(),
+			sort: z.enum(["oldest", "recent"]).default("recent"),
+		}),
+	)
+	.handler(({ context, data }) =>
+		listLibraryReflectionsFromDb(
+			createDb(),
+			requireUserId(context.session),
+			data,
+		),
 	);
 
 export const createPrayer = createServerFn({ method: "POST" })

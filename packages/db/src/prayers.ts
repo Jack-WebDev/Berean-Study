@@ -1,4 +1,4 @@
-import { and, count, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, inArray, or } from "drizzle-orm";
 
 import type { createDb } from "./index";
 import { prayerPassages } from "./schema/prayer_passages";
@@ -33,6 +33,25 @@ export type PrayerReflection = {
 	createdAt: Date;
 	id: number;
 	prayerId: number;
+};
+
+export type LibraryReflection = PrayerReflection & {
+	prayer: {
+		category: string | null;
+		content: string;
+		createdAt: Date;
+		id: number;
+		title: string;
+	};
+	prayerReflectionCount: number;
+};
+
+export type ListLibraryReflectionsInput = {
+	category?: string;
+	limit: number;
+	offset: number;
+	query?: string;
+	sort: "oldest" | "recent";
 };
 
 export async function listPrayers(db: DbClient, userId: string) {
@@ -174,6 +193,78 @@ export async function listPrayerReflections(
 		.orderBy(desc(prayerReflections.createdAt), desc(prayerReflections.id));
 }
 
+/** Returns a page of reflections with their parent-prayer context. */
+export async function listLibraryReflections(
+	db: DbClient,
+	userId: string,
+	input: ListLibraryReflectionsInput,
+): Promise<{ reflections: LibraryReflection[]; total: number }> {
+	const conditions = [eq(prayers.userId, userId)];
+	if (input.category) conditions.push(eq(prayers.category, input.category));
+	if (input.query) {
+		const query = `%${escapeLikePattern(input.query)}%`;
+		const searchCondition = or(
+			ilike(prayerReflections.content, query),
+			ilike(prayers.title, query),
+		);
+		if (searchCondition) conditions.push(searchCondition);
+	}
+
+	const where = and(...conditions);
+	const [rows, [{ total }]] = await Promise.all([
+		db
+			.select({
+				content: prayerReflections.content,
+				createdAt: prayerReflections.createdAt,
+				id: prayerReflections.id,
+				prayerCategory: prayers.category,
+				prayerContent: prayers.content,
+				prayerCreatedAt: prayers.createdAt,
+				prayerId: prayerReflections.prayerId,
+				prayerTitle: prayers.title,
+			})
+			.from(prayerReflections)
+			.innerJoin(prayers, eq(prayerReflections.prayerId, prayers.id))
+			.where(where)
+			.orderBy(
+				input.sort === "oldest"
+					? asc(prayerReflections.createdAt)
+					: desc(prayerReflections.createdAt),
+				input.sort === "oldest"
+					? asc(prayerReflections.id)
+					: desc(prayerReflections.id),
+			)
+			.limit(input.limit)
+			.offset(input.offset),
+		db
+			.select({ total: count() })
+			.from(prayerReflections)
+			.innerJoin(prayers, eq(prayerReflections.prayerId, prayers.id))
+			.where(where),
+	]);
+
+	const counts = await getReflectionCounts(db, [
+		...new Set(rows.map((row) => row.prayerId)),
+	]);
+	return {
+		reflections: rows.map((row) => ({
+			content: row.content,
+			createdAt: row.createdAt,
+			id: row.id,
+			prayerId: row.prayerId,
+			prayer: {
+				category: row.prayerCategory,
+				content: row.prayerContent,
+				createdAt: row.prayerCreatedAt,
+				id: row.prayerId,
+				title: row.prayerTitle,
+			},
+			prayerReflectionCount: counts.get(row.prayerId) ?? 0,
+		})),
+		total: Number(total),
+	};
+}
+
 export async function getPrayerReflection(
 	db: DbClient,
 	userId: string,
@@ -276,4 +367,8 @@ async function getPassageIds(db: DbClient, prayerIds: number[]) {
 		.from(prayerPassages)
 		.where(inArray(prayerPassages.prayerId, prayerIds));
 	return new Map(rows.map((row) => [row.prayerId, row.passageId]));
+}
+
+function escapeLikePattern(value: string) {
+	return value.replace(/[\\%_]/g, "\\$&");
 }

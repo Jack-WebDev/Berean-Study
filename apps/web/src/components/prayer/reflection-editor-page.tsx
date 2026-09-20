@@ -90,7 +90,8 @@ export function ReflectionEditorPage({
 			if (!saved) throw new Error("Prayer not found.");
 			toast.success(isEditing ? "Reflection updated." : "Reflection saved.");
 			navigate({
-				to: "/library/prayers",
+				to: "/library/reflections",
+				search: { reflection: saved.id },
 			});
 		} catch {
 			setSubmitError("We couldn't save your reflection. Please try again.");

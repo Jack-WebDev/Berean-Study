@@ -1,25 +1,10 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-
-import {
-	FaithRecordsPage,
-	type FaithView,
-} from "@/components/prayer/faith-records-page";
+import { createFileRoute } from "@tanstack/react-router";
+import { FaithRecordsPage } from "@/components/prayer/faith-records-page";
 
 export const Route = createFileRoute("/_auth/library/testimonies")({
 	component: TestimoniesRoute,
 });
 
 function TestimoniesRoute() {
-	const navigate = useNavigate({ from: "/library/testimonies" });
-
-	return (
-		<FaithRecordsPage
-			onViewChange={(view: FaithView) =>
-				navigate({
-					to: view === "prayers" ? "/library/prayers" : "/library/testimonies",
-				})
-			}
-			view="testimonies"
-		/>
-	);
+	return <FaithRecordsPage />;
 }
