@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import type * as React from "react";
 import { Button } from "./button";
+import { NativeSelect, NativeSelectOption } from "./native-select";
 
 function Pagination({ className, ...props }: React.ComponentProps<"nav">) {
 	return (
@@ -118,7 +119,138 @@ function PaginationEllipsis({
 	);
 }
 
+type DataPaginationProps = {
+	className?: string;
+	onPageChange: (page: number) => void;
+	onPageSizeChange?: (pageSize: number) => void;
+	page: number;
+	pageSize: number;
+	pageSizeOptions?: readonly number[];
+	total: number;
+};
+
+/** Controlled pagination for paged result sets. */
+function DataPagination({
+	className,
+	onPageChange,
+	onPageSizeChange,
+	page,
+	pageSize,
+	pageSizeOptions = [10, 20, 50],
+	total,
+}: DataPaginationProps) {
+	if (total === 0) return null;
+
+	const pageCount = Math.ceil(total / pageSize);
+	const visiblePages = getVisiblePages(page, pageCount);
+	const rangeStart = (page - 1) * pageSize + 1;
+	const rangeEnd = Math.min(page * pageSize, total);
+
+	return (
+		<div
+			className={cn(
+				"flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between",
+				className,
+			)}
+		>
+			<nav aria-label="Pagination">
+				<ul className="flex items-center gap-2">
+					<li>
+						<Button
+							aria-label="Go to previous page"
+							className="size-10 rounded-xl sm:size-12"
+							disabled={page === 1}
+							onClick={() => onPageChange(page - 1)}
+							size="icon"
+							type="button"
+							variant="outline"
+						>
+							<ChevronLeftIcon />
+						</Button>
+					</li>
+					{visiblePages.map((item, index) =>
+						item === "ellipsis" ? (
+							<li key={`ellipsis-${index}`}>
+								<PaginationEllipsis className="size-10 sm:size-12" />
+							</li>
+						) : (
+							<li key={item}>
+								<Button
+									aria-current={item === page ? "page" : undefined}
+									aria-label={`Go to page ${item}`}
+									className="size-10 rounded-xl text-base sm:size-12"
+									onClick={() => onPageChange(item)}
+									size="icon"
+									type="button"
+									variant={item === page ? "default" : "outline"}
+								>
+									{item}
+								</Button>
+							</li>
+						),
+					)}
+					<li>
+						<Button
+							aria-label="Go to next page"
+							className="size-10 rounded-xl sm:size-12"
+							disabled={page === pageCount}
+							onClick={() => onPageChange(page + 1)}
+							size="icon"
+							type="button"
+							variant="outline"
+						>
+							<ChevronRightIcon />
+						</Button>
+					</li>
+				</ul>
+			</nav>
+			<div className="flex items-center justify-between gap-4 sm:justify-end">
+				<p className="font-medium text-lg sm:text-xl">
+					Results: {rangeStart} – {rangeEnd} of {total}
+				</p>
+				{onPageSizeChange ? (
+					<label className="sr-only" htmlFor="pagination-page-size">
+						Results per page
+					</label>
+				) : null}
+				{onPageSizeChange ? (
+					<NativeSelect
+						className="w-24"
+						id="pagination-page-size"
+						onChange={(event) => onPageSizeChange(Number(event.target.value))}
+						value={pageSize}
+					>
+						{pageSizeOptions.map((option) => (
+							<NativeSelectOption key={option} value={option}>
+								{option}
+							</NativeSelectOption>
+						))}
+					</NativeSelect>
+				) : null}
+			</div>
+		</div>
+	);
+}
+
+function getVisiblePages(page: number, pageCount: number) {
+	if (pageCount <= 5)
+		return Array.from({ length: pageCount }, (_, index) => index + 1);
+	if (page <= 3) return [1, 2, 3, "ellipsis", pageCount] as const;
+	if (page >= pageCount - 2)
+		return [1, "ellipsis", pageCount - 2, pageCount - 1, pageCount] as const;
+	return [
+		1,
+		"ellipsis",
+		page - 1,
+		page,
+		page + 1,
+		"ellipsis",
+		pageCount,
+	] as const;
+}
+
 export {
+	DataPagination,
 	Pagination,
 	PaginationContent,
 	PaginationEllipsis,

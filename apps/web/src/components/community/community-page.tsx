@@ -1,4 +1,5 @@
 import { buttonVariants } from "@berean-study/ui/components/button";
+import { DataPagination } from "@berean-study/ui/components/pagination";
 import { cn } from "@berean-study/ui/lib/utils";
 import { Link } from "@tanstack/react-router";
 import { SquarePenIcon } from "lucide-react";
@@ -20,18 +21,28 @@ export function CommunityPage({
 	activeTopic,
 	onBookmarkChange,
 	onFilterChange,
+	onPaginationChange,
 	onTopicChange,
+	page,
+	pageSize,
 	posts,
+	totalPosts,
 }: {
 	activeFilter: CommunityFilter;
 	activeTopic?: string;
 	onFilterChange: (filter: CommunityFilter) => void;
 	onBookmarkChange: (postId: string, isBookmarked: boolean) => Promise<void>;
+	onPaginationChange: (page: number, pageSize: number) => void;
 	onTopicChange: (topic?: CommunityTopic) => void;
+	page: number;
+	pageSize: number;
 	posts: CommunityPostCardData[];
+	totalPosts: number;
 }) {
 	const featuredPost =
-		posts.find((post) => post.type === "testimony") ?? posts[0] ?? null;
+		page === 1
+			? (posts.find((post) => post.type === "testimony") ?? posts[0] ?? null)
+			: null;
 	const feedPosts = featuredPost
 		? posts.filter((post) => post.id !== featuredPost.id)
 		: posts;
@@ -102,6 +113,19 @@ export function CommunityPage({
 											/>
 										))}
 									</div>
+									<DataPagination
+										className="mt-8"
+										onPageChange={(nextPage) =>
+											onPaginationChange(nextPage, pageSize)
+										}
+										onPageSizeChange={(nextPageSize) =>
+											onPaginationChange(1, nextPageSize)
+										}
+										page={page}
+										pageSize={pageSize}
+										pageSizeOptions={[12, 24, 48]}
+										total={totalPosts}
+									/>
 								</section>
 							</>
 						) : null}
