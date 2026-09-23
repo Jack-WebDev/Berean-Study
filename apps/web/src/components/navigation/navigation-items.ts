@@ -35,6 +35,11 @@ export const publicNavigationItems = [
 export const primaryNavigationItems = [
 	{ href: "/home", icon: HouseIcon, label: "Home" },
 	{
+		href: "/community",
+		icon: UsersRoundIcon,
+		label: "Community",
+	},
+	{
 		href: "/bible",
 		icon: BookOpenIcon,
 		label: "Browse Scripture",
