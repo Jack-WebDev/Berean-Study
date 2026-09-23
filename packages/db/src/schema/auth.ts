@@ -95,7 +95,8 @@ export const verification = pgTable(
 
 /** Persistent request counters used by Better Auth's database rate limiter. */
 export const rateLimit = pgTable("rate_limit", {
-	key: text("key").primaryKey(),
+	id: text("id").primaryKey(),
+	key: text("key").notNull().unique(),
 	count: integer("count").notNull(),
 	lastRequest: bigint("last_request", { mode: "number" }).notNull(),
 });
