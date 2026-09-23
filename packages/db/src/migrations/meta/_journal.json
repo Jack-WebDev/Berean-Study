@@ -92,6 +92,13 @@
 			"when": 1789918285550,
 			"tag": "0012_legal_vivisector",
 			"breakpoints": true
+		},
+		{
+			"idx": 13,
+			"version": "7",
+			"when": 1789920929446,
+			"tag": "0013_mean_earthquake",
+			"breakpoints": true
 		}
 	]
 }
