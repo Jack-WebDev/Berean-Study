@@ -37,7 +37,10 @@ export function CommunityPostCard({
 	onBookmarkChange,
 	post,
 }: {
-	onBookmarkChange?: (postId: string, isBookmarked: boolean) => void;
+	onBookmarkChange?: (
+		postId: string,
+		isBookmarked: boolean,
+	) => Promise<void> | void;
 	post: CommunityPostCardData;
 }) {
 	const [isBookmarked, setIsBookmarked] = useState(post.isBookmarked);
@@ -46,10 +49,14 @@ export function CommunityPostCard({
 		setIsBookmarked(post.isBookmarked);
 	}, [post.isBookmarked]);
 
-	const handleBookmarkChange = () => {
+	const handleBookmarkChange = async () => {
 		const nextIsBookmarked = !isBookmarked;
 		setIsBookmarked(nextIsBookmarked);
-		onBookmarkChange?.(post.id, nextIsBookmarked);
+		try {
+			await onBookmarkChange?.(post.id, nextIsBookmarked);
+		} catch {
+			setIsBookmarked(!nextIsBookmarked);
+		}
 	};
 
 	return (
@@ -62,11 +69,13 @@ export function CommunityPostCard({
 				{post.coverImage ? (
 					<img
 						alt=""
-						className="aspect-[16/7] w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+						className="aspect-16/7 w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+						decoding="async"
+						loading="lazy"
 						src={post.coverImage}
 					/>
 				) : (
-					<div className="flex aspect-[16/7] items-center justify-center bg-muted text-muted-foreground">
+					<div className="flex aspect-16/7 items-center justify-center bg-muted text-muted-foreground">
 						<ImageIcon aria-hidden="true" className="size-5" />
 					</div>
 				)}
