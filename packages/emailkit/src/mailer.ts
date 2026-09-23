@@ -4,38 +4,36 @@ import nodemailer from "nodemailer";
 import React from "react";
 import { getResend } from "./client";
 
-let smtpTransporter: nodemailer.Transporter | null = null;
+let mailpitTransporter: nodemailer.Transporter | null = null;
+
+const mailpitTransportOptions = {
+	host: "localhost",
+	port: 1025,
+	secure: false,
+};
 
 function getFrom(from?: string) {
-	const v = from?.trim() || env.RESEND_FROM_EMAIL.trim();
+	const value = from?.trim() || env.RESEND_FROM_EMAIL?.trim();
 
-	return v;
-}
-
-function smtpTransportOptions(connectionTimeout?: number) {
-	return {
-		host: env.SMTP_HOST,
-		port: env.SMTP_PORT,
-		secure: env.SMTP_SECURE,
-		auth: env.SMTP_USER
-			? { user: env.SMTP_USER, pass: env.SMTP_PASS }
-			: undefined,
-		connectionTimeout,
-	};
-}
-
-function getSmtpTransporter() {
-	if (!smtpTransporter) {
-		smtpTransporter = nodemailer.createTransport(smtpTransportOptions());
+	if (!value) {
+		throw new Error("RESEND_FROM_EMAIL must be configured to send email.");
 	}
 
-	return smtpTransporter;
+	return value;
+}
+
+function getMailpitTransporter() {
+	if (!mailpitTransporter) {
+		mailpitTransporter = nodemailer.createTransport(mailpitTransportOptions);
+	}
+
+	return mailpitTransporter;
 }
 
 type SendReactEmailOpts<TProps extends Record<string, unknown>> = {
 	to: string;
 	subject: string;
-	component: React.FC<TProps>;
+	component: (props: TProps) => React.ReactNode;
 	props: TProps;
 	from?: string;
 };
@@ -49,8 +47,8 @@ export async function sendEmail<TProps extends Record<string, unknown>>(
 	const html = await render(element, { pretty: true });
 	const text = await render(element, { plainText: true });
 
-	if (env.EMAIL_PROVIDER === "smtp") {
-		await getSmtpTransporter().sendMail({
+	if (env.NODE_ENV === "development") {
+		await getMailpitTransporter().sendMail({
 			from,
 			to: opts.to,
 			subject: opts.subject,
