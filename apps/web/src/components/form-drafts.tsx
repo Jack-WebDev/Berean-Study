@@ -17,7 +17,12 @@ export type FormDraftSchema = {
 	"account.reading.settings": ReadingSettings;
 	"auth.forgot-password": { email: string };
 	"auth.login": { email: string; password: string };
-	"auth.register": { email: string; name: string; password: string };
+	"auth.register": {
+		confirmPassword: string;
+		email: string;
+		name: string;
+		password: string;
+	};
 	"auth.reset-password": {
 		confirmPassword: string;
 		otp: string;

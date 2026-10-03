@@ -26,8 +26,8 @@ const strengthByScore: PasswordStrength[] = [
 	{
 		label: "Good",
 		score: 3,
-		textClassName: "text-primary",
-		trackClassName: "bg-primary",
+		textClassName: "text-yellow-700 dark:text-yellow-400",
+		trackClassName: "bg-yellow-500",
 	},
 	{
 		label: "Strong",

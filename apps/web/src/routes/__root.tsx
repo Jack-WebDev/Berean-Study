@@ -63,12 +63,6 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
 				href: "/favicon.png",
 				media: "(prefers-color-scheme: light)",
 			},
-			{
-				rel: "icon",
-				type: "image/png",
-				href: "/favicon-dark.png",
-				media: "(prefers-color-scheme: dark)",
-			},
 		],
 	}),
 

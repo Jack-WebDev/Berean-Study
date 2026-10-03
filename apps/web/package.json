@@ -6,6 +6,7 @@
 		"build": "vite build",
 		"check-types": "tsc -p tsconfig.json --noEmit",
 		"serve": "vite preview",
+		"test": "testkit-vitest run --config vitest.config.ts",
 		"dev": "vite dev --force"
 	},
 	"dependencies": {
@@ -33,6 +34,7 @@
 	},
 	"devDependencies": {
 		"@berean-study/config": "workspace:*",
+		"@berean-study/testkit": "workspace:*",
 		"@tanstack/react-router-devtools": "^1.167.0",
 		"@testing-library/dom": "^10.4.1",
 		"@testing-library/react": "^16.3.2",
@@ -41,6 +43,7 @@
 		"@vitejs/plugin-react": "^6.0.4",
 		"jsdom": "^30.0.0",
 		"typescript": "catalog:",
+		"vitest": "catalog:",
 		"vite": "^8.1.5",
 		"web-vitals": "^6.0.1"
 	}
