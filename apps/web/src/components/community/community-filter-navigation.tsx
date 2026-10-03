@@ -1,3 +1,4 @@
+import type { CommunityFeedView } from "@berean-study/db/community";
 import {
 	ToggleGroup,
 	ToggleGroupItem,
@@ -10,9 +11,9 @@ const communityFilters = [
 	{ label: "Notes", value: "note" },
 	{ label: "Testimonies", value: "testimony" },
 	{ label: "Prayers", value: "prayer" },
-] as const;
+] as const satisfies ReadonlyArray<{ label: string; value: CommunityFeedView }>;
 
-export type CommunityFilter = (typeof communityFilters)[number]["value"];
+export type CommunityFilter = CommunityFeedView;
 
 export function CommunityFilterNavigation({
 	activeFilter,
@@ -27,7 +28,9 @@ export function CommunityFilterNavigation({
 				className="max-w-full flex-wrap gap-1 border-border/70 border-b pb-3"
 				multiple={false}
 				onValueChange={(values) => {
-					const filter = values[0] as CommunityFilter | undefined;
+					const filter = communityFilters.find(
+						(item) => item.value === values[0],
+					)?.value;
 					if (filter) onFilterChange(filter);
 				}}
 				spacing={1}

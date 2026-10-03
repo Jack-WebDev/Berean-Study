@@ -1,4 +1,4 @@
-import { and, count, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import type { createDb } from "./index";
 import { user } from "./schema/auth";
@@ -222,7 +222,7 @@ export type CommunityFeedPost = {
 	type: CommunityPostType;
 };
 
-export const communityFeedFilters = [
+export const communityFeedViews = [
 	"featured",
 	"recent",
 	"collection",
@@ -231,15 +231,16 @@ export const communityFeedFilters = [
 	"prayer",
 ] as const;
 
-export type CommunityFeedFilter = (typeof communityFeedFilters)[number];
+export type CommunityFeedView = (typeof communityFeedViews)[number];
 
 export type CommunityFeedSelection = {
-	filter: CommunityFeedFilter;
 	page: number;
 	pageSize: number;
+	view: CommunityFeedView;
 };
 
 export type CommunityFeedPage = {
+	featuredPost: CommunityFeedPost | null;
 	posts: CommunityFeedPost[];
 	total: number;
 };
@@ -252,19 +253,22 @@ export type SavedCommunityPost = {
 };
 
 /**
- * Returns published Community snapshots. Private source records are never read
+ * Returns the selected Community feed. Private source records are never read
  * into the feed, so later edits to a library item cannot alter a publication.
+ *
+ * The featured view promotes the newest testimony to its lead position on the
+ * first page; every other view is ordered by publication date alone.
  */
 export async function listCommunityFeed(
 	db: DbClient,
 	viewerUserId: string,
 	selection: CommunityFeedSelection,
 ): Promise<CommunityFeedPage> {
-	const filter = asCommunityPostType(selection.filter);
+	const type = asCommunityPostType(selection.view);
 	const where = and(
 		inArray(communityPosts.visibility, ["members", "public"]),
 		isNull(communityPosts.removedAt),
-		filter ? eq(communityPosts.postType, filter) : undefined,
+		type ? eq(communityPosts.postType, type) : undefined,
 	);
 	const [rows, totalRows] = await Promise.all([
 		db
@@ -288,13 +292,15 @@ export async function listCommunityFeed(
 				),
 			)
 			.where(where)
-			.orderBy(desc(communityPosts.publishedAt), desc(communityPosts.id))
+			.orderBy(...communityFeedOrder(selection.view))
 			.limit(selection.pageSize)
 			.offset((selection.page - 1) * selection.pageSize),
 		db.select({ total: count() }).from(communityPosts).where(where),
 	]);
 
-	if (rows.length === 0) return { posts: [], total: totalRows[0]?.total ?? 0 };
+	if (rows.length === 0) {
+		return { featuredPost: null, posts: [], total: totalRows[0]?.total ?? 0 };
+	}
 
 	const passageRows = await db
 		.select({
@@ -337,10 +343,28 @@ export async function listCommunityFeed(
 			type,
 		};
 	});
+	const featuredPost =
+		selection.view === "featured" && selection.page === 1
+			? (posts[0] ?? null)
+			: null;
 	return {
-		posts,
+		featuredPost,
+		posts: featuredPost ? posts.slice(1) : posts,
 		total: totalRows[0]?.total ?? 0,
 	};
+}
+
+function communityFeedOrder(view: CommunityFeedView) {
+	const publishedOrder = [
+		desc(communityPosts.publishedAt),
+		desc(communityPosts.id),
+	] as const;
+	if (view !== "featured") return publishedOrder;
+
+	return [
+		sql`CASE WHEN ${communityPosts.postType} = 'testimony' THEN 0 ELSE 1 END`,
+		...publishedOrder,
+	] as const;
 }
 
 /** Updates only the current viewer's Community-post bookmark relationship. */

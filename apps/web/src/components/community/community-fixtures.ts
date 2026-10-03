@@ -1,20 +1,5 @@
 import type { CommunityPostType } from "./community-post-card";
 
-export const communityTopics = [
-	{ label: "Faith", value: "faith" },
-	{ label: "Prayer", value: "prayer" },
-	{ label: "Grace", value: "grace" },
-	{ label: "Bible Study", value: "bible-study" },
-	{ label: "Life in Christ", value: "life-in-christ" },
-	{ label: "Trials", value: "trials" },
-	{ label: "Worship", value: "worship" },
-	{ label: "Hope", value: "hope" },
-	{ label: "Scripture Memory", value: "scripture-memory" },
-	{ label: "Discipleship", value: "discipleship" },
-] as const;
-
-export type CommunityTopic = (typeof communityTopics)[number]["value"];
-
 export type CommunityRecommendation = {
 	href: string;
 	id: string;

@@ -1,6 +1,6 @@
 import { db } from "@berean-study/db";
 import {
-	communityFeedFilters,
+	communityFeedViews,
 	listCommunityFeed as listCommunityFeedFromDb,
 	listCommunityPublishingResources as listCommunityPublishingResourcesFromDb,
 	listSavedCommunityPosts as listSavedCommunityPostsFromDb,
@@ -21,9 +21,9 @@ export const getCommunityFeed = createServerFn({ method: "GET" })
 	.middleware([authMiddleware])
 	.validator(
 		z.object({
-			filter: z.enum(communityFeedFilters).default("featured"),
 			page: z.number().int().positive().default(1),
 			pageSize: z.number().int().min(1).max(50).default(12),
+			view: z.enum(communityFeedViews).default("featured"),
 		}),
 	)
 	.handler(({ context, data }) =>

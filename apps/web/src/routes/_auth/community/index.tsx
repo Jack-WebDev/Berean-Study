@@ -1,11 +1,19 @@
+import type {
+	CommunityFeedPage,
+	CommunityFeedPost,
+	CommunityFeedSelection,
+	CommunityFeedView,
+} from "@berean-study/db/community";
 import {
 	createFileRoute,
 	useNavigate,
 	useRouter,
 } from "@tanstack/react-router";
 import { z } from "zod";
-import type { CommunityFilter } from "@/components/community/community-filter-navigation";
-import { CommunityPage } from "@/components/community/community-page";
+import {
+	CommunityPage,
+	type CommunityPageFeed,
+} from "@/components/community/community-page";
 import type { CommunityPostCardData } from "@/components/community/community-post-card";
 import {
 	getCommunityFeed,
@@ -17,23 +25,19 @@ const communitySearchSchema = z
 	.object({
 		page: z.coerce.number().int().positive().default(1),
 		pageSize: z.coerce.number().int().min(1).max(50).default(12),
-		topic: z.string().trim().min(1).max(100).optional(),
 		type: z.enum(["collection", "note", "testimony", "prayer"]).optional(),
-		view: z.enum(["featured", "recent"]).default("featured"),
+		view: z
+			.enum(["featured", "recent", "collection", "note", "testimony", "prayer"])
+			.optional(),
 	})
-	.transform(({ type, view, ...search }) => ({
-		...search,
-		type,
-		view: type ? undefined : view,
+	.transform(({ type, view, ...selection }) => ({
+		...selection,
+		view: type ?? view ?? "featured",
 	}));
 
 export const Route = createFileRoute("/_auth/community/")({
 	component: CommunityRoute,
-	loaderDeps: ({ search }) => ({
-		filter: search.type ?? search.view ?? "featured",
-		page: search.page,
-		pageSize: search.pageSize,
-	}),
+	loaderDeps: ({ search }) => search,
 	loader: async ({ deps }) => {
 		const [feed, savedPosts] = await Promise.all([
 			getCommunityFeed({ data: deps }),
@@ -45,24 +49,23 @@ export const Route = createFileRoute("/_auth/community/")({
 });
 
 function CommunityRoute() {
-	const { page, pageSize, topic, type, view } = Route.useSearch();
-	const { feed, savedPosts } = Route.useLoaderData();
-	const posts = feed.posts.map(toCardData);
+	const { page, pageSize, view } = Route.useSearch();
+	const { feed: loadedFeed, savedPosts } = Route.useLoaderData();
+	const feed = toPageFeed(loadedFeed);
 	const navigate = useNavigate({ from: "/community/" });
 	const router = useRouter();
-	const activeFilter: CommunityFilter = type ?? view ?? "featured";
-	const searchForFilter = (filter: CommunityFilter, nextTopic = topic) =>
-		filter === "featured" || filter === "recent"
-			? { page: 1, pageSize, topic: nextTopic, view: filter }
-			: { page: 1, pageSize, topic: nextTopic, type: filter };
+	const selection: CommunityFeedSelection = { page, pageSize, view };
+	const searchForView = (nextView: CommunityFeedView) => ({
+		page: 1,
+		pageSize,
+		view: nextView,
+	});
 
 	return (
 		<CommunityPage
-			activeFilter={activeFilter}
-			activeTopic={topic}
-			page={page}
-			pageSize={pageSize}
+			feed={feed}
 			savedPosts={savedPosts}
+			selection={selection}
 			onBookmarkChange={async (postId, isBookmarked) => {
 				const updated = await setCommunityPostBookmark({
 					data: { isBookmarked, postId: Number(postId) },
@@ -70,46 +73,31 @@ function CommunityRoute() {
 				if (!updated) throw new Error("Unable to update bookmark.");
 				await router.invalidate();
 			}}
-			onFilterChange={(filter) =>
+			onFilterChange={(nextView) =>
 				navigate({
 					to: ".",
-					search: searchForFilter(filter),
-				})
-			}
-			onTopicChange={(nextTopic) =>
-				navigate({
-					to: ".",
-					search: searchForFilter(activeFilter, nextTopic),
+					search: searchForView(nextView),
 				})
 			}
 			onPaginationChange={(nextPage, nextPageSize) =>
 				navigate({
 					to: ".",
-					search:
-						activeFilter === "featured" || activeFilter === "recent"
-							? {
-									page: nextPage,
-									pageSize: nextPageSize,
-									topic,
-									view: activeFilter,
-								}
-							: {
-									page: nextPage,
-									pageSize: nextPageSize,
-									topic,
-									type: activeFilter,
-								},
+					search: { page: nextPage, pageSize: nextPageSize, view },
 				})
 			}
-			posts={posts}
-			totalPosts={feed.total}
 		/>
 	);
 }
 
-function toCardData(
-	post: (typeof Route.types.loaderData.feed.posts)[number],
-): CommunityPostCardData {
+function toPageFeed(feed: CommunityFeedPage): CommunityPageFeed {
+	return {
+		featuredPost: feed.featuredPost ? toCardData(feed.featuredPost) : null,
+		posts: feed.posts.map(toCardData),
+		total: feed.total,
+	};
+}
+
+function toCardData(post: CommunityFeedPost): CommunityPostCardData {
 	return {
 		author: post.author,
 		coverImage: post.coverImage,

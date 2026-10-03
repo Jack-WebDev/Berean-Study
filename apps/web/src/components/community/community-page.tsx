@@ -1,4 +1,7 @@
-import type { SavedCommunityPost } from "@berean-study/db/community";
+import type {
+	CommunityFeedSelection,
+	SavedCommunityPost,
+} from "@berean-study/db/community";
 import { buttonVariants } from "@berean-study/ui/components/button";
 import { DataPagination } from "@berean-study/ui/components/pagination";
 import { cn } from "@berean-study/ui/lib/utils";
@@ -9,7 +12,6 @@ import {
 	type CommunityFilter,
 	CommunityFilterNavigation,
 } from "./community-filter-navigation";
-import type { CommunityTopic } from "./community-fixtures";
 import {
 	CommunityPostCard,
 	type CommunityPostCardData,
@@ -17,39 +19,29 @@ import {
 import { CommunityRightRail } from "./community-right-rail";
 import { FeaturedCommunityPost } from "./featured-community-post";
 
+export type CommunityPageFeed = {
+	featuredPost: CommunityPostCardData | null;
+	posts: CommunityPostCardData[];
+	total: number;
+};
+
 export function CommunityPage({
-	activeFilter,
-	activeTopic,
+	feed,
 	onBookmarkChange,
 	onFilterChange,
 	onPaginationChange,
-	onTopicChange,
-	page,
-	pageSize,
-	posts,
 	savedPosts,
-	totalPosts,
+	selection,
 }: {
-	activeFilter: CommunityFilter;
-	activeTopic?: string;
+	feed: CommunityPageFeed;
 	onFilterChange: (filter: CommunityFilter) => void;
 	onBookmarkChange: (postId: string, isBookmarked: boolean) => Promise<void>;
 	onPaginationChange: (page: number, pageSize: number) => void;
-	onTopicChange: (topic?: CommunityTopic) => void;
-	page: number;
-	pageSize: number;
-	posts: CommunityPostCardData[];
 	savedPosts: SavedCommunityPost[];
-	totalPosts: number;
+	selection: CommunityFeedSelection;
 }) {
-	const isFeaturedView = activeFilter === "featured";
-	const featuredPost =
-		isFeaturedView && page === 1
-			? (posts.find((post) => post.type === "testimony") ?? posts[0] ?? null)
-			: null;
-	const feedPosts = featuredPost
-		? posts.filter((post) => post.id !== featuredPost.id)
-		: posts;
+	const isFeaturedView = selection.view === "featured";
+	const hasVisiblePosts = feed.featuredPost !== null || feed.posts.length > 0;
 
 	return (
 		<main className="min-h-full bg-background text-foreground">
@@ -79,7 +71,7 @@ export function CommunityPage({
 
 				<div className="mt-10 sm:mt-12">
 					<CommunityFilterNavigation
-						activeFilter={activeFilter}
+						activeFilter={selection.view}
 						onFilterChange={onFilterChange}
 					/>
 				</div>
@@ -88,7 +80,7 @@ export function CommunityPage({
 					<div className="min-w-0">
 						{isFeaturedView ? (
 							<div>
-								<FeaturedCommunityPost post={featuredPost} />
+								<FeaturedCommunityPost post={feed.featuredPost} />
 							</div>
 						) : null}
 
@@ -101,16 +93,16 @@ export function CommunityPage({
 									className="font-serif text-2xl leading-tight tracking-[-0.03em] sm:text-[1.7rem]"
 									id="from-our-community-title"
 								>
-									{feedHeading(activeFilter)}
+									{feedHeading(selection.view)}
 								</h2>
 								<p className="mt-1 text-muted-foreground text-sm leading-6">
-									{feedDescription(activeFilter)}
+									{feedDescription(selection.view)}
 								</p>
 							</header>
 
-							{feedPosts.length > 0 ? (
+							{feed.posts.length > 0 ? (
 								<div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-									{feedPosts.map((post) => (
+									{feed.posts.map((post) => (
 										<CommunityPostCard
 											key={post.id}
 											onBookmarkChange={onBookmarkChange}
@@ -118,31 +110,27 @@ export function CommunityPage({
 										/>
 									))}
 								</div>
-							) : (
+							) : hasVisiblePosts ? null : (
 								<p className="mt-6 text-muted-foreground text-sm">
-									No {feedNoun(activeFilter)} have been shared yet.
+									No {feedNoun(selection.view)} have been shared yet.
 								</p>
 							)}
 							<DataPagination
 								className="mt-8"
 								onPageChange={(nextPage) =>
-									onPaginationChange(nextPage, pageSize)
+									onPaginationChange(nextPage, selection.pageSize)
 								}
 								onPageSizeChange={(nextPageSize) =>
 									onPaginationChange(1, nextPageSize)
 								}
-								page={page}
-								pageSize={pageSize}
+								page={selection.page}
+								pageSize={selection.pageSize}
 								pageSizeOptions={[12, 24, 48]}
-								total={totalPosts}
+								total={feed.total}
 							/>
 						</section>
 					</div>
-					<CommunityRightRail
-						activeTopic={activeTopic}
-						onTopicChange={onTopicChange}
-						savedPosts={savedPosts}
-					/>
+					<CommunityRightRail savedPosts={savedPosts} />
 				</div>
 			</div>
 		</main>

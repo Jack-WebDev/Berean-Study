@@ -193,9 +193,9 @@ describeWithDatabase("Community publication", () => {
 			expect(failedPosts).toEqual([]);
 
 			const testimonyFeed = await listCommunityFeed(db, ownerId, {
-				filter: "testimony",
 				page: 1,
 				pageSize: 10,
+				view: "testimony",
 			});
 			expect(testimonyFeed.total).toBeGreaterThanOrEqual(1);
 			expect(testimonyFeed.posts).not.toHaveLength(0);
@@ -204,12 +204,25 @@ describeWithDatabase("Community publication", () => {
 			).toBe(true);
 
 			const recentFeed = await listCommunityFeed(db, ownerId, {
-				filter: "recent",
 				page: 1,
 				pageSize: 1,
+				view: "recent",
 			});
 			expect(recentFeed.total).toBeGreaterThan(testimonyFeed.total);
 			expect(recentFeed.posts).toHaveLength(1);
+			expect(recentFeed.featuredPost).toBeNull();
+
+			const featuredFeed = await listCommunityFeed(db, ownerId, {
+				page: 1,
+				pageSize: 10,
+				view: "featured",
+			});
+			expect(featuredFeed.featuredPost?.type).toBe("testimony");
+			expect(
+				featuredFeed.posts.some(
+					(post) => post.id === featuredFeed.featuredPost?.id,
+				),
+			).toBe(false);
 
 			expect(
 				await setCommunityPostBookmark(db, otherUserId, published.id, true),
