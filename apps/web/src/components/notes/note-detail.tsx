@@ -1,4 +1,7 @@
-import { RichTextRenderer } from "@berean-study/rich-text-editor";
+import {
+	parsePersistedRichText,
+	RichTextRenderer,
+} from "@berean-study/rich-text-editor";
 import {
 	Alert,
 	AlertDescription,
@@ -41,7 +44,6 @@ import {
 import { useEffect, useState } from "react";
 import { AddNoteToCollectionDialog } from "../collections/add-note-to-collection-dialog";
 import { NoteCollectionControl } from "./note-collection";
-import { parseNoteContent } from "./note-content";
 import { NoteTags } from "./note-tags";
 import { passageLabel } from "./notes-list";
 import type { Note, NoteCollection } from "./types";
@@ -155,7 +157,7 @@ export function NoteDetail({
 			<div className="notes-note-content">
 				<RichTextRenderer
 					ariaLabel="Note content"
-					document={parseNoteContent(note.content)}
+					document={parsePersistedRichText(note.content)}
 					preset="member"
 				/>
 			</div>

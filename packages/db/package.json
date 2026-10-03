@@ -27,6 +27,7 @@
 	},
 	"dependencies": {
 		"@berean-study/env": "workspace:*",
+		"@berean-study/rich-text-editor": "workspace:*",
 		"@faker-js/faker": "^10.6.0",
 		"better-auth": "catalog:",
 		"dotenv": "catalog:",

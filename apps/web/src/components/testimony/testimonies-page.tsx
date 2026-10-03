@@ -1,5 +1,9 @@
 import type { Testimony } from "@berean-study/db/testimonies";
-import { RichTextRenderer } from "@berean-study/rich-text-editor";
+import {
+	getPersistedRichTextExcerpt,
+	parsePersistedRichText,
+	RichTextRenderer,
+} from "@berean-study/rich-text-editor";
 import { Badge } from "@berean-study/ui/components/badge";
 import { Button } from "@berean-study/ui/components/button";
 import {
@@ -28,10 +32,6 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { PrayerLibraryTabs } from "@/components/prayer/library-tabs";
-import {
-	getPrayerContentExcerpt,
-	parsePrayerContent,
-} from "@/components/prayer/prayer-content";
 import { publishCommunityPost } from "@/functions/community";
 import { listTestimonies } from "@/functions/testimonies";
 
@@ -74,7 +74,7 @@ export function TestimoniesPage() {
 						(!query.trim() ||
 							[
 								item.title,
-								getPrayerContentExcerpt(item.content),
+								getPersistedRichTextExcerpt(item.content),
 								...item.passages.map((passage) => passage.title ?? ""),
 							]
 								.join(" ")
@@ -245,7 +245,7 @@ function TestimonyList({
 							<div className="min-w-0 flex-1">
 								<p className="truncate font-serif text-sm">{item.title}</p>
 								<p className="mt-1 line-clamp-2 text-muted-foreground text-xs">
-									{getPrayerContentExcerpt(item.content)}
+									{getPersistedRichTextExcerpt(item.content)}
 								</p>
 								<div className="mt-2 flex gap-1">
 									{item.passages.slice(0, 2).map((passage) => (
@@ -331,7 +331,7 @@ function TestimonyDetail({
 					</div>
 					<div className="mt-5">
 						<RichTextRenderer
-							document={parsePrayerContent(testimony.content)}
+							document={parsePersistedRichText(testimony.content)}
 							preset="member"
 						/>
 					</div>

@@ -4,6 +4,7 @@ import {
 	type RichTextDocument,
 	RichTextEditorWorkspace,
 	RichTextRenderer,
+	serializePersistedRichText,
 } from "@berean-study/rich-text-editor";
 import { Button } from "@berean-study/ui/components/button";
 import {
@@ -88,7 +89,7 @@ export function NewPrayerPage() {
 			await createPrayer({
 				data: {
 					category: category || null,
-					content: JSON.stringify(content),
+					content: serializePersistedRichText(content),
 					passageId: passageId ? Number(passageId) : null,
 					title: trimmedTitle,
 				},

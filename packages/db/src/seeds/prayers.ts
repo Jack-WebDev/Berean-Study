@@ -2,6 +2,7 @@ import { prayers } from "../schema/prayers";
 import {
 	createdAt,
 	db,
+	richTextContent,
 	rows,
 	type SeedContext,
 	save,
@@ -19,7 +20,7 @@ export async function seedPrayers(
 			rows(count, (i) => ({
 				userId: textId(context, "users", i),
 				title: `Seed Prayer ${i + 1}`,
-				content: sentence(),
+				content: richTextContent(sentence()),
 				createdAt: createdAt(),
 				updatedAt: createdAt(),
 			})),

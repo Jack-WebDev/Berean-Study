@@ -1,8 +1,11 @@
 import {
 	emptyRichTextDocument,
+	getPersistedRichTextText,
 	hasRichTextContent,
+	parsePersistedRichText,
 	type RichTextDocument,
 	RichTextEditorWorkspace,
+	serializePersistedRichText,
 } from "@berean-study/rich-text-editor";
 import { Button } from "@berean-study/ui/components/button";
 import { FieldError } from "@berean-study/ui/components/field";
@@ -17,7 +20,6 @@ import {
 	getPrayerReflection,
 	updatePrayerReflection,
 } from "@/functions/prayers";
-import { getPrayerContentText, parsePrayerContent } from "./prayer-content";
 
 type Prayer = NonNullable<Awaited<ReturnType<typeof getPrayer>>>;
 
@@ -58,7 +60,7 @@ export function ReflectionEditorPage({
 				passages.find((passage) => passage.id === loadedPrayer.passageId)
 					?.label ?? null,
 			);
-			if (reflection) setContent(parsePrayerContent(reflection.content));
+			if (reflection) setContent(parsePersistedRichText(reflection.content));
 		} catch {
 			setLoadFailed(true);
 		}
@@ -79,13 +81,13 @@ export function ReflectionEditorPage({
 			const saved = isEditing
 				? await updatePrayerReflection({
 						data: {
-							content: JSON.stringify(content),
+							content: serializePersistedRichText(content),
 							prayerId,
 							reflectionId,
 						},
 					})
 				: await createPrayerReflection({
-						data: { content: JSON.stringify(content), prayerId },
+						data: { content: serializePersistedRichText(content), prayerId },
 					});
 			if (!saved) throw new Error("Prayer not found.");
 			toast.success(isEditing ? "Reflection updated." : "Reflection saved.");
@@ -220,7 +222,7 @@ function LinkedPrayerCard({
 	passageLabel: string | null;
 	prayer: Prayer;
 }) {
-	const preview = getPrayerContentText(prayer.content);
+	const preview = getPersistedRichTextText(prayer.content);
 	return (
 		<section className="note-passage-card">
 			<h2>

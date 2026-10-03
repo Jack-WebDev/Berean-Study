@@ -1,5 +1,9 @@
 import type { LibraryReflection } from "@berean-study/db/prayers";
-import { RichTextRenderer } from "@berean-study/rich-text-editor";
+import {
+	getPersistedRichTextExcerpt,
+	parsePersistedRichText,
+	RichTextRenderer,
+} from "@berean-study/rich-text-editor";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -51,7 +55,6 @@ import {
 	listLibraryReflections,
 } from "@/functions/prayers";
 import { PrayerLibraryTabs } from "./library-tabs";
-import { getPrayerContentExcerpt, parsePrayerContent } from "./prayer-content";
 
 const pageSize = 20;
 type Sort = "oldest" | "recent";
@@ -432,7 +435,7 @@ function ReflectionRow({
 				</div>
 				<div className="min-w-0 flex-1">
 					<p className="line-clamp-2 font-serif text-sm leading-5">
-						{getPrayerContentExcerpt(reflection.content) || "Reflection"}
+						{getPersistedRichTextExcerpt(reflection.content) || "Reflection"}
 					</p>
 					<p className="mt-1 text-[11px] text-muted-foreground">
 						Linked to:{" "}
@@ -535,7 +538,7 @@ function ReflectionDetail({
 					</div>
 					<div className="mt-5">
 						<RichTextRenderer
-							document={parsePrayerContent(reflection.content)}
+							document={parsePersistedRichText(reflection.content)}
 							preset="member"
 						/>
 					</div>
@@ -555,7 +558,7 @@ function ReflectionDetail({
 								</Badge>
 							) : null}
 							<p className="mt-2 line-clamp-3 text-muted-foreground text-xs leading-4">
-								{getPrayerContentExcerpt(reflection.prayer.content, 180)}
+								{getPersistedRichTextExcerpt(reflection.prayer.content, 180)}
 							</p>
 							<Link
 								className="mt-3 inline-flex font-medium text-primary text-xs hover:underline"

@@ -1,5 +1,6 @@
 import {
 	getWordCount,
+	hasRichTextContent,
 	type RichTextDocument,
 	RichTextEditorWorkspace,
 	RichTextRenderer,
@@ -50,7 +51,6 @@ import {
 	NoteAutosaveStatus,
 	type NoteFormValues,
 } from "./note-autosave-status";
-import { hasNoteContent } from "./note-content";
 
 type PassageOption = Awaited<ReturnType<typeof getPassageOptions>>[number];
 type NoteEditorMode = "preview" | "write";
@@ -64,7 +64,7 @@ const noteFormSchema = z.object({
 				(value as { type?: unknown }).type === "doc",
 			"Write a note before saving.",
 		)
-		.refine(hasNoteContent, "Write a note before saving."),
+		.refine(hasRichTextContent, "Write a note before saving."),
 	passageId: z.string(),
 	tags: z.array(z.string().trim().min(1).max(50)).max(20),
 });

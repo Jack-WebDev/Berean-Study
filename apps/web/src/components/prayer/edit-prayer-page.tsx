@@ -1,7 +1,9 @@
 import {
 	emptyRichTextDocument,
+	parsePersistedRichText,
 	type RichTextDocument,
 	RichTextEditorWorkspace,
+	serializePersistedRichText,
 } from "@berean-study/rich-text-editor";
 import { Button } from "@berean-study/ui/components/button";
 import {
@@ -17,7 +19,6 @@ import { toast } from "sonner";
 import { getPassageOptions } from "@/functions/passages";
 import { getPrayer, updatePrayer } from "@/functions/prayers";
 import { PrayerCategories, PrayerPassageCard } from "./new-prayer-page";
-import { parsePrayerContent } from "./prayer-content";
 
 export function EditPrayerPage({ prayerId }: { prayerId: number }) {
 	const [loaded, setLoaded] = useState(false);
@@ -43,7 +44,7 @@ export function EditPrayerPage({ prayerId }: { prayerId: number }) {
 			setTitle(prayer.title);
 			setCategory(prayer.category ?? "");
 			setPassageId(prayer.passageId);
-			setContent(parsePrayerContent(prayer.content));
+			setContent(parsePersistedRichText(prayer.content));
 		} catch {
 			setNotFound(true);
 		} finally {
@@ -76,7 +77,7 @@ export function EditPrayerPage({ prayerId }: { prayerId: number }) {
 			const prayer = await updatePrayer({
 				data: {
 					category: category.trim() || null,
-					content: JSON.stringify(content),
+					content: serializePersistedRichText(content),
 					id: prayerId,
 					passageId,
 					title: title.trim(),
