@@ -104,7 +104,7 @@ export function CommunitySharePage() {
 		setIsPublishing(true);
 		try {
 			const result = await publishCommunityPost({
-				data: { excerpt, sourceId: selected.id, title, type },
+				data: { snapshot: { excerpt, title }, sourceId: selected.id, type },
 			});
 			if (!result) throw new Error("Unable to publish Community post.");
 			await router.invalidate();

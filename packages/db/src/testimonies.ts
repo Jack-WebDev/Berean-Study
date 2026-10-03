@@ -56,37 +56,6 @@ export async function updateTestimony(
 	return testimony ?? null;
 }
 
-export async function shareTestimony(
-	db: DbClient,
-	userId: string,
-	testimonyId: number,
-) {
-	const testimony = await getTestimony(db, userId, testimonyId);
-	if (!testimony) return null;
-	const [existing] = await db
-		.select({ id: communityPosts.id })
-		.from(communityPosts)
-		.where(
-			and(
-				eq(communityPosts.authorUserId, userId),
-				eq(communityPosts.sourceTestimonyId, testimonyId),
-				isNull(communityPosts.removedAt),
-			),
-		)
-		.limit(1);
-	if (existing) return existing;
-	const [post] = await db
-		.insert(communityPosts)
-		.values({
-			authorUserId: userId,
-			postType: "testimony",
-			snapshot: { content: testimony.content, title: testimony.title },
-			sourceTestimonyId: testimonyId,
-		})
-		.returning({ id: communityPosts.id });
-	return post ?? null;
-}
-
 export async function listTestimonies(db: DbClient, userId: string) {
 	const rows = await db
 		.select()

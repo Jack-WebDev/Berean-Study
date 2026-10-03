@@ -17,6 +17,17 @@ type DbClient = ReturnType<typeof createDb>;
 
 export type CommunityPostType = "collection" | "note" | "testimony" | "prayer";
 
+export type CommunityPostSnapshot = {
+	excerpt: string;
+	title: string;
+};
+
+export type CommunityPublicationInput = {
+	snapshot?: CommunityPostSnapshot;
+	sourceId: number;
+	type: CommunityPostType;
+};
+
 export type CommunityPublishingResource = {
 	excerpt: string;
 	id: number;
@@ -128,12 +139,7 @@ export async function listCommunityPublishingResources(
 export async function publishCommunityPost(
 	db: DbClient,
 	userId: string,
-	input: {
-		excerpt: string;
-		sourceId: number;
-		title: string;
-		type: CommunityPostType;
-	},
+	input: CommunityPublicationInput,
 ) {
 	const source = await getPublishingSource(
 		db,
@@ -156,7 +162,7 @@ export async function publishCommunityPost(
 		.values({
 			authorUserId: userId,
 			postType: input.type,
-			snapshot: { excerpt: input.excerpt.trim(), title: input.title.trim() },
+			snapshot: normalizeSnapshot(input.snapshot ?? source.snapshot),
 			...(input.type === "note" ? { sourceNoteId: input.sourceId } : {}),
 			...(input.type === "collection"
 				? { sourceCollectionId: input.sourceId }
@@ -354,65 +360,75 @@ async function getPublishingSource(
 	switch (type) {
 		case "note": {
 			const [source] = await db
-				.select({ passageId: notes.passageId })
+				.select({
+					content: notes.content,
+					passageId: notes.passageId,
+					title: notes.title,
+				})
 				.from(notes)
 				.where(and(eq(notes.id, sourceId), eq(notes.userId, userId)))
 				.limit(1);
 			return source
-				? { passageIds: source.passageId ? [source.passageId] : [] }
+				? {
+						passageIds: source.passageId ? [source.passageId] : [],
+						snapshot: createSourceSnapshot(type, source.title, source.content),
+					}
 				: null;
 		}
 		case "collection": {
-			const [source, passages] = await Promise.all([
-				db
-					.select({ id: collections.id })
-					.from(collections)
-					.where(
-						and(eq(collections.id, sourceId), eq(collections.userId, userId)),
-					)
-					.limit(1),
-				db
-					.select({ passageId: collectionPassages.passageId })
-					.from(collectionPassages)
-					.where(eq(collectionPassages.collectionId, sourceId)),
-			]);
-			return source
-				? { passageIds: passages.map((passage) => passage.passageId) }
-				: null;
+			const [source] = await db
+				.select({
+					description: collections.description,
+					title: collections.name,
+				})
+				.from(collections)
+				.where(
+					and(eq(collections.id, sourceId), eq(collections.userId, userId)),
+				)
+				.limit(1);
+			if (!source) return null;
+			const passages = await db
+				.select({ passageId: collectionPassages.passageId })
+				.from(collectionPassages)
+				.where(eq(collectionPassages.collectionId, sourceId));
+			return {
+				passageIds: passages.map((passage) => passage.passageId),
+				snapshot: createSourceSnapshot(type, source.title, source.description),
+			};
 		}
 		case "testimony": {
-			const [source, passages] = await Promise.all([
-				db
-					.select({ id: testimonies.id })
-					.from(testimonies)
-					.where(
-						and(eq(testimonies.id, sourceId), eq(testimonies.userId, userId)),
-					)
-					.limit(1),
-				db
-					.select({ passageId: testimonyPassages.passageId })
-					.from(testimonyPassages)
-					.where(eq(testimonyPassages.testimonyId, sourceId)),
-			]);
-			return source
-				? { passageIds: passages.map((passage) => passage.passageId) }
-				: null;
+			const [source] = await db
+				.select({ content: testimonies.content, title: testimonies.title })
+				.from(testimonies)
+				.where(
+					and(eq(testimonies.id, sourceId), eq(testimonies.userId, userId)),
+				)
+				.limit(1);
+			if (!source) return null;
+			const passages = await db
+				.select({ passageId: testimonyPassages.passageId })
+				.from(testimonyPassages)
+				.where(eq(testimonyPassages.testimonyId, sourceId));
+			return {
+				passageIds: passages.map((passage) => passage.passageId),
+				snapshot: createSourceSnapshot(type, source.title, source.content),
+			};
 		}
 		case "prayer": {
-			const [source, passages] = await Promise.all([
-				db
-					.select({ id: prayers.id })
-					.from(prayers)
-					.where(and(eq(prayers.id, sourceId), eq(prayers.userId, userId)))
-					.limit(1),
-				db
-					.select({ passageId: prayerPassages.passageId })
-					.from(prayerPassages)
-					.where(eq(prayerPassages.prayerId, sourceId)),
-			]);
-			return source
-				? { passageIds: passages.map((passage) => passage.passageId) }
-				: null;
+			const [source] = await db
+				.select({ content: prayers.content, title: prayers.title })
+				.from(prayers)
+				.where(and(eq(prayers.id, sourceId), eq(prayers.userId, userId)))
+				.limit(1);
+			if (!source) return null;
+			const passages = await db
+				.select({ passageId: prayerPassages.passageId })
+				.from(prayerPassages)
+				.where(eq(prayerPassages.prayerId, sourceId));
+			return {
+				passageIds: passages.map((passage) => passage.passageId),
+				snapshot: createSourceSnapshot(type, source.title, source.content),
+			};
 		}
 	}
 }
@@ -458,6 +474,23 @@ function toPublishingResource(
 		title: resource.title,
 		type,
 	};
+}
+
+function createSourceSnapshot(
+	type: CommunityPostType,
+	title: string,
+	content: string,
+): CommunityPostSnapshot {
+	return {
+		excerpt: createExcerpt(content) || `Shared a ${type} with the Community.`,
+		title: title.trim() || `Untitled ${type}`,
+	};
+}
+
+function normalizeSnapshot(
+	snapshot: CommunityPostSnapshot,
+): CommunityPostSnapshot {
+	return { excerpt: snapshot.excerpt.trim(), title: snapshot.title.trim() };
 }
 
 function createExcerpt(content: string) {

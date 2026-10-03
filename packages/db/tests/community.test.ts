@@ -1,0 +1,145 @@
+import { randomUUID } from "node:crypto";
+
+import { eq } from "drizzle-orm";
+import { afterAll, describe, expect, it } from "vitest";
+
+import { db, pool } from "../src";
+import { publishCommunityPost } from "../src/community";
+import { user } from "../src/schema/auth";
+import { books } from "../src/schema/books";
+import { communityPostPassages } from "../src/schema/community_post_passages";
+import { communityPosts } from "../src/schema/community_posts";
+import { passages } from "../src/schema/passages";
+import { testimonies } from "../src/schema/testimonies";
+import { testimonyPassages } from "../src/schema/testimony_passages";
+
+const describeWithDatabase = process.env.DATABASE_URL
+	? describe
+	: describe.skip;
+
+describeWithDatabase("Community publication", () => {
+	it("publishes an immutable testimony snapshot with its Scripture passages", async () => {
+		const suffix = randomUUID();
+		const ownerId = `community-owner-${suffix}`;
+		const otherUserId = `community-other-${suffix}`;
+		let bookId: number | undefined;
+		let passageId: number | undefined;
+
+		try {
+			await db.insert(user).values([
+				{
+					email: `community-owner-${suffix}@example.test`,
+					id: ownerId,
+					name: "Community owner",
+				},
+				{
+					email: `community-other-${suffix}@example.test`,
+					id: otherUserId,
+					name: "Other member",
+				},
+			]);
+
+			const [book] = await db
+				.insert(books)
+				.values({
+					name: `Community test book ${suffix}`,
+					slug: `community-test-book-${suffix}`,
+					testament: "new",
+				})
+				.returning({ id: books.id });
+			bookId = book?.id;
+			if (!bookId) throw new Error("Unable to create test book.");
+
+			const [passage] = await db
+				.insert(passages)
+				.values({ bookId, title: "Community test passage" })
+				.returning({ id: passages.id });
+			passageId = passage?.id;
+			if (!passageId) throw new Error("Unable to create test passage.");
+
+			const [testimony] = await db
+				.insert(testimonies)
+				.values({
+					content: JSON.stringify({
+						content: [
+							{
+								content: [{ text: "God met us in a difficult season." }],
+							},
+						],
+					}),
+					title: "A faithful season",
+					userId: ownerId,
+				})
+				.returning({ id: testimonies.id });
+			if (!testimony) throw new Error("Unable to create test testimony.");
+
+			await db
+				.insert(testimonyPassages)
+				.values({ passageId, testimonyId: testimony.id });
+
+			const published = await publishCommunityPost(db, ownerId, {
+				sourceId: testimony.id,
+				type: "testimony",
+			});
+			expect(published).toEqual({
+				alreadyPublished: false,
+				id: expect.any(Number),
+			});
+			if (!published) throw new Error("Expected a Community post.");
+
+			const [post] = await db
+				.select({ snapshot: communityPosts.snapshot })
+				.from(communityPosts)
+				.where(eq(communityPosts.id, published.id));
+			expect(post?.snapshot).toEqual({
+				excerpt: "God met us in a difficult season.",
+				title: "A faithful season",
+			});
+
+			const postPassages = await db
+				.select({ passageId: communityPostPassages.passageId })
+				.from(communityPostPassages)
+				.where(eq(communityPostPassages.communityPostId, published.id));
+			expect(postPassages).toEqual([{ passageId }]);
+
+			await db
+				.update(testimonies)
+				.set({
+					content: "Changed source content",
+					title: "Changed source title",
+				})
+				.where(eq(testimonies.id, testimony.id));
+			const [unchangedPost] = await db
+				.select({ snapshot: communityPosts.snapshot })
+				.from(communityPosts)
+				.where(eq(communityPosts.id, published.id));
+			expect(unchangedPost?.snapshot).toEqual(post?.snapshot);
+
+			const duplicate = await publishCommunityPost(db, ownerId, {
+				sourceId: testimony.id,
+				type: "testimony",
+			});
+			expect(duplicate).toEqual({ alreadyPublished: true, id: published.id });
+
+			await expect(
+				publishCommunityPost(db, otherUserId, {
+					sourceId: testimony.id,
+					type: "testimony",
+				}),
+			).resolves.toBeNull();
+		} finally {
+			await db.delete(user).where(eq(user.id, ownerId));
+			await db.delete(user).where(eq(user.id, otherUserId));
+			if (passageId) {
+				await db.delete(passages).where(eq(passages.id, passageId));
+			}
+			if (bookId) {
+				await db.delete(books).where(eq(books.id, bookId));
+			}
+		}
+	});
+});
+
+afterAll(async () => {
+	await pool.end();
+});

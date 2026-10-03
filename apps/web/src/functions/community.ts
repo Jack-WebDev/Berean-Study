@@ -56,9 +56,13 @@ export const publishCommunityPost = createServerFn({ method: "POST" })
 	.middleware([authMiddleware])
 	.validator(
 		z.object({
-			excerpt: z.string().trim().min(1).max(500),
 			sourceId: z.number().int().positive(),
-			title: z.string().trim().min(1).max(200),
+			snapshot: z
+				.object({
+					excerpt: z.string().trim().min(1).max(500),
+					title: z.string().trim().min(1).max(200),
+				})
+				.optional(),
 			type: z.enum(["collection", "note", "testimony", "prayer"]),
 		}),
 	)
