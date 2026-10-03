@@ -10,7 +10,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { SaveIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { parseReflectionContent } from "@/components/prayer/reflection-content";
+import { parsePrayerContent } from "@/components/prayer/prayer-content";
 import { getTestimony, updateTestimony } from "@/functions/testimonies";
 
 export function EditTestimonyPage({ testimonyId }: { testimonyId: number }) {
@@ -26,7 +26,7 @@ export function EditTestimonyPage({ testimonyId }: { testimonyId: number }) {
 			.then((testimony) => {
 				if (testimony) {
 					setTitle(testimony.title);
-					setContent(parseReflectionContent(testimony.content));
+					setContent(parsePrayerContent(testimony.content));
 				}
 				setLoaded(true);
 			})

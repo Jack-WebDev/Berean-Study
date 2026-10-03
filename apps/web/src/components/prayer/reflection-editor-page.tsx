@@ -1,6 +1,5 @@
 import {
 	emptyRichTextDocument,
-	getDocumentText,
 	hasRichTextContent,
 	type RichTextDocument,
 	RichTextEditorWorkspace,
@@ -18,6 +17,7 @@ import {
 	getPrayerReflection,
 	updatePrayerReflection,
 } from "@/functions/prayers";
+import { getPrayerContentText, parsePrayerContent } from "./prayer-content";
 
 type Prayer = NonNullable<Awaited<ReturnType<typeof getPrayer>>>;
 
@@ -58,7 +58,7 @@ export function ReflectionEditorPage({
 				passages.find((passage) => passage.id === loadedPrayer.passageId)
 					?.label ?? null,
 			);
-			if (reflection) setContent(parseContent(reflection.content));
+			if (reflection) setContent(parsePrayerContent(reflection.content));
 		} catch {
 			setLoadFailed(true);
 		}
@@ -220,7 +220,7 @@ function LinkedPrayerCard({
 	passageLabel: string | null;
 	prayer: Prayer;
 }) {
-	const preview = getDocumentText(parseContent(prayer.content)).trim();
+	const preview = getPrayerContentText(prayer.content);
 	return (
 		<section className="note-passage-card">
 			<h2>
@@ -260,14 +260,6 @@ function ReflectionOrganization() {
 			</div>
 		</dl>
 	);
-}
-
-function parseContent(content: string): RichTextDocument {
-	try {
-		const document = JSON.parse(content) as RichTextDocument;
-		if (document.type === "doc") return document;
-	} catch {}
-	return emptyRichTextDocument;
 }
 
 function formatDate(value: Date | string) {

@@ -1,8 +1,4 @@
-import {
-	emptyRichTextDocument,
-	type RichTextDocument,
-	RichTextRenderer,
-} from "@berean-study/rich-text-editor";
+import { RichTextRenderer } from "@berean-study/rich-text-editor";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -27,6 +23,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { deletePrayerReflection, getPrayer } from "@/functions/prayers";
+import { parsePrayerContent } from "./prayer-content";
 
 type Prayer = Awaited<ReturnType<typeof getPrayer>>;
 
@@ -121,7 +118,7 @@ export function PrayerDetailPage({ prayerId }: { prayerId: number }) {
 				</header>
 				<div className="mt-8">
 					<RichTextRenderer
-						document={parseContent(prayer.content)}
+						document={parsePrayerContent(prayer.content)}
 						preset="member"
 					/>
 				</div>
@@ -178,7 +175,7 @@ export function PrayerDetailPage({ prayerId }: { prayerId: number }) {
 										</div>
 									</div>
 									<RichTextRenderer
-										document={parseContent(reflection.content)}
+										document={parsePrayerContent(reflection.content)}
 										preset="member"
 									/>
 								</article>
@@ -246,14 +243,6 @@ function PrayerState({
 			)}
 		</Empty>
 	);
-}
-
-function parseContent(content: string): RichTextDocument {
-	try {
-		const document = JSON.parse(content) as RichTextDocument;
-		if (document.type === "doc") return document;
-	} catch {}
-	return emptyRichTextDocument;
 }
 
 function formatDate(value: Date | string) {

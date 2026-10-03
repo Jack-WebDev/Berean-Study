@@ -1,9 +1,4 @@
 import type { PrayerReflection } from "@berean-study/db/prayers";
-import {
-	emptyRichTextDocument,
-	getDocumentText,
-	type RichTextDocument,
-} from "@berean-study/rich-text-editor";
 import { Badge } from "@berean-study/ui/components/badge";
 import { Button } from "@berean-study/ui/components/button";
 import {
@@ -30,6 +25,7 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import { getPrayer, listPrayers } from "@/functions/prayers";
 import { PrayerLibraryTabs } from "./library-tabs";
+import { getPrayerContentText } from "./prayer-content";
 
 type Prayer = Awaited<ReturnType<typeof listPrayers>>[number];
 
@@ -185,7 +181,7 @@ function PrayerRow({
 				<div className="min-w-0 flex-1">
 					<h3 className="font-serif text-sm leading-4">{prayer.title}</h3>
 					<p className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground leading-4">
-						{getPrayerText(prayer.content)}
+						{getPrayerContentText(prayer.content)}
 					</p>
 					{prayer.category ? (
 						<Badge
@@ -255,7 +251,7 @@ function PrayerDetail({ prayer }: { prayer: Prayer | null }) {
 							</Badge>
 						) : null}
 						<p className="mt-3 whitespace-pre-line text-sm leading-5">
-							{getPrayerText(prayer.content)}
+							{getPrayerContentText(prayer.content)}
 						</p>
 						<Separator className="my-3" />
 						<section>
@@ -364,7 +360,7 @@ function PrayerReflections({
 						</Button>
 					</div>
 					<p className="mt-1 line-clamp-3 text-xs leading-4">
-						{getPrayerText(reflection.content)}
+						{getPrayerContentText(reflection.content)}
 					</p>
 				</article>
 			))}
@@ -401,13 +397,6 @@ function PrayerLoadError({ onRetry }: { onRetry: () => void }) {
 	);
 }
 
-function getPrayerText(content: string) {
-	try {
-		const document = JSON.parse(content) as RichTextDocument;
-		if (document.type === "doc") return getDocumentText(document).trim();
-	} catch {}
-	return content.trim() || getDocumentText(emptyRichTextDocument);
-}
 function formatDate(value: Date | string) {
 	return new Intl.DateTimeFormat(undefined, {
 		day: "numeric",

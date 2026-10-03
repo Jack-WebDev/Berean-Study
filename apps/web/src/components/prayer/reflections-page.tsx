@@ -51,10 +51,7 @@ import {
 	listLibraryReflections,
 } from "@/functions/prayers";
 import { PrayerLibraryTabs } from "./library-tabs";
-import {
-	getReflectionExcerpt,
-	parseReflectionContent,
-} from "./reflection-content";
+import { getPrayerContentExcerpt, parsePrayerContent } from "./prayer-content";
 
 const pageSize = 20;
 type Sort = "oldest" | "recent";
@@ -435,7 +432,7 @@ function ReflectionRow({
 				</div>
 				<div className="min-w-0 flex-1">
 					<p className="line-clamp-2 font-serif text-sm leading-5">
-						{getReflectionExcerpt(reflection.content) || "Reflection"}
+						{getPrayerContentExcerpt(reflection.content) || "Reflection"}
 					</p>
 					<p className="mt-1 text-[11px] text-muted-foreground">
 						Linked to:{" "}
@@ -538,7 +535,7 @@ function ReflectionDetail({
 					</div>
 					<div className="mt-5">
 						<RichTextRenderer
-							document={parseReflectionContent(reflection.content)}
+							document={parsePrayerContent(reflection.content)}
 							preset="member"
 						/>
 					</div>
@@ -558,7 +555,7 @@ function ReflectionDetail({
 								</Badge>
 							) : null}
 							<p className="mt-2 line-clamp-3 text-muted-foreground text-xs leading-4">
-								{getReflectionExcerpt(reflection.prayer.content, 180)}
+								{getPrayerContentExcerpt(reflection.prayer.content, 180)}
 							</p>
 							<Link
 								className="mt-3 inline-flex font-medium text-primary text-xs hover:underline"

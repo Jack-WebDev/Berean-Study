@@ -29,9 +29,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { PrayerLibraryTabs } from "@/components/prayer/library-tabs";
 import {
-	getReflectionExcerpt,
-	parseReflectionContent,
-} from "@/components/prayer/reflection-content";
+	getPrayerContentExcerpt,
+	parsePrayerContent,
+} from "@/components/prayer/prayer-content";
 import { publishCommunityPost } from "@/functions/community";
 import { listTestimonies } from "@/functions/testimonies";
 
@@ -74,7 +74,7 @@ export function TestimoniesPage() {
 						(!query.trim() ||
 							[
 								item.title,
-								getReflectionExcerpt(item.content),
+								getPrayerContentExcerpt(item.content),
 								...item.passages.map((passage) => passage.title ?? ""),
 							]
 								.join(" ")
@@ -245,7 +245,7 @@ function TestimonyList({
 							<div className="min-w-0 flex-1">
 								<p className="truncate font-serif text-sm">{item.title}</p>
 								<p className="mt-1 line-clamp-2 text-muted-foreground text-xs">
-									{getReflectionExcerpt(item.content)}
+									{getPrayerContentExcerpt(item.content)}
 								</p>
 								<div className="mt-2 flex gap-1">
 									{item.passages.slice(0, 2).map((passage) => (
@@ -331,7 +331,7 @@ function TestimonyDetail({
 					</div>
 					<div className="mt-5">
 						<RichTextRenderer
-							document={parseReflectionContent(testimony.content)}
+							document={parsePrayerContent(testimony.content)}
 							preset="member"
 						/>
 					</div>
