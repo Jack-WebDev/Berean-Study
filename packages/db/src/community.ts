@@ -239,6 +239,13 @@ export type CommunityFeedPage = {
 	total: number;
 };
 
+export type SavedCommunityPost = {
+	coverImage: string | null;
+	id: number;
+	title: string;
+	type: CommunityPostType;
+};
+
 /**
  * Returns published Community snapshots. Private source records are never read
  * into the feed, so later edits to a library item cannot alter a publication.
@@ -368,6 +375,47 @@ export async function setCommunityPostBookmark(
 	}
 
 	return true;
+}
+
+/** Lists a member's saved Community posts for compact previews. */
+export async function listSavedCommunityPosts(
+	db: DbClient,
+	viewerUserId: string,
+	limit: number,
+): Promise<SavedCommunityPost[]> {
+	const rows = await db
+		.select({
+			id: communityPosts.id,
+			postType: communityPosts.postType,
+			snapshot: communityPosts.snapshot,
+		})
+		.from(communityPostBookmarks)
+		.innerJoin(
+			communityPosts,
+			eq(communityPosts.id, communityPostBookmarks.communityPostId),
+		)
+		.where(
+			and(
+				eq(communityPostBookmarks.userId, viewerUserId),
+				inArray(communityPosts.visibility, ["members", "public"]),
+				isNull(communityPosts.removedAt),
+			),
+		)
+		.orderBy(desc(communityPosts.publishedAt), desc(communityPosts.id))
+		.limit(limit);
+
+	return rows.flatMap((row) => {
+		const type = asCommunityPostType(row.postType);
+		if (!type) return [];
+
+		const snapshot = readSnapshot(row.snapshot);
+		return {
+			coverImage: snapshot.coverImage,
+			id: row.id,
+			title: snapshot.title ?? `Untitled ${type}`,
+			type,
+		};
+	});
 }
 
 async function getPublishingSource(

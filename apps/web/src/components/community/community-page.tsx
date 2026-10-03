@@ -1,3 +1,4 @@
+import type { SavedCommunityPost } from "@berean-study/db/community";
 import { buttonVariants } from "@berean-study/ui/components/button";
 import { DataPagination } from "@berean-study/ui/components/pagination";
 import { cn } from "@berean-study/ui/lib/utils";
@@ -26,6 +27,7 @@ export function CommunityPage({
 	page,
 	pageSize,
 	posts,
+	savedPosts,
 	totalPosts,
 }: {
 	activeFilter: CommunityFilter;
@@ -37,6 +39,7 @@ export function CommunityPage({
 	page: number;
 	pageSize: number;
 	posts: CommunityPostCardData[];
+	savedPosts: SavedCommunityPost[];
 	totalPosts: number;
 }) {
 	const isFeaturedView = activeFilter === "featured";
@@ -138,6 +141,7 @@ export function CommunityPage({
 					<CommunityRightRail
 						activeTopic={activeTopic}
 						onTopicChange={onTopicChange}
+						savedPosts={savedPosts}
 					/>
 				</div>
 			</div>

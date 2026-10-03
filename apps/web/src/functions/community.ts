@@ -3,6 +3,7 @@ import {
 	communityFeedFilters,
 	listCommunityFeed as listCommunityFeedFromDb,
 	listCommunityPublishingResources as listCommunityPublishingResourcesFromDb,
+	listSavedCommunityPosts as listSavedCommunityPostsFromDb,
 	publishCommunityPost as publishCommunityPostInDb,
 	setCommunityPostBookmark as setCommunityPostBookmarkInDb,
 } from "@berean-study/db/community";
@@ -43,6 +44,17 @@ export const setCommunityPostBookmark = createServerFn({ method: "POST" })
 			requireUserId(context.session),
 			data.postId,
 			data.isBookmarked,
+		),
+	);
+
+export const listSavedCommunityPosts = createServerFn({ method: "GET" })
+	.middleware([authMiddleware])
+	.validator(z.object({ limit: z.number().int().min(1).max(10).default(2) }))
+	.handler(({ context, data }) =>
+		listSavedCommunityPostsFromDb(
+			db,
+			requireUserId(context.session),
+			data.limit,
 		),
 	);
 

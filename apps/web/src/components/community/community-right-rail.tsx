@@ -1,3 +1,4 @@
+import type { SavedCommunityPost } from "@berean-study/db/community";
 import { Button } from "@berean-study/ui/components/button";
 import {
 	Card,
@@ -26,9 +27,11 @@ import { CommunitySavedPreview } from "./community-saved-preview";
 export function CommunityRightRail({
 	activeTopic,
 	onTopicChange,
+	savedPosts,
 }: {
 	activeTopic?: string;
 	onTopicChange: (topic?: CommunityTopic) => void;
+	savedPosts: SavedCommunityPost[];
 }) {
 	return (
 		<aside aria-label="Community resources" className="flex flex-col gap-4">
@@ -38,7 +41,7 @@ export function CommunityRightRail({
 				onTopicChange={onTopicChange}
 			/>
 			<CommunityRecommendations />
-			<CommunitySavedPreview />
+			<CommunitySavedPreview posts={savedPosts} />
 		</aside>
 	);
 }

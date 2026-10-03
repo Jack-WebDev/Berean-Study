@@ -1,15 +1,17 @@
+import type { SavedCommunityPost } from "@berean-study/db/community";
 import {
 	Card,
 	CardContent,
 	CardHeader,
 	CardTitle,
 } from "@berean-study/ui/components/card";
-import { Link } from "@tanstack/react-router";
 import { BookmarkIcon } from "lucide-react";
 
-import { communitySavedPreviews } from "./community-fixtures";
-
-export function CommunitySavedPreview() {
+export function CommunitySavedPreview({
+	posts,
+}: {
+	posts: SavedCommunityPost[];
+}) {
 	return (
 		<section aria-labelledby="community-saved-items-title">
 			<Card className="rounded-xl border border-border/70 py-0 shadow-sm">
@@ -23,45 +25,43 @@ export function CommunitySavedPreview() {
 					>
 						Your Saved Items
 					</CardTitle>
-					<Link
-						className="ml-auto rounded-sm font-medium text-primary text-xs transition-colors hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-						search={{ tab: "bookmarks" }}
-						to="/library/saved"
-					>
-						See all
-					</Link>
 				</CardHeader>
 				<CardContent className="flex flex-col gap-3 px-5 pb-5">
-					{communitySavedPreviews.map((item) => (
-						<Link
-							className="group flex min-w-0 items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-							key={item.id}
-							to={item.href}
-						>
-							{item.image ? (
-								<img
-									alt=""
-									className="size-14 shrink-0 rounded-md object-cover"
-									decoding="async"
-									loading="lazy"
-									src={item.image}
-								/>
-							) : (
-								<div
-									aria-hidden="true"
-									className="size-14 shrink-0 rounded-md bg-muted"
-								/>
-							)}
-							<div className="min-w-0">
-								<h3 className="line-clamp-2 font-serif text-sm leading-4 tracking-[-0.015em] group-hover:text-primary">
-									{item.title}
-								</h3>
-								<p className="mt-1 text-muted-foreground text-xs">
-									{item.savedAt}
-								</p>
-							</div>
-						</Link>
-					))}
+					{posts.length === 0 ? (
+						<p className="text-muted-foreground text-sm leading-5">
+							Items you save from Community will appear here.
+						</p>
+					) : (
+						posts.map((post) => (
+							<article
+								className="flex min-w-0 items-center gap-3"
+								key={post.id}
+							>
+								{post.coverImage ? (
+									<img
+										alt=""
+										className="size-14 shrink-0 rounded-md object-cover"
+										decoding="async"
+										loading="lazy"
+										src={post.coverImage}
+									/>
+								) : (
+									<div
+										aria-hidden="true"
+										className="size-14 shrink-0 rounded-md bg-muted"
+									/>
+								)}
+								<div className="min-w-0">
+									<h3 className="line-clamp-2 font-serif text-sm leading-4 tracking-[-0.015em]">
+										{post.title}
+									</h3>
+									<p className="mt-1 text-muted-foreground text-xs">
+										Saved {post.type}
+									</p>
+								</div>
+							</article>
+						))
+					)}
 				</CardContent>
 			</Card>
 		</section>

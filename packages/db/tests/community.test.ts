@@ -4,7 +4,12 @@ import { eq } from "drizzle-orm";
 import { afterAll, describe, expect, it } from "vitest";
 
 import { db, pool } from "../src";
-import { listCommunityFeed, publishCommunityPost } from "../src/community";
+import {
+	listCommunityFeed,
+	listSavedCommunityPosts,
+	publishCommunityPost,
+	setCommunityPostBookmark,
+} from "../src/community";
 import { user } from "../src/schema/auth";
 import { books } from "../src/schema/books";
 import { communityPostPassages } from "../src/schema/community_post_passages";
@@ -154,6 +159,22 @@ describeWithDatabase("Community publication", () => {
 			});
 			expect(recentFeed.total).toBeGreaterThan(testimonyFeed.total);
 			expect(recentFeed.posts).toHaveLength(1);
+
+			expect(
+				await setCommunityPostBookmark(db, otherUserId, published.id, true),
+			).toBe(true);
+			expect(await listSavedCommunityPosts(db, otherUserId, 2)).toEqual([
+				{
+					coverImage: null,
+					id: published.id,
+					title: "A faithful season",
+					type: "testimony",
+				},
+			]);
+			expect(
+				await setCommunityPostBookmark(db, otherUserId, published.id, false),
+			).toBe(true);
+			expect(await listSavedCommunityPosts(db, otherUserId, 2)).toEqual([]);
 
 			await expect(
 				publishCommunityPost(db, otherUserId, {

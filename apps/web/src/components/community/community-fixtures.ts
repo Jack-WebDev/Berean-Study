@@ -53,30 +53,3 @@ export const communityRecommendations: CommunityRecommendation[] = [
 		type: "testimony",
 	},
 ];
-
-export type CommunitySavedPreview = {
-	href: string;
-	id: string;
-	image?: string | null;
-	savedAt: string;
-	title: string;
-};
-
-export const communitySavedPreviews: CommunitySavedPreview[] = [
-	{
-		href: "/library/collections",
-		id: "hope-in-hard-seasons",
-		image:
-			"https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=160&q=85",
-		savedAt: "Saved 3 days ago",
-		title: "Hope in Hard Seasons",
-	},
-	{
-		href: "/library/prayers",
-		id: "prayers-for-my-family",
-		image:
-			"https://images.unsplash.com/photo-1484101403633-562f891dc89a?auto=format&fit=crop&w=160&q=85",
-		savedAt: "Saved 1 week ago",
-		title: "Prayers for My Family",
-	},
-];

@@ -1,10 +1,15 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import {
+	createFileRoute,
+	useNavigate,
+	useRouter,
+} from "@tanstack/react-router";
 import { z } from "zod";
 import type { CommunityFilter } from "@/components/community/community-filter-navigation";
 import { CommunityPage } from "@/components/community/community-page";
 import type { CommunityPostCardData } from "@/components/community/community-post-card";
 import {
 	getCommunityFeed,
+	listSavedCommunityPosts,
 	setCommunityPostBookmark,
 } from "@/functions/community";
 
@@ -29,15 +34,22 @@ export const Route = createFileRoute("/_auth/community/")({
 		page: search.page,
 		pageSize: search.pageSize,
 	}),
-	loader: ({ deps }) => getCommunityFeed({ data: deps }),
+	loader: async ({ deps }) => {
+		const [feed, savedPosts] = await Promise.all([
+			getCommunityFeed({ data: deps }),
+			listSavedCommunityPosts({ data: { limit: 2 } }),
+		]);
+		return { feed, savedPosts };
+	},
 	validateSearch: communitySearchSchema,
 });
 
 function CommunityRoute() {
 	const { page, pageSize, topic, type, view } = Route.useSearch();
-	const feed = Route.useLoaderData();
+	const { feed, savedPosts } = Route.useLoaderData();
 	const posts = feed.posts.map(toCardData);
 	const navigate = useNavigate({ from: "/community/" });
+	const router = useRouter();
 	const activeFilter: CommunityFilter = type ?? view ?? "featured";
 	const searchForFilter = (filter: CommunityFilter, nextTopic = topic) =>
 		filter === "featured" || filter === "recent"
@@ -50,11 +62,13 @@ function CommunityRoute() {
 			activeTopic={topic}
 			page={page}
 			pageSize={pageSize}
+			savedPosts={savedPosts}
 			onBookmarkChange={async (postId, isBookmarked) => {
 				const updated = await setCommunityPostBookmark({
 					data: { isBookmarked, postId: Number(postId) },
 				});
 				if (!updated) throw new Error("Unable to update bookmark.");
+				await router.invalidate();
 			}}
 			onFilterChange={(filter) =>
 				navigate({
@@ -94,7 +108,7 @@ function CommunityRoute() {
 }
 
 function toCardData(
-	post: (typeof Route.types.loaderData.posts)[number],
+	post: (typeof Route.types.loaderData.feed.posts)[number],
 ): CommunityPostCardData {
 	return {
 		author: post.author,
