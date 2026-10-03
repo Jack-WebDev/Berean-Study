@@ -32,7 +32,8 @@ import {
 	getReflectionExcerpt,
 	parseReflectionContent,
 } from "@/components/prayer/reflection-content";
-import { listTestimonies, shareTestimony } from "@/functions/testimonies";
+import { publishCommunityPost } from "@/functions/community";
+import { listTestimonies } from "@/functions/testimonies";
 
 type Filter = "all" | "recent" | "shared";
 type Sort = "oldest" | "recent" | "title";
@@ -94,8 +95,15 @@ export function TestimoniesPage() {
 		visible.find((item) => item.id === selectedId) ?? visible[0] ?? null;
 	const share = async (id: number) => {
 		try {
-			await shareTestimony({ data: { id } });
-			toast.success("Testimony shared to Community.");
+			const result = await publishCommunityPost({
+				data: { sourceId: id, type: "testimony" },
+			});
+			if (!result) throw new Error("Unable to publish Community post.");
+			toast.success(
+				result.alreadyPublished
+					? "This testimony is already shared with Community."
+					: "Testimony shared to Community.",
+			);
 			void load();
 		} catch {
 			toast.error("We couldn't share this testimony. Please try again.");

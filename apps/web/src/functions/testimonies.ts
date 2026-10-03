@@ -3,7 +3,6 @@ import {
 	createTestimony as createTestimonyInDb,
 	getTestimony as getTestimonyFromDb,
 	listTestimonies as listTestimoniesFromDb,
-	shareTestimony as shareTestimonyInDb,
 	updateTestimony as updateTestimonyInDb,
 } from "@berean-study/db/testimonies";
 import { createServerFn } from "@tanstack/react-start";
@@ -48,11 +47,4 @@ export const updateTestimony = createServerFn({ method: "POST" })
 	.handler(({ context, data }) => {
 		if (!context.session) throw new Error("Unauthorized");
 		return updateTestimonyInDb(createDb(), context.session.user.id, data);
-	});
-export const shareTestimony = createServerFn({ method: "POST" })
-	.middleware([authMiddleware])
-	.validator(testimonyId)
-	.handler(({ context, data }) => {
-		if (!context.session) throw new Error("Unauthorized");
-		return shareTestimonyInDb(createDb(), context.session.user.id, data.id);
 	});
