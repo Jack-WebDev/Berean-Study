@@ -171,6 +171,15 @@
 	* {
 		@apply border-border outline-ring/50;
 	}
+	input[data-slot="input"]:-webkit-autofill,
+	input[data-slot="input"]:-webkit-autofill:hover,
+	input[data-slot="input"]:-webkit-autofill:focus {
+		/* biome-ignore lint/complexity/noImportantStyles: WebKit autofill styles use !important. */
+		-webkit-box-shadow: 0 0 0 1000px var(--background) inset !important;
+		/* biome-ignore lint/complexity/noImportantStyles: WebKit autofill styles use !important. */
+		-webkit-text-fill-color: var(--foreground) !important;
+		caret-color: var(--foreground);
+	}
 	body {
 		@apply font-sans bg-background text-foreground;
 	}
