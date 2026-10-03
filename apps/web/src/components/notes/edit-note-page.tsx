@@ -11,7 +11,7 @@ import { FileTextIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
-import { getNote, setNoteTags, updateNote } from "@/functions/notes";
+import { getNote, saveNote } from "@/functions/notes";
 
 import type { NoteFormValues } from "./note-autosave-status";
 import { parseNoteContent, serializeNoteContent } from "./note-content";
@@ -37,17 +37,17 @@ export function EditNotePage({ noteId }: { noteId: number }) {
 		void loadNote();
 	}, [loadNote]);
 
-	const saveNote = async (values: NoteFormValues) => {
-		const updatedNote = await updateNote({
+	const persistNote = async (values: NoteFormValues) => {
+		const updatedNote = await saveNote({
 			data: {
 				content: serializeNoteContent(values.content),
 				id: noteId,
 				passageId: values.passageId ? Number(values.passageId) : null,
+				tags: values.tags,
 				title: values.title.trim(),
 			},
 		});
 		if (!updatedNote) throw new Error("Note not found.");
-		await setNoteTags({ data: { id: noteId, tags: values.tags } });
 	};
 
 	return (
@@ -93,13 +93,13 @@ export function EditNotePage({ noteId }: { noteId: number }) {
 							onCancel={() =>
 								navigate({ to: "/library/notes", search: { note: note.id } })
 							}
-							onAutosave={saveNote}
+							onAutosave={persistNote}
 							onSaveDraft={async (values) => {
-								await saveNote(values);
+								await persistNote(values);
 								toast.success("Draft saved.");
 							}}
 							onSubmit={async (values) => {
-								await saveNote(values);
+								await persistNote(values);
 								toast.success("Note updated.");
 								navigate({
 									to: "/library/notes",

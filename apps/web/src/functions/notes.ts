@@ -3,7 +3,6 @@ import {
 	addTagToNote as addTagToNoteInDb,
 	countNotesForPassage as countNotesForPassageInDb,
 	createNoteCollection as createNoteCollectionInDb,
-	createNote as createNoteInDb,
 	deleteNote as deleteNoteInDb,
 	getNote as getNoteFromDb,
 	listNoteBooks as listNoteBooksFromDb,
@@ -11,9 +10,9 @@ import {
 	listNotes as listNotesFromDb,
 	listNoteTags as listNoteTagsFromDb,
 	removeTagFromNote as removeTagFromNoteInDb,
+	saveNote as saveNoteInDb,
 	setNoteCollection as setNoteCollectionInDb,
 	setNoteTags as setNoteTagsInDb,
-	updateNote as updateNoteInDb,
 } from "@berean-study/db/notes";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
@@ -30,7 +29,10 @@ const noteInputSchema = z.object({
 	title: z.string().trim().min(1).max(200),
 });
 
-const updateNoteSchema = noteIdSchema.extend(noteInputSchema.shape);
+const saveNoteSchema = noteInputSchema.extend({
+	id: z.number().int().positive().optional(),
+	tags: z.array(z.string().trim().min(1).max(50)).max(20),
+});
 
 const listNotesSchema = z.object({
 	bookId: z.number().int().positive().optional(),
@@ -110,20 +112,12 @@ export const getNote = createServerFn({ method: "GET" })
 		getNoteFromDb(db, requireUserId(context.session), data.id),
 	);
 
-export const createNote = createServerFn({ method: "POST" })
+export const saveNote = createServerFn({ method: "POST" })
 	.middleware([authMiddleware])
-	.validator(noteInputSchema)
+	.validator(saveNoteSchema)
 	.handler(({ context, data }) =>
-		createNoteInDb(db, requireUserId(context.session), data),
+		saveNoteInDb(db, requireUserId(context.session), data),
 	);
-
-export const updateNote = createServerFn({ method: "POST" })
-	.middleware([authMiddleware])
-	.validator(updateNoteSchema)
-	.handler(({ context, data }) => {
-		const { id, ...input } = data;
-		return updateNoteInDb(db, requireUserId(context.session), id, input);
-	});
 
 export const deleteNote = createServerFn({ method: "POST" })
 	.middleware([authMiddleware])

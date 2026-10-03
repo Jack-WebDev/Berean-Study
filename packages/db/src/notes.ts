@@ -17,6 +17,11 @@ export type CreateNoteInput = {
 
 export type UpdateNoteInput = CreateNoteInput;
 
+export type SaveNoteInput = CreateNoteInput & {
+	id?: number;
+	tags: string[];
+};
+
 export type SetNoteTagsInput = {
 	tags: string[];
 };
@@ -242,52 +247,9 @@ export async function setNoteTags(
 ) {
 	await assertNoteOwned(db, userId, noteId);
 
-	const tags = Array.from(
-		new Map(
-			input.tags.map((name) => {
-				const tag = normalizeTag(name);
-				return [tag.normalizedName, tag] as const;
-			}),
-		).values(),
-	);
+	const tags = normalizeTags(input.tags);
 
-	return db.transaction(async (tx) => {
-		await tx
-			.delete(noteTagAssignments)
-			.where(eq(noteTagAssignments.noteId, noteId));
-
-		if (tags.length === 0) return [];
-
-		await tx
-			.insert(userNoteTags)
-			.values(
-				tags.map((tag) => ({
-					name: tag.name,
-					normalizedName: tag.normalizedName,
-					userId,
-				})),
-			)
-			.onConflictDoNothing();
-
-		const storedTags = await tx
-			.select({ id: userNoteTags.id, name: userNoteTags.name })
-			.from(userNoteTags)
-			.where(
-				and(
-					eq(userNoteTags.userId, userId),
-					inArray(
-						userNoteTags.normalizedName,
-						tags.map((tag) => tag.normalizedName),
-					),
-				),
-			);
-
-		await tx
-			.insert(noteTagAssignments)
-			.values(storedTags.map((tag) => ({ noteId, tagId: tag.id })));
-
-		return storedTags;
-	});
+	return db.transaction((tx) => replaceNoteTags(tx, userId, noteId, tags));
 }
 
 /** Creates or reuses a private collection for the supplied user. */
@@ -375,6 +337,39 @@ export async function updateNote(
 		.returning();
 
 	return note ?? null;
+}
+
+/** Creates or updates a note and replaces its tags as one atomic save. */
+export async function saveNote(
+	db: DbClient,
+	userId: string,
+	input: SaveNoteInput,
+) {
+	if (input.passageId !== null && input.passageId !== undefined) {
+		await assertPassageExists(db, input.passageId);
+	}
+
+	const { id, tags: inputTags, ...noteInput } = input;
+	const tags = normalizeTags(inputTags);
+
+	return db.transaction(async (tx) => {
+		const [note] =
+			id === undefined
+				? await tx
+						.insert(notes)
+						.values({ ...noteInput, userId })
+						.returning()
+				: await tx
+						.update(notes)
+						.set(noteInput)
+						.where(and(eq(notes.id, id), eq(notes.userId, userId)))
+						.returning();
+
+		if (!note) return null;
+
+		await replaceNoteTags(tx, userId, note.id, tags);
+		return note;
+	});
 }
 
 /** Returns false when a note does not exist or belongs to a different user. */
@@ -469,6 +464,60 @@ async function addTagsToNotes<Note extends { id: number }>(
 function normalizeTag(name: string) {
 	const trimmedName = name.trim().replace(/\s+/g, " ");
 	return { name: trimmedName, normalizedName: trimmedName.toLowerCase() };
+}
+
+function normalizeTags(names: string[]) {
+	return Array.from(
+		new Map(
+			names.map((name) => {
+				const tag = normalizeTag(name);
+				return [tag.normalizedName, tag] as const;
+			}),
+		).values(),
+	);
+}
+
+async function replaceNoteTags(
+	tx: Parameters<Parameters<DbClient["transaction"]>[0]>[0],
+	userId: string,
+	noteId: number,
+	tags: ReturnType<typeof normalizeTags>,
+) {
+	await tx
+		.delete(noteTagAssignments)
+		.where(eq(noteTagAssignments.noteId, noteId));
+
+	if (tags.length === 0) return [];
+
+	await tx
+		.insert(userNoteTags)
+		.values(
+			tags.map((tag) => ({
+				name: tag.name,
+				normalizedName: tag.normalizedName,
+				userId,
+			})),
+		)
+		.onConflictDoNothing();
+
+	const storedTags = await tx
+		.select({ id: userNoteTags.id, name: userNoteTags.name })
+		.from(userNoteTags)
+		.where(
+			and(
+				eq(userNoteTags.userId, userId),
+				inArray(
+					userNoteTags.normalizedName,
+					tags.map((tag) => tag.normalizedName),
+				),
+			),
+		);
+
+	await tx
+		.insert(noteTagAssignments)
+		.values(storedTags.map((tag) => ({ noteId, tagId: tag.id })));
+
+	return storedTags;
 }
 
 function normalizeCollection(name: string) {
