@@ -1,10 +1,10 @@
 import { and, count, desc, eq, isNull } from "drizzle-orm";
-import type { createDb } from "./index";
+import type { db } from "./index";
 import type { NotificationPreferenceKey } from "./notification-preferences";
 import { getNotificationPreferences } from "./notification-settings";
 import { notifications } from "./schema/notifications";
 
-type DbClient = ReturnType<typeof createDb>;
+type DbClient = typeof db;
 
 export type CreateNotificationInput = {
 	body: string;

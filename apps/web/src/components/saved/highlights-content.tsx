@@ -1,5 +1,13 @@
+import type { SavedHighlight } from "@berean-study/db/saved-items";
 import { Badge } from "@berean-study/ui/components/badge";
 import { Button } from "@berean-study/ui/components/button";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuGroup,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@berean-study/ui/components/dropdown-menu";
 import {
 	Empty,
 	EmptyDescription,
@@ -28,59 +36,33 @@ import {
 	SearchIcon,
 } from "lucide-react";
 import { useState } from "react";
-import type {
-	HighlightColor,
-	HighlightTestament,
-	SavedHighlightFixture,
-} from "./saved-fixtures";
-
-const highlightColorTreatment = {
-	Blue: {
-		dot: "bg-[oklch(0.62_0.1_245)]",
-		mark: "bg-[oklch(0.9_0.035_245)]",
-	},
-	Green: {
-		dot: "bg-[oklch(0.58_0.09_150)]",
-		mark: "bg-[oklch(0.9_0.035_150)]",
-	},
-	Red: {
-		dot: "bg-[oklch(0.62_0.1_25)]",
-		mark: "bg-[oklch(0.91_0.035_25)]",
-	},
-	Yellow: {
-		dot: "bg-[oklch(0.7_0.1_85)]",
-		mark: "bg-[oklch(0.94_0.04_85)]",
-	},
-} as const satisfies Record<HighlightColor, { dot: string; mark: string }>;
 
 export function HighlightsContent({
 	highlights,
+	onRemove,
 }: {
-	highlights: readonly SavedHighlightFixture[];
+	highlights: readonly SavedHighlight[];
+	onRemove: (highlight: SavedHighlight) => Promise<void>;
 }) {
 	const [book, setBook] = useState("all");
-	const [color, setColor] = useState<HighlightColor | "all">("all");
 	const [searchQuery, setSearchQuery] = useState("");
-	const [sort, setSort] = useState<"oldest" | "recent">("recent");
-	const [testament, setTestament] = useState<HighlightTestament | "all">("all");
 	const [viewMode, setViewMode] = useState<"grid" | "list">("list");
 	const normalizedQuery = searchQuery.trim().toLocaleLowerCase();
-	const visibleHighlights = [...highlights]
-		.filter(
-			(highlight) =>
-				(book === "all" || highlight.book === book) &&
-				(color === "all" || highlight.color === color) &&
-				(testament === "all" || highlight.testament === testament) &&
-				[highlight.reference, highlight.text, highlight.translation]
-					.join(" ")
-					.toLocaleLowerCase()
-					.includes(normalizedQuery),
-		)
-		.sort((left, right) =>
-			sort === "recent"
-				? right.createdAt.localeCompare(left.createdAt)
-				: left.createdAt.localeCompare(right.createdAt),
-		);
+	const books = [...new Set(highlights.map((highlight) => highlight.bookName))];
+	const visibleHighlights = highlights.filter(
+		(highlight) =>
+			(book === "all" || highlight.bookName === book) &&
+			[
+				highlight.bookName,
+				highlight.chapterNumber,
+				highlight.verseNumber,
+				highlight.text,
+				highlight.translationAbbreviation,
+			]
+				.join(" ")
+				.toLocaleLowerCase()
+				.includes(normalizedQuery),
+	);
 
 	return (
 		<section
@@ -88,69 +70,63 @@ export function HighlightsContent({
 			className="flex flex-col gap-4"
 		>
 			{highlights.length === 0 ? (
-				<Empty className="min-h-64 rounded-xl border border-border/70 bg-card py-12">
-					<EmptyHeader>
-						<EmptyTitle className="font-serif text-lg">
-							No highlights yet
-						</EmptyTitle>
-						<EmptyDescription className="max-w-64 text-sm">
-							Scripture text you highlight while studying will appear here.
-						</EmptyDescription>
-					</EmptyHeader>
-				</Empty>
+				<HighlightsEmptyState />
 			) : (
 				<HighlightsList
 					book={book}
-					color={color}
+					books={books}
 					highlights={visibleHighlights}
 					onBookChange={setBook}
-					onColorChange={setColor}
+					onRemove={onRemove}
 					onSearchQueryChange={setSearchQuery}
-					onSortChange={setSort}
-					onTestamentChange={setTestament}
-					searchQuery={searchQuery}
-					sort={sort}
-					testament={testament}
-					viewMode={viewMode}
 					onViewModeChange={setViewMode}
+					searchQuery={searchQuery}
+					viewMode={viewMode}
 				/>
 			)}
 		</section>
 	);
 }
 
+function HighlightsEmptyState() {
+	return (
+		<Empty className="min-h-64 rounded-xl border border-border/70 bg-card py-12">
+			<EmptyHeader>
+				<EmptyTitle className="font-serif text-lg">
+					No highlights yet
+				</EmptyTitle>
+				<EmptyDescription className="max-w-64 text-sm">
+					Scripture text you highlight while studying will appear here.
+				</EmptyDescription>
+			</EmptyHeader>
+		</Empty>
+	);
+}
+
 function HighlightsList({
 	book,
-	color,
+	books,
 	highlights,
 	onBookChange,
-	onColorChange,
+	onRemove,
 	onSearchQueryChange,
-	onSortChange,
-	onTestamentChange,
 	onViewModeChange,
 	searchQuery,
-	sort,
-	testament,
 	viewMode,
 }: {
 	book: string;
-	color: HighlightColor | "all";
-	highlights: readonly SavedHighlightFixture[];
+	books: readonly string[];
+	highlights: readonly SavedHighlight[];
 	onBookChange: (book: string) => void;
-	onColorChange: (color: HighlightColor | "all") => void;
+	onRemove: (highlight: SavedHighlight) => Promise<void>;
 	onSearchQueryChange: (query: string) => void;
-	onSortChange: (sort: "oldest" | "recent") => void;
-	onTestamentChange: (testament: HighlightTestament | "all") => void;
 	onViewModeChange: (viewMode: "grid" | "list") => void;
 	searchQuery: string;
-	sort: "oldest" | "recent";
-	testament: HighlightTestament | "all";
 	viewMode: "grid" | "list";
 }) {
 	return (
 		<>
-			<div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap lg:flex-nowrap">
+			<div className="flex min-w-0 flex-col gap-2 sm:flex-row">
 				<label className="min-w-0 flex-1" htmlFor="highlight-search">
 					<span className="sr-only">Search your highlights</span>
 					<InputGroup className="h-9 rounded-lg border-border/70 bg-card">
@@ -166,7 +142,7 @@ function HighlightsList({
 						/>
 					</InputGroup>
 				</label>
-				<label className="w-full sm:w-32" htmlFor="highlight-book">
+				<label className="w-full sm:w-40" htmlFor="highlight-book">
 					<span className="sr-only">Filter by book</span>
 					<NativeSelect
 						className="w-full **:data-[slot=native-select]:rounded-lg **:data-[slot=native-select]:border-border/70 **:data-[slot=native-select]:bg-card"
@@ -175,58 +151,11 @@ function HighlightsList({
 						value={book}
 					>
 						<NativeSelectOption value="all">All Books</NativeSelectOption>
-						<NativeSelectOption value="John">John</NativeSelectOption>
-						<NativeSelectOption value="Philippians">
-							Philippians
-						</NativeSelectOption>
-					</NativeSelect>
-				</label>
-				<label className="w-full sm:w-36" htmlFor="highlight-testament">
-					<span className="sr-only">Filter by testament</span>
-					<NativeSelect
-						className="w-full **:data-[slot=native-select]:rounded-lg **:data-[slot=native-select]:border-border/70 **:data-[slot=native-select]:bg-card"
-						id="highlight-testament"
-						onChange={(event) =>
-							onTestamentChange(
-								event.target.value as HighlightTestament | "all",
-							)
-						}
-						value={testament}
-					>
-						<NativeSelectOption value="all">All Testaments</NativeSelectOption>
-						<NativeSelectOption value="New">New Testament</NativeSelectOption>
-						<NativeSelectOption value="Old">Old Testament</NativeSelectOption>
-					</NativeSelect>
-				</label>
-				<label className="w-full sm:w-32" htmlFor="highlight-color">
-					<span className="sr-only">Filter by highlight color</span>
-					<NativeSelect
-						className="w-full **:data-[slot=native-select]:rounded-lg **:data-[slot=native-select]:border-border/70 **:data-[slot=native-select]:bg-card"
-						id="highlight-color"
-						onChange={(event) =>
-							onColorChange(event.target.value as HighlightColor | "all")
-						}
-						value={color}
-					>
-						<NativeSelectOption value="all">All Colors</NativeSelectOption>
-						<NativeSelectOption value="Red">Red</NativeSelectOption>
-						<NativeSelectOption value="Yellow">Yellow</NativeSelectOption>
-						<NativeSelectOption value="Green">Green</NativeSelectOption>
-						<NativeSelectOption value="Blue">Blue</NativeSelectOption>
-					</NativeSelect>
-				</label>
-				<label className="w-full sm:w-36" htmlFor="highlight-sort">
-					<span className="sr-only">Sort highlights</span>
-					<NativeSelect
-						className="w-full **:data-[slot=native-select]:rounded-lg **:data-[slot=native-select]:border-border/70 **:data-[slot=native-select]:bg-card"
-						id="highlight-sort"
-						onChange={(event) =>
-							onSortChange(event.target.value as "oldest" | "recent")
-						}
-						value={sort}
-					>
-						<NativeSelectOption value="recent">Most Recent</NativeSelectOption>
-						<NativeSelectOption value="oldest">Oldest</NativeSelectOption>
+						{books.map((bookName) => (
+							<NativeSelectOption key={bookName} value={bookName}>
+								{bookName}
+							</NativeSelectOption>
+						))}
 					</NativeSelect>
 				</label>
 				<ToggleGroup
@@ -258,122 +187,134 @@ function HighlightsList({
 			</div>
 
 			<p aria-live="polite" className="text-muted-foreground text-sm">
-				{highlights.length} highlight
-				{highlights.length === 1 ? "" : "s"}
+				{highlights.length} highlight{highlights.length === 1 ? "" : "s"}
 			</p>
 
-			<ul
-				className={cn(
-					"gap-2",
-					viewMode === "grid" ? "grid sm:grid-cols-2" : "flex flex-col",
-				)}
-			>
-				{highlights.map((highlight) => (
-					<li key={highlight.id}>
-						<HighlightCard highlight={highlight} />
-					</li>
-				))}
-			</ul>
-
 			{highlights.length === 0 ? (
-				<div className="rounded-xl border border-border/70 bg-card px-5 py-12 text-center">
-					<HighlighterIcon
-						aria-hidden="true"
-						className="mx-auto size-5 text-muted-foreground"
-					/>
-					<h2 className="mt-3 font-serif text-lg">No highlights found</h2>
-					<p className="mt-1 text-muted-foreground text-sm">
-						Try a different reference or phrase.
-					</p>
-				</div>
-			) : null}
+				<NoHighlightsFound />
+			) : (
+				<ul
+					className={cn(
+						"gap-2",
+						viewMode === "grid" ? "grid sm:grid-cols-2" : "flex flex-col",
+					)}
+				>
+					{highlights.map((highlight) => (
+						<li key={highlight.id}>
+							<HighlightCard highlight={highlight} onRemove={onRemove} />
+						</li>
+					))}
+				</ul>
+			)}
 		</>
 	);
 }
 
-function HighlightCard({ highlight }: { highlight: SavedHighlightFixture }) {
+function NoHighlightsFound() {
+	return (
+		<div className="rounded-xl border border-border/70 bg-card px-5 py-12 text-center">
+			<HighlighterIcon
+				aria-hidden="true"
+				className="mx-auto size-5 text-muted-foreground"
+			/>
+			<h2 className="mt-3 font-serif text-lg">No highlights found</h2>
+			<p className="mt-1 text-muted-foreground text-sm">
+				Try a different reference or phrase.
+			</p>
+		</div>
+	);
+}
+
+function HighlightCard({
+	highlight,
+	onRemove,
+}: {
+	highlight: SavedHighlight;
+	onRemove: (highlight: SavedHighlight) => Promise<void>;
+}) {
 	const excerpt = getHighlightedExcerpt(
 		highlight.text,
-		highlight.highlightStart,
-		highlight.highlightEnd,
+		highlight.startOffset,
+		highlight.endOffset,
 	);
-	const colorTreatment = highlightColorTreatment[highlight.color];
+	const reference = `${highlight.bookName} ${highlight.chapterNumber}:${highlight.verseNumber}`;
 
 	return (
 		<article className="rounded-xl border border-border/70 bg-card px-4 py-3.5 shadow-[0_2px_8px_color-mix(in_oklab,var(--foreground),transparent_95%)] sm:px-5 sm:py-4">
 			<header className="flex items-center justify-between gap-3">
 				<div className="flex min-w-0 items-center gap-2">
 					<h2 className="truncate font-serif text-base tracking-[-0.015em] sm:text-lg">
-						{highlight.reference}
+						{reference}
 					</h2>
-					<Badge variant="secondary">{highlight.translation}</Badge>
-				</div>
-				<div className="flex shrink-0 items-center gap-2 text-muted-foreground text-xs">
-					<HighlightColorLabel color={highlight.color} />
-					<span aria-hidden="true">·</span>
-					{highlight.displayDate}
+					<Badge variant="secondary">{highlight.translationAbbreviation}</Badge>
 				</div>
 			</header>
-
 			<p className="mt-4 font-serif text-[0.98rem] text-foreground leading-7 sm:text-base">
 				<span className="mr-3 align-top font-sans text-muted-foreground text-xs leading-7">
-					{getVerseNumber(highlight.reference)}
+					{highlight.verseNumber}
 				</span>
 				{excerpt.before}
-				<mark
-					className={cn("rounded-sm px-0.5 text-inherit", colorTreatment.mark)}
-				>
+				<mark className="rounded-sm bg-accent/25 px-0.5 text-inherit">
 					{excerpt.highlighted}
 				</mark>
 				{excerpt.after}
 			</p>
-
 			<footer className="mt-4 flex items-center gap-3 text-muted-foreground text-xs">
-				<span className="font-medium text-foreground">
-					{highlight.reference}
-				</span>
-				<span className="ml-auto">No note attached</span>
-				<Button
-					aria-label={`Options for ${highlight.reference}`}
-					className="size-7 rounded-md"
-					disabled
-					size="icon-sm"
-					type="button"
-					variant="ghost"
-				>
-					<EllipsisVerticalIcon aria-hidden="true" data-icon="inline-start" />
-				</Button>
+				<span className="font-medium text-foreground">{reference}</span>
+				<HighlightMenu
+					highlight={highlight}
+					onRemove={onRemove}
+					reference={reference}
+				/>
 			</footer>
 		</article>
 	);
 }
 
-function HighlightColorLabel({ color }: { color: HighlightColor }) {
+function HighlightMenu({
+	highlight,
+	onRemove,
+	reference,
+}: {
+	highlight: SavedHighlight;
+	onRemove: (highlight: SavedHighlight) => Promise<void>;
+	reference: string;
+}) {
 	return (
-		<span className="flex items-center gap-1.5">
-			<span
-				aria-hidden="true"
-				className={cn(
-					"size-2 rounded-full",
-					highlightColorTreatment[color].dot,
-				)}
-			/>
-			{color}
-		</span>
+		<DropdownMenu>
+			<DropdownMenuTrigger
+				render={
+					<Button
+						aria-label={`Options for ${reference}`}
+						className="ml-auto size-7 rounded-md"
+						size="icon-sm"
+						type="button"
+						variant="ghost"
+					/>
+				}
+			>
+				<EllipsisVerticalIcon aria-hidden="true" data-icon="inline-start" />
+			</DropdownMenuTrigger>
+			<DropdownMenuContent align="end" className="w-40 rounded-lg p-1">
+				<DropdownMenuGroup>
+					<DropdownMenuItem
+						onClick={() => void onRemove(highlight)}
+						variant="destructive"
+					>
+						Remove highlight
+					</DropdownMenuItem>
+				</DropdownMenuGroup>
+			</DropdownMenuContent>
+		</DropdownMenu>
 	);
 }
 
 function getHighlightedExcerpt(text: string, start: number, end: number) {
 	const highlightStart = Math.max(0, Math.min(start, text.length));
 	const highlightEnd = Math.max(highlightStart, Math.min(end, text.length));
-
 	return {
 		after: text.slice(highlightEnd),
 		before: text.slice(0, highlightStart),
 		highlighted: text.slice(highlightStart, highlightEnd),
 	};
-}
-
-function getVerseNumber(reference: string) {
-	return reference.match(/:(\d+)/)?.[1] ?? "";
 }

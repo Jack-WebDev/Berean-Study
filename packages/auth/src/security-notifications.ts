@@ -1,4 +1,4 @@
-import type { createDb } from "@berean-study/db";
+import type { db } from "@berean-study/db";
 import { shouldDeliverEmailNotification } from "@berean-study/db/notification-preferences";
 import {
 	claimSecurityEmailDelivery,
@@ -9,7 +9,7 @@ import { createNotification } from "@berean-study/db/notifications";
 import { sendSecurityAlertEmail } from "@berean-study/emailkit";
 import { env } from "@berean-study/env/server";
 
-type DbClient = ReturnType<typeof createDb>;
+type DbClient = typeof db;
 
 type SessionCreated = {
 	id: string;

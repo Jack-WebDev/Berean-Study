@@ -1,4 +1,4 @@
-import { createDb } from "@berean-study/db";
+import { db } from "@berean-study/db";
 import {
 	createPrayer as createPrayerInDb,
 	createPrayerReflection as createPrayerReflectionInDb,
@@ -35,7 +35,7 @@ function requireUserId(session: { user: { id: string } } | null) {
 export const listPrayers = createServerFn({ method: "GET" })
 	.middleware([authMiddleware])
 	.handler(({ context }) =>
-		listPrayersFromDb(createDb(), requireUserId(context.session)),
+		listPrayersFromDb(db, requireUserId(context.session)),
 	);
 
 export const listLibraryReflections = createServerFn({ method: "GET" })
@@ -50,32 +50,28 @@ export const listLibraryReflections = createServerFn({ method: "GET" })
 		}),
 	)
 	.handler(({ context, data }) =>
-		listLibraryReflectionsFromDb(
-			createDb(),
-			requireUserId(context.session),
-			data,
-		),
+		listLibraryReflectionsFromDb(db, requireUserId(context.session), data),
 	);
 
 export const createPrayer = createServerFn({ method: "POST" })
 	.middleware([authMiddleware])
 	.validator(prayerInputSchema)
 	.handler(({ context, data }) =>
-		createPrayerInDb(createDb(), requireUserId(context.session), data),
+		createPrayerInDb(db, requireUserId(context.session), data),
 	);
 
 export const getPrayer = createServerFn({ method: "GET" })
 	.middleware([authMiddleware])
 	.validator(z.object({ id: z.number().int().positive() }))
 	.handler(({ context, data }) =>
-		getPrayerFromDb(createDb(), requireUserId(context.session), data.id),
+		getPrayerFromDb(db, requireUserId(context.session), data.id),
 	);
 
 export const updatePrayer = createServerFn({ method: "POST" })
 	.middleware([authMiddleware])
 	.validator(prayerInputSchema.extend({ id: z.number().int().positive() }))
 	.handler(({ context, data }) =>
-		updatePrayerInDb(createDb(), requireUserId(context.session), data),
+		updatePrayerInDb(db, requireUserId(context.session), data),
 	);
 
 export const getPrayerReflection = createServerFn({ method: "GET" })
@@ -87,7 +83,7 @@ export const getPrayerReflection = createServerFn({ method: "GET" })
 	)
 	.handler(({ context, data }) =>
 		getPrayerReflectionFromDb(
-			createDb(),
+			db,
 			requireUserId(context.session),
 			data.prayerId,
 			data.reflectionId,
@@ -98,11 +94,7 @@ export const createPrayerReflection = createServerFn({ method: "POST" })
 	.middleware([authMiddleware])
 	.validator(reflectionInputSchema)
 	.handler(({ context, data }) =>
-		createPrayerReflectionInDb(
-			createDb(),
-			requireUserId(context.session),
-			data,
-		),
+		createPrayerReflectionInDb(db, requireUserId(context.session), data),
 	);
 
 export const updatePrayerReflection = createServerFn({ method: "POST" })
@@ -111,11 +103,7 @@ export const updatePrayerReflection = createServerFn({ method: "POST" })
 		reflectionInputSchema.extend({ reflectionId: z.number().int().positive() }),
 	)
 	.handler(({ context, data }) =>
-		updatePrayerReflectionInDb(
-			createDb(),
-			requireUserId(context.session),
-			data,
-		),
+		updatePrayerReflectionInDb(db, requireUserId(context.session), data),
 	);
 
 export const deletePrayerReflection = createServerFn({ method: "POST" })
@@ -128,7 +116,7 @@ export const deletePrayerReflection = createServerFn({ method: "POST" })
 	)
 	.handler(({ context, data }) =>
 		deletePrayerReflectionInDb(
-			createDb(),
+			db,
 			requireUserId(context.session),
 			data.prayerId,
 			data.reflectionId,

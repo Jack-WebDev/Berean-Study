@@ -1,6 +1,6 @@
 import { count, eq } from "drizzle-orm";
 
-import type { createDb } from "./index";
+import type { db } from "./index";
 import { bookmarks } from "./schema/bookmarks";
 import { collections } from "./schema/collections";
 import { highlights } from "./schema/highlights";
@@ -8,7 +8,7 @@ import { notes } from "./schema/notes";
 import { prayers } from "./schema/prayers";
 import { testimonies } from "./schema/testimonies";
 
-type DbClient = ReturnType<typeof createDb>;
+type DbClient = typeof db;
 
 export type LibraryDestinationCounts = {
 	collections: number;

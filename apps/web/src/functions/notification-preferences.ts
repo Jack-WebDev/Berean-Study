@@ -1,4 +1,4 @@
-import { createDb } from "@berean-study/db";
+import { db } from "@berean-study/db";
 import {
 	getNotificationPreferences as getNotificationPreferencesFromDb,
 	saveNotificationPreferences as saveNotificationPreferencesToDb,
@@ -26,10 +26,7 @@ export const getNotificationPreferences = createServerFn({ method: "GET" })
 	.handler(async ({ context }) => {
 		if (!context.session) throw new Error("Unauthorized");
 
-		return getNotificationPreferencesFromDb(
-			createDb(),
-			context.session.user.id,
-		);
+		return getNotificationPreferencesFromDb(db, context.session.user.id);
 	});
 
 export const updateNotificationPreferences = createServerFn({ method: "POST" })
@@ -38,9 +35,5 @@ export const updateNotificationPreferences = createServerFn({ method: "POST" })
 	.handler(async ({ context, data }) => {
 		if (!context.session) throw new Error("Unauthorized");
 
-		return saveNotificationPreferencesToDb(
-			createDb(),
-			context.session.user.id,
-			data,
-		);
+		return saveNotificationPreferencesToDb(db, context.session.user.id, data);
 	});

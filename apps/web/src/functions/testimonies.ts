@@ -1,4 +1,4 @@
-import { createDb } from "@berean-study/db";
+import { db } from "@berean-study/db";
 import {
 	createTestimony as createTestimonyInDb,
 	getTestimony as getTestimonyFromDb,
@@ -13,7 +13,7 @@ export const listTestimonies = createServerFn({ method: "GET" })
 	.middleware([authMiddleware])
 	.handler(({ context }) => {
 		if (!context.session) throw new Error("Unauthorized");
-		return listTestimoniesFromDb(createDb(), context.session.user.id);
+		return listTestimoniesFromDb(db, context.session.user.id);
 	});
 
 export const createTestimony = createServerFn({ method: "POST" })
@@ -26,7 +26,7 @@ export const createTestimony = createServerFn({ method: "POST" })
 	)
 	.handler(({ context, data }) => {
 		if (!context.session) throw new Error("Unauthorized");
-		return createTestimonyInDb(createDb(), context.session.user.id, data);
+		return createTestimonyInDb(db, context.session.user.id, data);
 	});
 
 const testimonyInput = z.object({
@@ -39,12 +39,12 @@ export const getTestimony = createServerFn({ method: "GET" })
 	.validator(testimonyId)
 	.handler(({ context, data }) => {
 		if (!context.session) throw new Error("Unauthorized");
-		return getTestimonyFromDb(createDb(), context.session.user.id, data.id);
+		return getTestimonyFromDb(db, context.session.user.id, data.id);
 	});
 export const updateTestimony = createServerFn({ method: "POST" })
 	.middleware([authMiddleware])
 	.validator(testimonyInput.extend({ id: z.number().int().positive() }))
 	.handler(({ context, data }) => {
 		if (!context.session) throw new Error("Unauthorized");
-		return updateTestimonyInDb(createDb(), context.session.user.id, data);
+		return updateTestimonyInDb(db, context.session.user.id, data);
 	});

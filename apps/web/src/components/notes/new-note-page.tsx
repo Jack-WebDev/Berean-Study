@@ -3,7 +3,7 @@ import { ArrowLeftIcon } from "lucide-react";
 import { useRef } from "react";
 import { toast } from "sonner";
 
-import { createNote, setNoteTags, updateNote } from "@/functions/notes";
+import { saveNote } from "@/functions/notes";
 import type { NoteFormValues } from "./note-autosave-status";
 import { emptyNoteDocument, serializeNoteContent } from "./note-content";
 import { NoteForm } from "./note-form";
@@ -17,19 +17,22 @@ export function NewNotePage({
 }) {
 	const navigate = useNavigate({ from: "/library/notes/new" });
 	const createdNoteId = useRef<number | null>(null);
-	const saveNote = async (values: NoteFormValues) => {
+	const persistNote = async (values: NoteFormValues) => {
 		const passageId = values.passageId ? Number(values.passageId) : null;
 		const data = {
 			content: serializeNoteContent(values.content),
 			passageId,
 			title: values.title.trim(),
 		};
-		const note = createdNoteId.current
-			? await updateNote({ data: { ...data, id: createdNoteId.current } })
-			: await createNote({ data });
+		const note = await saveNote({
+			data: {
+				...data,
+				id: createdNoteId.current ?? undefined,
+				tags: values.tags,
+			},
+		});
 		if (!note) throw new Error("Note not found.");
 		createdNoteId.current = note.id;
-		await setNoteTags({ data: { id: note.id, tags: values.tags } });
 		return note;
 	};
 
@@ -68,7 +71,7 @@ export function NewNotePage({
 							: navigate({ to: "/library/notes" })
 					}
 					onSubmit={async (values) => {
-						const note = await saveNote(values);
+						const note = await persistNote(values);
 						toast.success("Note saved.");
 						navigate({
 							to: "/library/notes",
@@ -83,10 +86,10 @@ export function NewNotePage({
 						});
 					}}
 					onAutosave={async (values) => {
-						await saveNote(values);
+						await persistNote(values);
 					}}
 					onSaveDraft={async (values) => {
-						await saveNote(values);
+						await persistNote(values);
 						toast.success("Draft saved.");
 					}}
 					submitLabel="Save note"

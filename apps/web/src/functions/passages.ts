@@ -1,4 +1,4 @@
-import { createDb } from "@berean-study/db";
+import { db } from "@berean-study/db";
 import {
 	getPassageOptions as getPassageOptionsFromDb,
 	getPassageStudyContext as getPassageStudyContextFromDb,
@@ -12,7 +12,7 @@ export const getPassageOptions = createServerFn({ method: "GET" })
 	.middleware([authMiddleware])
 	.handler(({ context }) => {
 		if (!context.session) throw new Error("Unauthorized");
-		return getPassageOptionsFromDb(createDb());
+		return getPassageOptionsFromDb(db);
 	});
 
 export const getPassageStudyContext = createServerFn({ method: "GET" })
@@ -20,5 +20,5 @@ export const getPassageStudyContext = createServerFn({ method: "GET" })
 	.validator(z.object({ passageId: z.number().int().positive() }))
 	.handler(({ context, data }) => {
 		if (!context.session) throw new Error("Unauthorized");
-		return getPassageStudyContextFromDb(createDb(), data.passageId);
+		return getPassageStudyContextFromDb(db, data.passageId);
 	});

@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { getPassageOptions } from "@/functions/passages";
 import { getPrayer, updatePrayer } from "@/functions/prayers";
 import { PrayerCategories, PrayerPassageCard } from "./new-prayer-page";
+import { parsePrayerContent } from "./prayer-content";
 
 export function EditPrayerPage({ prayerId }: { prayerId: number }) {
 	const [loaded, setLoaded] = useState(false);
@@ -42,7 +43,7 @@ export function EditPrayerPage({ prayerId }: { prayerId: number }) {
 			setTitle(prayer.title);
 			setCategory(prayer.category ?? "");
 			setPassageId(prayer.passageId);
-			setContent(parseContent(prayer.content));
+			setContent(parsePrayerContent(prayer.content));
 		} catch {
 			setNotFound(true);
 		} finally {
@@ -169,12 +170,4 @@ export function EditPrayerPage({ prayerId }: { prayerId: number }) {
 			</main>
 		</div>
 	);
-}
-
-function parseContent(content: string): RichTextDocument {
-	try {
-		const document = JSON.parse(content) as RichTextDocument;
-		if (document.type === "doc") return document;
-	} catch {}
-	return emptyRichTextDocument;
 }

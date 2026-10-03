@@ -1,6 +1,6 @@
 import { and, count, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 
-import type { createDb } from "./index";
+import type { db } from "./index";
 import { user } from "./schema/auth";
 import { collectionPassages } from "./schema/collection_passages";
 import { collections } from "./schema/collections";
@@ -13,7 +13,7 @@ import { prayers } from "./schema/prayers";
 import { testimonies } from "./schema/testimonies";
 import { testimonyPassages } from "./schema/testimony_passages";
 
-type DbClient = ReturnType<typeof createDb>;
+type DbClient = typeof db;
 type DbQueryClient = Pick<DbClient, "select">;
 
 export type CommunityPostType = "collection" | "note" | "testimony" | "prayer";
@@ -410,9 +410,9 @@ export async function setCommunityPostBookmark(
 export async function listSavedCommunityPosts(
 	db: DbClient,
 	viewerUserId: string,
-	limit: number,
+	limit?: number,
 ): Promise<SavedCommunityPost[]> {
-	const rows = await db
+	const query = db
 		.select({
 			id: communityPosts.id,
 			postType: communityPosts.postType,
@@ -430,8 +430,8 @@ export async function listSavedCommunityPosts(
 				isNull(communityPosts.removedAt),
 			),
 		)
-		.orderBy(desc(communityPosts.publishedAt), desc(communityPosts.id))
-		.limit(limit);
+		.orderBy(desc(communityPosts.publishedAt), desc(communityPosts.id));
+	const rows = limit === undefined ? await query : await query.limit(limit);
 
 	return rows.flatMap((row) => {
 		const type = asCommunityPostType(row.postType);

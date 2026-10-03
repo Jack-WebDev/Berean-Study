@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 
-import type { createDb } from "./index";
+import type { db } from "./index";
 import { communityPosts } from "./schema/community_posts";
 import { passages } from "./schema/passages";
 import { testimonies } from "./schema/testimonies";
@@ -8,7 +8,7 @@ import { testimonyNotes } from "./schema/testimony_notes";
 import { testimonyPassages } from "./schema/testimony_passages";
 import { testimonyPrayers } from "./schema/testimony_prayers";
 
-type DbClient = ReturnType<typeof createDb>;
+type DbClient = typeof db;
 
 export type Testimony = {
 	content: string;

@@ -1,12 +1,12 @@
 import { desc, eq } from "drizzle-orm";
 
-import type { createDb } from "./index";
+import type { db } from "./index";
 import { collections } from "./schema/collections";
 import { notes } from "./schema/notes";
 import { prayers } from "./schema/prayers";
 import { testimonies } from "./schema/testimonies";
 
-type DbClient = ReturnType<typeof createDb>;
+type DbClient = typeof db;
 
 export type RecentLibraryActivity = {
 	id: number;
