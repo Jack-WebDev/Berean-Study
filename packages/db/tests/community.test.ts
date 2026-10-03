@@ -4,11 +4,12 @@ import { eq } from "drizzle-orm";
 import { afterAll, describe, expect, it } from "vitest";
 
 import { db, pool } from "../src";
-import { publishCommunityPost } from "../src/community";
+import { listCommunityFeed, publishCommunityPost } from "../src/community";
 import { user } from "../src/schema/auth";
 import { books } from "../src/schema/books";
 import { communityPostPassages } from "../src/schema/community_post_passages";
 import { communityPosts } from "../src/schema/community_posts";
+import { notes } from "../src/schema/notes";
 import { passages } from "../src/schema/passages";
 import { testimonies } from "../src/schema/testimonies";
 import { testimonyPassages } from "../src/schema/testimony_passages";
@@ -120,6 +121,39 @@ describeWithDatabase("Community publication", () => {
 				type: "testimony",
 			});
 			expect(duplicate).toEqual({ alreadyPublished: true, id: published.id });
+
+			const [note] = await db
+				.insert(notes)
+				.values({
+					content: "A note shared with the Community.",
+					title: "A community note",
+					userId: ownerId,
+				})
+				.returning({ id: notes.id });
+			if (!note) throw new Error("Unable to create test note.");
+			await publishCommunityPost(db, ownerId, {
+				sourceId: note.id,
+				type: "note",
+			});
+
+			const testimonyFeed = await listCommunityFeed(db, ownerId, {
+				filter: "testimony",
+				page: 1,
+				pageSize: 10,
+			});
+			expect(testimonyFeed.total).toBeGreaterThanOrEqual(1);
+			expect(testimonyFeed.posts).not.toHaveLength(0);
+			expect(
+				testimonyFeed.posts.every((post) => post.type === "testimony"),
+			).toBe(true);
+
+			const recentFeed = await listCommunityFeed(db, ownerId, {
+				filter: "recent",
+				page: 1,
+				pageSize: 1,
+			});
+			expect(recentFeed.total).toBeGreaterThan(testimonyFeed.total);
+			expect(recentFeed.posts).toHaveLength(1);
 
 			await expect(
 				publishCommunityPost(db, otherUserId, {

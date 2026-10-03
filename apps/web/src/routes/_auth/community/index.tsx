@@ -8,20 +8,29 @@ import {
 	setCommunityPostBookmark,
 } from "@/functions/community";
 
+const communitySearchSchema = z
+	.object({
+		page: z.coerce.number().int().positive().default(1),
+		pageSize: z.coerce.number().int().min(1).max(50).default(12),
+		topic: z.string().trim().min(1).max(100).optional(),
+		type: z.enum(["collection", "note", "testimony", "prayer"]).optional(),
+		view: z.enum(["featured", "recent"]).default("featured"),
+	})
+	.transform(({ type, view, ...search }) => ({
+		...search,
+		type,
+		view: type ? undefined : view,
+	}));
+
 export const Route = createFileRoute("/_auth/community/")({
 	component: CommunityRoute,
 	loaderDeps: ({ search }) => ({
+		filter: search.type ?? search.view ?? "featured",
 		page: search.page,
 		pageSize: search.pageSize,
 	}),
 	loader: ({ deps }) => getCommunityFeed({ data: deps }),
-	validateSearch: z.object({
-		page: z.coerce.number().int().positive().default(1),
-		pageSize: z.coerce.number().int().min(1).max(50).default(12),
-		topic: z.string().optional(),
-		type: z.enum(["collection", "note", "testimony", "prayer"]).optional(),
-		view: z.enum(["featured", "recent"]).optional(),
-	}),
+	validateSearch: communitySearchSchema,
 });
 
 function CommunityRoute() {
@@ -30,6 +39,10 @@ function CommunityRoute() {
 	const posts = feed.posts.map(toCardData);
 	const navigate = useNavigate({ from: "/community/" });
 	const activeFilter: CommunityFilter = type ?? view ?? "featured";
+	const searchForFilter = (filter: CommunityFilter, nextTopic = topic) =>
+		filter === "featured" || filter === "recent"
+			? { page: 1, pageSize, topic: nextTopic, view: filter }
+			: { page: 1, pageSize, topic: nextTopic, type: filter };
 
 	return (
 		<CommunityPage
@@ -46,26 +59,32 @@ function CommunityRoute() {
 			onFilterChange={(filter) =>
 				navigate({
 					to: ".",
-					search:
-						filter === "featured"
-							? { page: 1, pageSize, topic }
-							: filter === "recent"
-								? { page: 1, pageSize, topic, view: filter }
-								: { page: 1, pageSize, topic, type: filter },
+					search: searchForFilter(filter),
 				})
 			}
 			onTopicChange={(nextTopic) =>
 				navigate({
 					to: ".",
-					search: type
-						? { page: 1, pageSize, topic: nextTopic, type }
-						: { page: 1, pageSize, topic: nextTopic, view },
+					search: searchForFilter(activeFilter, nextTopic),
 				})
 			}
 			onPaginationChange={(nextPage, nextPageSize) =>
 				navigate({
 					to: ".",
-					search: { page: nextPage, pageSize: nextPageSize, topic, type, view },
+					search:
+						activeFilter === "featured" || activeFilter === "recent"
+							? {
+									page: nextPage,
+									pageSize: nextPageSize,
+									topic,
+									view: activeFilter,
+								}
+							: {
+									page: nextPage,
+									pageSize: nextPageSize,
+									topic,
+									type: activeFilter,
+								},
 				})
 			}
 			posts={posts}

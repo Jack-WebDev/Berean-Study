@@ -39,8 +39,9 @@ export function CommunityPage({
 	posts: CommunityPostCardData[];
 	totalPosts: number;
 }) {
+	const isFeaturedView = activeFilter === "featured";
 	const featuredPost =
-		page === 1
+		isFeaturedView && page === 1
 			? (posts.find((post) => post.type === "testimony") ?? posts[0] ?? null)
 			: null;
 	const feedPosts = featuredPost
@@ -82,53 +83,57 @@ export function CommunityPage({
 
 				<div className="mt-4 grid gap-10 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start">
 					<div className="min-w-0">
-						{activeFilter === "featured" ? (
-							<>
-								<div>
-									<FeaturedCommunityPost post={featuredPost} />
-								</div>
-
-								<section
-									aria-labelledby="from-our-community-title"
-									className="mt-10 sm:mt-12"
-								>
-									<header>
-										<h2
-											className="font-serif text-2xl leading-tight tracking-[-0.03em] sm:text-[1.7rem]"
-											id="from-our-community-title"
-										>
-											From Our Community
-										</h2>
-										<p className="mt-1 text-muted-foreground text-sm leading-6">
-											Real people. Real faith. Encouragement for the journey.
-										</p>
-									</header>
-
-									<div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-										{feedPosts.map((post) => (
-											<CommunityPostCard
-												key={post.id}
-												onBookmarkChange={onBookmarkChange}
-												post={post}
-											/>
-										))}
-									</div>
-									<DataPagination
-										className="mt-8"
-										onPageChange={(nextPage) =>
-											onPaginationChange(nextPage, pageSize)
-										}
-										onPageSizeChange={(nextPageSize) =>
-											onPaginationChange(1, nextPageSize)
-										}
-										page={page}
-										pageSize={pageSize}
-										pageSizeOptions={[12, 24, 48]}
-										total={totalPosts}
-									/>
-								</section>
-							</>
+						{isFeaturedView ? (
+							<div>
+								<FeaturedCommunityPost post={featuredPost} />
+							</div>
 						) : null}
+
+						<section
+							aria-labelledby="from-our-community-title"
+							className={isFeaturedView ? "mt-10 sm:mt-12" : undefined}
+						>
+							<header>
+								<h2
+									className="font-serif text-2xl leading-tight tracking-[-0.03em] sm:text-[1.7rem]"
+									id="from-our-community-title"
+								>
+									{feedHeading(activeFilter)}
+								</h2>
+								<p className="mt-1 text-muted-foreground text-sm leading-6">
+									{feedDescription(activeFilter)}
+								</p>
+							</header>
+
+							{feedPosts.length > 0 ? (
+								<div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+									{feedPosts.map((post) => (
+										<CommunityPostCard
+											key={post.id}
+											onBookmarkChange={onBookmarkChange}
+											post={post}
+										/>
+									))}
+								</div>
+							) : (
+								<p className="mt-6 text-muted-foreground text-sm">
+									No {feedNoun(activeFilter)} have been shared yet.
+								</p>
+							)}
+							<DataPagination
+								className="mt-8"
+								onPageChange={(nextPage) =>
+									onPaginationChange(nextPage, pageSize)
+								}
+								onPageSizeChange={(nextPageSize) =>
+									onPaginationChange(1, nextPageSize)
+								}
+								page={page}
+								pageSize={pageSize}
+								pageSizeOptions={[12, 24, 48]}
+								total={totalPosts}
+							/>
+						</section>
 					</div>
 					<CommunityRightRail
 						activeTopic={activeTopic}
@@ -138,4 +143,31 @@ export function CommunityPage({
 			</div>
 		</main>
 	);
+}
+
+function feedHeading(filter: CommunityFilter) {
+	switch (filter) {
+		case "featured":
+			return "From Our Community";
+		case "recent":
+			return "Recent from Community";
+		case "collection":
+			return "Community Collections";
+		case "note":
+			return "Community Notes";
+		case "testimony":
+			return "Community Testimonies";
+		case "prayer":
+			return "Community Prayers";
+	}
+}
+
+function feedDescription(filter: CommunityFilter) {
+	return filter === "featured"
+		? "Real people. Real faith. Encouragement for the journey."
+		: `Recently shared ${feedNoun(filter)} from the Community.`;
+}
+
+function feedNoun(filter: CommunityFilter) {
+	return filter === "featured" || filter === "recent" ? "posts" : `${filter}s`;
 }

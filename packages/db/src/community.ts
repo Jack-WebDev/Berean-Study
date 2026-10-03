@@ -217,6 +217,23 @@ export type CommunityFeedPost = {
 	type: CommunityPostType;
 };
 
+export const communityFeedFilters = [
+	"featured",
+	"recent",
+	"collection",
+	"note",
+	"testimony",
+	"prayer",
+] as const;
+
+export type CommunityFeedFilter = (typeof communityFeedFilters)[number];
+
+export type CommunityFeedSelection = {
+	filter: CommunityFeedFilter;
+	page: number;
+	pageSize: number;
+};
+
 export type CommunityFeedPage = {
 	posts: CommunityFeedPost[];
 	total: number;
@@ -229,11 +246,13 @@ export type CommunityFeedPage = {
 export async function listCommunityFeed(
 	db: DbClient,
 	viewerUserId: string,
-	input: { page: number; pageSize: number },
+	selection: CommunityFeedSelection,
 ): Promise<CommunityFeedPage> {
+	const filter = asCommunityPostType(selection.filter);
 	const where = and(
 		inArray(communityPosts.visibility, ["members", "public"]),
 		isNull(communityPosts.removedAt),
+		filter ? eq(communityPosts.postType, filter) : undefined,
 	);
 	const [rows, totalRows] = await Promise.all([
 		db
@@ -258,8 +277,8 @@ export async function listCommunityFeed(
 			)
 			.where(where)
 			.orderBy(desc(communityPosts.publishedAt), desc(communityPosts.id))
-			.limit(input.pageSize)
-			.offset((input.page - 1) * input.pageSize),
+			.limit(selection.pageSize)
+			.offset((selection.page - 1) * selection.pageSize),
 		db.select({ total: count() }).from(communityPosts).where(where),
 	]);
 
