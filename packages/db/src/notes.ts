@@ -1,13 +1,13 @@
 import { and, asc, count, desc, eq, ilike, inArray, or } from "drizzle-orm";
 
-import type { createDb } from "./index";
+import type { db } from "./index";
 import { books } from "./schema/books";
 import { userNoteCollections } from "./schema/note_collections";
 import { noteTagAssignments, userNoteTags } from "./schema/note_tags";
 import { notes } from "./schema/notes";
 import { passages } from "./schema/passages";
 
-type DbClient = ReturnType<typeof createDb>;
+type DbClient = typeof db;
 
 export type CreateNoteInput = {
 	content: string;

@@ -1,6 +1,6 @@
 import { asc, desc, eq, inArray } from "drizzle-orm";
 
-import type { createDb } from "./index";
+import type { db } from "./index";
 import { books } from "./schema/books";
 import { canonicalRelationships } from "./schema/canonical_relationships";
 import { crossReferences } from "./schema/cross_references";
@@ -8,7 +8,7 @@ import { passages } from "./schema/passages";
 import { themePassages } from "./schema/theme_passages";
 import { themes } from "./schema/themes";
 
-type DbClient = ReturnType<typeof createDb>;
+type DbClient = typeof db;
 
 export type PassageOption = {
 	id: number;

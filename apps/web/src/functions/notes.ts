@@ -1,4 +1,4 @@
-import { createDb } from "@berean-study/db";
+import { db } from "@berean-study/db";
 import {
 	addTagToNote as addTagToNoteInDb,
 	countNotesForPassage as countNotesForPassageInDb,
@@ -71,25 +71,25 @@ export const listNotes = createServerFn({ method: "GET" })
 	.middleware([authMiddleware])
 	.validator(listNotesSchema)
 	.handler(({ context, data }) =>
-		listNotesFromDb(createDb(), requireUserId(context.session), data),
+		listNotesFromDb(db, requireUserId(context.session), data),
 	);
 
 export const listNoteBooks = createServerFn({ method: "GET" })
 	.middleware([authMiddleware])
 	.handler(({ context }) =>
-		listNoteBooksFromDb(createDb(), requireUserId(context.session)),
+		listNoteBooksFromDb(db, requireUserId(context.session)),
 	);
 
 export const listNoteTags = createServerFn({ method: "GET" })
 	.middleware([authMiddleware])
 	.handler(({ context }) =>
-		listNoteTagsFromDb(createDb(), requireUserId(context.session)),
+		listNoteTagsFromDb(db, requireUserId(context.session)),
 	);
 
 export const listNoteCollections = createServerFn({ method: "GET" })
 	.middleware([authMiddleware])
 	.handler(({ context }) =>
-		listNoteCollectionsFromDb(createDb(), requireUserId(context.session)),
+		listNoteCollectionsFromDb(db, requireUserId(context.session)),
 	);
 
 export const countNotesForPassage = createServerFn({ method: "GET" })
@@ -97,7 +97,7 @@ export const countNotesForPassage = createServerFn({ method: "GET" })
 	.validator(z.object({ passageId: z.number().int().positive() }))
 	.handler(({ context, data }) =>
 		countNotesForPassageInDb(
-			createDb(),
+			db,
 			requireUserId(context.session),
 			data.passageId,
 		),
@@ -107,14 +107,14 @@ export const getNote = createServerFn({ method: "GET" })
 	.middleware([authMiddleware])
 	.validator(noteIdSchema)
 	.handler(({ context, data }) =>
-		getNoteFromDb(createDb(), requireUserId(context.session), data.id),
+		getNoteFromDb(db, requireUserId(context.session), data.id),
 	);
 
 export const createNote = createServerFn({ method: "POST" })
 	.middleware([authMiddleware])
 	.validator(noteInputSchema)
 	.handler(({ context, data }) =>
-		createNoteInDb(createDb(), requireUserId(context.session), data),
+		createNoteInDb(db, requireUserId(context.session), data),
 	);
 
 export const updateNote = createServerFn({ method: "POST" })
@@ -122,31 +122,21 @@ export const updateNote = createServerFn({ method: "POST" })
 	.validator(updateNoteSchema)
 	.handler(({ context, data }) => {
 		const { id, ...input } = data;
-		return updateNoteInDb(
-			createDb(),
-			requireUserId(context.session),
-			id,
-			input,
-		);
+		return updateNoteInDb(db, requireUserId(context.session), id, input);
 	});
 
 export const deleteNote = createServerFn({ method: "POST" })
 	.middleware([authMiddleware])
 	.validator(noteIdSchema)
 	.handler(({ context, data }) =>
-		deleteNoteInDb(createDb(), requireUserId(context.session), data.id),
+		deleteNoteInDb(db, requireUserId(context.session), data.id),
 	);
 
 export const addTagToNote = createServerFn({ method: "POST" })
 	.middleware([authMiddleware])
 	.validator(noteTagSchema)
 	.handler(({ context, data }) =>
-		addTagToNoteInDb(
-			createDb(),
-			requireUserId(context.session),
-			data.id,
-			data.name,
-		),
+		addTagToNoteInDb(db, requireUserId(context.session), data.id, data.name),
 	);
 
 export const removeTagFromNote = createServerFn({ method: "POST" })
@@ -154,7 +144,7 @@ export const removeTagFromNote = createServerFn({ method: "POST" })
 	.validator(removeNoteTagSchema)
 	.handler(({ context, data }) =>
 		removeTagFromNoteInDb(
-			createDb(),
+			db,
 			requireUserId(context.session),
 			data.id,
 			data.tagId,
@@ -165,7 +155,7 @@ export const setNoteTags = createServerFn({ method: "POST" })
 	.middleware([authMiddleware])
 	.validator(setNoteTagsSchema)
 	.handler(({ context, data }) =>
-		setNoteTagsInDb(createDb(), requireUserId(context.session), data.id, {
+		setNoteTagsInDb(db, requireUserId(context.session), data.id, {
 			tags: data.tags,
 		}),
 	);
@@ -174,11 +164,7 @@ export const createNoteCollection = createServerFn({ method: "POST" })
 	.middleware([authMiddleware])
 	.validator(collectionNameSchema)
 	.handler(({ context, data }) =>
-		createNoteCollectionInDb(
-			createDb(),
-			requireUserId(context.session),
-			data.name,
-		),
+		createNoteCollectionInDb(db, requireUserId(context.session), data.name),
 	);
 
 export const setNoteCollection = createServerFn({ method: "POST" })
@@ -186,7 +172,7 @@ export const setNoteCollection = createServerFn({ method: "POST" })
 	.validator(setNoteCollectionSchema)
 	.handler(({ context, data }) =>
 		setNoteCollectionInDb(
-			createDb(),
+			db,
 			requireUserId(context.session),
 			data.id,
 			data.collectionId,

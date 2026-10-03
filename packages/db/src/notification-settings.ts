@@ -1,6 +1,6 @@
 import { and, eq, isNull } from "drizzle-orm";
 
-import type { createDb } from "./index";
+import type { db } from "./index";
 import {
 	defaultNotificationPreferences,
 	type NotificationPreferences,
@@ -8,7 +8,7 @@ import {
 import { session, user } from "./schema/auth";
 import { userPreferences } from "./schema/user_preferences";
 
-type DbClient = ReturnType<typeof createDb>;
+type DbClient = typeof db;
 
 function toNotificationPreferences(
 	preferences: typeof userPreferences.$inferSelect | undefined,

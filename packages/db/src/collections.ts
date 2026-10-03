@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 
-import type { createDb } from "./index";
+import type { db } from "./index";
 import { books } from "./schema/books";
 import { collectionNotes } from "./schema/collection_notes";
 import { collectionPassages } from "./schema/collection_passages";
@@ -8,7 +8,7 @@ import { collections } from "./schema/collections";
 import { notes } from "./schema/notes";
 import { passages } from "./schema/passages";
 
-type DbClient = ReturnType<typeof createDb>;
+type DbClient = typeof db;
 
 const collectionSelection = {
 	allowedContent: collections.allowedContent,

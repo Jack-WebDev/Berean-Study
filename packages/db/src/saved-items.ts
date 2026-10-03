@@ -1,6 +1,6 @@
 import { and, asc, desc, eq } from "drizzle-orm";
 
-import type { createDb } from "./index";
+import type { db } from "./index";
 import { bookmarks } from "./schema/bookmarks";
 import { books } from "./schema/books";
 import { chapters } from "./schema/chapters";
@@ -10,7 +10,7 @@ import { translations } from "./schema/translations";
 import { verseTexts } from "./schema/verse_texts";
 import { verses } from "./schema/verses";
 
-type DbClient = ReturnType<typeof createDb>;
+type DbClient = typeof db;
 
 export type SavedBookmark = {
 	label: string;
@@ -84,4 +84,34 @@ export async function listSavedItems(
 		})),
 		highlights: highlightRows,
 	};
+}
+
+/** Removes the current member's bookmark for one Scripture passage. */
+export async function removeSavedBookmark(
+	db: DbClient,
+	userId: string,
+	passageId: number,
+): Promise<boolean> {
+	const removed = await db
+		.delete(bookmarks)
+		.where(
+			and(eq(bookmarks.userId, userId), eq(bookmarks.passageId, passageId)),
+		)
+		.returning({ passageId: bookmarks.passageId });
+
+	return removed.length > 0;
+}
+
+/** Removes one of the current member's saved highlights. */
+export async function removeSavedHighlight(
+	db: DbClient,
+	userId: string,
+	highlightId: number,
+): Promise<boolean> {
+	const removed = await db
+		.delete(highlights)
+		.where(and(eq(highlights.userId, userId), eq(highlights.id, highlightId)))
+		.returning({ id: highlights.id });
+
+	return removed.length > 0;
 }

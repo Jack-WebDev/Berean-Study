@@ -1,4 +1,4 @@
-import { createDb } from "@berean-study/db";
+import { db } from "@berean-study/db";
 import { getLibraryDestinationCounts as getLibraryDestinationCountsFromDb } from "@berean-study/db/library-destination-counts";
 import {
 	getLibraryReadingState,
@@ -14,7 +14,7 @@ export const getContinueReading = createServerFn({ method: "GET" })
 	.handler(({ context }) => {
 		if (!context.session) throw new Error("Unauthorized");
 
-		return getLibraryReadingState(createDb(), context.session.user.id);
+		return getLibraryReadingState(db, context.session.user.id);
 	});
 
 export const getLibraryDestinationCounts = createServerFn({ method: "GET" })
@@ -22,10 +22,7 @@ export const getLibraryDestinationCounts = createServerFn({ method: "GET" })
 	.handler(({ context }) => {
 		if (!context.session) throw new Error("Unauthorized");
 
-		return getLibraryDestinationCountsFromDb(
-			createDb(),
-			context.session.user.id,
-		);
+		return getLibraryDestinationCountsFromDb(db, context.session.user.id);
 	});
 
 export const getRecentLibraryActivity = createServerFn({ method: "GET" })
@@ -33,7 +30,7 @@ export const getRecentLibraryActivity = createServerFn({ method: "GET" })
 	.handler(({ context }) => {
 		if (!context.session) throw new Error("Unauthorized");
 
-		return listRecentLibraryActivity(createDb(), context.session.user.id);
+		return listRecentLibraryActivity(db, context.session.user.id);
 	});
 
 export const getRecentlyStudied = createServerFn({ method: "GET" })
@@ -41,5 +38,5 @@ export const getRecentlyStudied = createServerFn({ method: "GET" })
 	.handler(({ context }) => {
 		if (!context.session) throw new Error("Unauthorized");
 
-		return listRecentPassages(createDb(), context.session.user.id);
+		return listRecentPassages(db, context.session.user.id);
 	});

@@ -1,4 +1,4 @@
-import { createDb } from "@berean-study/db";
+import { db } from "@berean-study/db";
 import {
 	createCollection as createCollectionInDb,
 	deleteCollection as deleteCollectionInDb,
@@ -41,21 +41,21 @@ function requireUserId(session: { user: { id: string } } | null) {
 export const listCollections = createServerFn({ method: "GET" })
 	.middleware([authMiddleware])
 	.handler(({ context }) =>
-		listCollectionsFromDb(createDb(), requireUserId(context.session)),
+		listCollectionsFromDb(db, requireUserId(context.session)),
 	);
 
 export const getCollection = createServerFn({ method: "GET" })
 	.middleware([authMiddleware])
 	.validator(z.object({ id: z.number().int().positive() }))
 	.handler(({ context, data }) =>
-		getCollectionFromDb(createDb(), requireUserId(context.session), data.id),
+		getCollectionFromDb(db, requireUserId(context.session), data.id),
 	);
 
 export const createCollection = createServerFn({ method: "POST" })
 	.middleware([authMiddleware])
 	.validator(collectionInputSchema)
 	.handler(({ context, data }) =>
-		createCollectionInDb(createDb(), requireUserId(context.session), data),
+		createCollectionInDb(db, requireUserId(context.session), data),
 	);
 
 export const updateCollection = createServerFn({ method: "POST" })
@@ -63,19 +63,14 @@ export const updateCollection = createServerFn({ method: "POST" })
 	.validator(collectionInputSchema.extend({ id: z.number().int().positive() }))
 	.handler(({ context, data }) => {
 		const { id, ...input } = data;
-		return updateCollectionInDb(
-			createDb(),
-			requireUserId(context.session),
-			id,
-			input,
-		);
+		return updateCollectionInDb(db, requireUserId(context.session), id, input);
 	});
 
 export const deleteCollection = createServerFn({ method: "POST" })
 	.middleware([authMiddleware])
 	.validator(z.object({ id: z.number().int().positive() }))
 	.handler(({ context, data }) =>
-		deleteCollectionInDb(createDb(), requireUserId(context.session), data.id),
+		deleteCollectionInDb(db, requireUserId(context.session), data.id),
 	);
 
 const noteIdSchema = z.object({ id: z.number().int().positive() });
@@ -84,11 +79,7 @@ export const listCollectionsForNote = createServerFn({ method: "GET" })
 	.middleware([authMiddleware])
 	.validator(noteIdSchema)
 	.handler(({ context, data }) =>
-		listCollectionsForNoteFromDb(
-			createDb(),
-			requireUserId(context.session),
-			data.id,
-		),
+		listCollectionsForNoteFromDb(db, requireUserId(context.session), data.id),
 	);
 
 export const setCollectionsForNote = createServerFn({ method: "POST" })
@@ -100,7 +91,7 @@ export const setCollectionsForNote = createServerFn({ method: "POST" })
 	)
 	.handler(({ context, data }) =>
 		setCollectionsForNoteInDb(
-			createDb(),
+			db,
 			requireUserId(context.session),
 			data.id,
 			data.collectionIds,
@@ -112,7 +103,7 @@ export const listCollectionsForPassage = createServerFn({ method: "GET" })
 	.validator(noteIdSchema)
 	.handler(({ context, data }) =>
 		listCollectionsForPassageFromDb(
-			createDb(),
+			db,
 			requireUserId(context.session),
 			data.id,
 		),
@@ -127,7 +118,7 @@ export const setCollectionsForPassage = createServerFn({ method: "POST" })
 	)
 	.handler(({ context, data }) =>
 		setCollectionsForPassageInDb(
-			createDb(),
+			db,
 			requireUserId(context.session),
 			data.id,
 			data.collectionIds,
@@ -138,22 +129,14 @@ export const listCollectionNotes = createServerFn({ method: "GET" })
 	.middleware([authMiddleware])
 	.validator(noteIdSchema)
 	.handler(({ context, data }) =>
-		listCollectionNotesFromDb(
-			createDb(),
-			requireUserId(context.session),
-			data.id,
-		),
+		listCollectionNotesFromDb(db, requireUserId(context.session), data.id),
 	);
 
 export const listCollectionPassages = createServerFn({ method: "GET" })
 	.middleware([authMiddleware])
 	.validator(noteIdSchema)
 	.handler(({ context, data }) =>
-		listCollectionPassagesFromDb(
-			createDb(),
-			requireUserId(context.session),
-			data.id,
-		),
+		listCollectionPassagesFromDb(db, requireUserId(context.session), data.id),
 	);
 
 export const removeNoteFromCollection = createServerFn({ method: "POST" })
@@ -161,7 +144,7 @@ export const removeNoteFromCollection = createServerFn({ method: "POST" })
 	.validator(noteIdSchema.extend({ noteId: z.number().int().positive() }))
 	.handler(({ context, data }) =>
 		removeNoteFromCollectionInDb(
-			createDb(),
+			db,
 			requireUserId(context.session),
 			data.id,
 			data.noteId,

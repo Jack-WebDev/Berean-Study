@@ -1,4 +1,4 @@
-import { createDb } from "@berean-study/db";
+import { db } from "@berean-study/db";
 import {
 	getNotificationInbox as getNotificationInboxFromDb,
 	markAllNotificationsRead as markAllNotificationsReadInDb,
@@ -21,28 +21,24 @@ function requireUserId(session: { user: { id: string } } | null) {
 export const getNotificationInbox = createServerFn({ method: "GET" })
 	.middleware([authMiddleware])
 	.handler(({ context }) =>
-		getNotificationInboxFromDb(createDb(), requireUserId(context.session)),
+		getNotificationInboxFromDb(db, requireUserId(context.session)),
 	);
 
 export const getRecentNotifications = createServerFn({ method: "GET" })
 	.middleware([authMiddleware])
 	.handler(({ context }) =>
-		getNotificationInboxFromDb(createDb(), requireUserId(context.session), 5),
+		getNotificationInboxFromDb(db, requireUserId(context.session), 5),
 	);
 
 export const markNotificationRead = createServerFn({ method: "POST" })
 	.middleware([authMiddleware])
 	.validator(notificationIdSchema)
 	.handler(({ context, data }) =>
-		markNotificationReadInDb(
-			createDb(),
-			requireUserId(context.session),
-			data.id,
-		),
+		markNotificationReadInDb(db, requireUserId(context.session), data.id),
 	);
 
 export const markAllNotificationsRead = createServerFn({ method: "POST" })
 	.middleware([authMiddleware])
 	.handler(({ context }) =>
-		markAllNotificationsReadInDb(createDb(), requireUserId(context.session)),
+		markAllNotificationsReadInDb(db, requireUserId(context.session)),
 	);

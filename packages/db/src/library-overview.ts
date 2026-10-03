@@ -1,4 +1,4 @@
-import type { createDb } from "./index";
+import type { db } from "./index";
 import {
 	getLibraryDestinationCounts,
 	type LibraryDestinationCounts,
@@ -9,7 +9,7 @@ import {
 	type RecentLibraryActivity,
 } from "./recent-library-activity";
 
-type DbClient = ReturnType<typeof createDb>;
+type DbClient = typeof db;
 
 export type LibraryOverview = {
 	continueReading: Awaited<ReturnType<typeof getLibraryReadingState>>;

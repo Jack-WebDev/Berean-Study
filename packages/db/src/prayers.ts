@@ -1,11 +1,11 @@
 import { and, asc, count, desc, eq, ilike, inArray, or } from "drizzle-orm";
 
-import type { createDb } from "./index";
+import type { db } from "./index";
 import { prayerPassages } from "./schema/prayer_passages";
 import { prayerReflections } from "./schema/prayer_reflections";
 import { prayers } from "./schema/prayers";
 
-type DbClient = ReturnType<typeof createDb>;
+type DbClient = typeof db;
 
 export type PrayerVisibility = "private" | "public";
 

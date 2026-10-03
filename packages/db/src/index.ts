@@ -8,8 +8,3 @@ import * as schema from "./schema";
 export const pool = new Pool({ connectionString: env.DATABASE_URL });
 
 export const db = drizzle(pool, { schema });
-
-/** @deprecated Use the module-scoped `db` client instead. */
-export function createDb() {
-	return db;
-}

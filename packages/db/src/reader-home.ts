@@ -1,5 +1,4 @@
 import { and, desc, eq } from "drizzle-orm";
-import type { createDb } from "./index";
 import { db } from "./index";
 import { books } from "./schema/books";
 import { passages } from "./schema/passages";
@@ -27,7 +26,7 @@ export type LibraryReadingState = {
 	lastStudiedAt: Date | null;
 };
 
-type DbClient = ReturnType<typeof createDb>;
+type DbClient = typeof db;
 
 export async function getReaderHomeOverview(
 	userId: string,

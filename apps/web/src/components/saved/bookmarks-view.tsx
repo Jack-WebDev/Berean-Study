@@ -1,4 +1,4 @@
-import { Avatar, AvatarFallback } from "@berean-study/ui/components/avatar";
+import type { CommunityPostType } from "@berean-study/db/community";
 import { Badge } from "@berean-study/ui/components/badge";
 import { Button } from "@berean-study/ui/components/button";
 import {
@@ -20,10 +20,6 @@ import {
 	InputGroupInput,
 } from "@berean-study/ui/components/input-group";
 import {
-	NativeSelect,
-	NativeSelectOption,
-} from "@berean-study/ui/components/native-select";
-import {
 	ToggleGroup,
 	ToggleGroupItem,
 } from "@berean-study/ui/components/toggle-group";
@@ -41,7 +37,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
-import type { BookmarkItem } from "./saved-fixtures";
+import type { SavedLibraryBookmark } from "./saved-library";
 
 const bookmarkFilters = [
 	{ label: "All", value: "all" },
@@ -53,12 +49,12 @@ type BookmarkFilter = (typeof bookmarkFilters)[number]["value"];
 type BadgeTone = "blue" | "green" | "purple" | "gold";
 
 const communityBookmarkTypes = {
-	Collection: { icon: FolderIcon, tone: "gold" },
-	Note: { icon: FileTextIcon, tone: "blue" },
-	Prayer: { icon: HandHeartIcon, tone: "purple" },
-	Testimony: { icon: UsersRoundIcon, tone: "green" },
+	collection: { icon: FolderIcon, tone: "gold" },
+	note: { icon: FileTextIcon, tone: "blue" },
+	prayer: { icon: HandHeartIcon, tone: "purple" },
+	testimony: { icon: UsersRoundIcon, tone: "green" },
 } as const satisfies Record<
-	string,
+	CommunityPostType,
 	{ icon: typeof BookOpenIcon; tone: BadgeTone }
 >;
 
@@ -66,37 +62,27 @@ export function BookmarksView({
 	bookmarks,
 	onRemove,
 }: {
-	bookmarks: readonly BookmarkItem[];
-	onRemove: (bookmark: BookmarkItem) => void;
+	bookmarks: readonly SavedLibraryBookmark[];
+	onRemove: (bookmark: SavedLibraryBookmark) => Promise<void>;
 }) {
 	const [activeFilter, setActiveFilter] = useState<BookmarkFilter>("all");
 	const [searchQuery, setSearchQuery] = useState("");
 	const [viewMode, setViewMode] = useState<"grid" | "list">("list");
+	const normalizedQuery = searchQuery.trim().toLocaleLowerCase();
 	const bookmarkCounts = {
 		all: bookmarks.length,
 		community: bookmarks.filter((item) => item.kind === "community").length,
 		scripture: bookmarks.filter((item) => item.kind === "scripture").length,
 	};
-	const visibleBookmarks = bookmarks.filter((item) => {
-		const matchesFilter = activeFilter === "all" || item.kind === activeFilter;
-		const searchableText = [
-			item.kind === "community" ? item.author : undefined,
-			bookmarkBadgeLabel(item),
-			item.description,
-			item.title,
-		].join(" ");
-
+	const visibleBookmarks = bookmarks.filter((bookmark) => {
+		const matchesFilter =
+			activeFilter === "all" || bookmark.kind === activeFilter;
 		return (
-			matchesFilter &&
-			searchableText
-				.toLocaleLowerCase()
-				.includes(searchQuery.toLocaleLowerCase())
+			matchesFilter && bookmarkSearchText(bookmark).includes(normalizedQuery)
 		);
 	});
 
-	if (bookmarks.length === 0) {
-		return <BookmarksEmptyState />;
-	}
+	if (bookmarks.length === 0) return <BookmarksEmptyState />;
 
 	return (
 		<section aria-label="Saved bookmarks" className="flex flex-col gap-4">
@@ -112,7 +98,15 @@ export function BookmarksView({
 			<p aria-live="polite" className="text-muted-foreground text-sm">
 				{getBookmarksLabel(visibleBookmarks.length, activeFilter)}
 			</p>
-			<BookmarkList bookmarks={visibleBookmarks} onRemove={onRemove} />
+			{visibleBookmarks.length === 0 ? (
+				<NoBookmarksFound />
+			) : (
+				<BookmarkList
+					bookmarks={visibleBookmarks}
+					onRemove={onRemove}
+					viewMode={viewMode}
+				/>
+			)}
 		</section>
 	);
 }
@@ -131,6 +125,21 @@ function BookmarksEmptyState() {
 				</EmptyHeader>
 			</Empty>
 		</section>
+	);
+}
+
+function NoBookmarksFound() {
+	return (
+		<div className="rounded-xl border border-border/70 bg-card px-5 py-12 text-center">
+			<SearchIcon
+				aria-hidden="true"
+				className="mx-auto size-5 text-muted-foreground"
+			/>
+			<h2 className="mt-3 font-serif text-lg">No bookmarks found</h2>
+			<p className="mt-1 text-muted-foreground text-sm">
+				Try a different title or type.
+			</p>
+		</div>
 	);
 }
 
@@ -179,7 +188,7 @@ function BookmarkToolbar({
 					</ToggleGroupItem>
 				))}
 			</ToggleGroup>
-			<div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row lg:ml-auto lg:max-w-164">
+			<div className="flex min-w-0 flex-1 gap-2 lg:ml-auto lg:max-w-164">
 				<label className="min-w-0 flex-1" htmlFor="saved-search">
 					<span className="sr-only">Search saved items</span>
 					<InputGroup className="h-9 rounded-lg border-border/70 bg-card">
@@ -194,25 +203,6 @@ function BookmarkToolbar({
 							value={searchQuery}
 						/>
 					</InputGroup>
-				</label>
-				<label className="w-full sm:w-36" htmlFor="saved-sort">
-					<span className="sr-only">Sort saved items</span>
-					<NativeSelect
-						className="w-full **:data-[slot=native-select]:rounded-lg **:data-[slot=native-select]:border-border/70 **:data-[slot=native-select]:bg-card"
-						id="saved-sort"
-					>
-						<NativeSelectOption value="recent">Most Recent</NativeSelectOption>
-						<NativeSelectOption value="oldest">Oldest</NativeSelectOption>
-					</NativeSelect>
-				</label>
-				<label className="w-full sm:w-32" htmlFor="saved-date">
-					<span className="sr-only">Saved date range</span>
-					<NativeSelect
-						className="w-full **:data-[slot=native-select]:rounded-lg **:data-[slot=native-select]:border-border/70 **:data-[slot=native-select]:bg-card"
-						id="saved-date"
-					>
-						<NativeSelectOption value="all-time">All Time</NativeSelectOption>
-					</NativeSelect>
 				</label>
 				<ToggleGroup
 					aria-label="Saved item layout"
@@ -248,16 +238,24 @@ function BookmarkToolbar({
 function BookmarkList({
 	bookmarks,
 	onRemove,
+	viewMode,
 }: {
-	bookmarks: readonly BookmarkItem[];
-	onRemove: (bookmark: BookmarkItem) => void;
+	bookmarks: readonly SavedLibraryBookmark[];
+	onRemove: (bookmark: SavedLibraryBookmark) => Promise<void>;
+	viewMode: "grid" | "list";
 }) {
 	return (
-		<ul className="flex flex-col gap-2">
+		<ul
+			className={
+				viewMode === "grid"
+					? "grid gap-2 sm:grid-cols-2"
+					: "flex flex-col gap-2"
+			}
+		>
 			{bookmarks.map((bookmark) => (
 				<BookmarkCard
 					bookmark={bookmark}
-					key={bookmark.id}
+					key={`${bookmark.kind}-${bookmarkId(bookmark)}`}
 					onRemove={onRemove}
 				/>
 			))}
@@ -269,29 +267,46 @@ function BookmarkCard({
 	bookmark,
 	onRemove,
 }: {
-	bookmark: BookmarkItem;
-	onRemove: (bookmark: BookmarkItem) => void;
+	bookmark: SavedLibraryBookmark;
+	onRemove: (bookmark: SavedLibraryBookmark) => Promise<void>;
 }) {
-	const BadgeIcon =
-		bookmark.kind === "scripture"
-			? BookOpenIcon
-			: communityBookmarkTypes[bookmark.resourceType].icon;
+	const isScripture = bookmark.kind === "scripture";
+	const title = isScripture ? bookmark.item.label : bookmark.item.title;
+	const href = isScripture
+		? `/bible?passage=${bookmark.item.passageId}`
+		: "/community";
+	const BadgeIcon = isScripture
+		? BookOpenIcon
+		: communityBookmarkTypes[bookmark.item.type].icon;
 
 	return (
 		<li>
 			<article className="group relative grid gap-3 rounded-xl border border-border/70 bg-card p-3 shadow-[0_2px_8px_color-mix(in_oklab,var(--foreground),transparent_95%)] transition-colors hover:bg-secondary/20 sm:min-h-28 sm:grid-cols-[6.25rem_minmax(0,1fr)_auto] sm:gap-4">
 				<a
-					aria-label={`Open ${bookmark.title}`}
+					aria-label={`Open ${title}`}
 					className="absolute inset-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-					href={bookmark.href}
+					href={href}
 				>
-					<span className="sr-only">Open {bookmark.title}</span>
+					<span className="sr-only">Open {title}</span>
 				</a>
-				<img
-					alt=""
-					className={`relative aspect-square size-20 self-start rounded-lg object-cover sm:size-25 sm:self-center ${bookmark.thumbnailPosition}`}
-					src="/library-verse-bg.png"
-				/>
+				{isScripture ? (
+					<img
+						alt=""
+						className="relative aspect-square size-20 self-start rounded-lg object-cover sm:size-25 sm:self-center"
+						src="/library-verse-bg.png"
+					/>
+				) : bookmark.item.coverImage ? (
+					<img
+						alt=""
+						className="relative aspect-square size-20 self-start rounded-lg object-cover sm:size-25 sm:self-center"
+						src={bookmark.item.coverImage}
+					/>
+				) : (
+					<div
+						aria-hidden="true"
+						className="relative aspect-square size-20 self-start rounded-lg bg-secondary sm:size-25 sm:self-center"
+					/>
+				)}
 				<div className="relative min-w-0 self-start sm:self-center">
 					<Badge
 						className={badgeClassName(bookmarkBadgeTone(bookmark))}
@@ -300,40 +315,21 @@ function BookmarkCard({
 						<BadgeIcon aria-hidden="true" data-icon="inline-start" />
 						{bookmarkBadgeLabel(bookmark)}
 					</Badge>
-					<div className="mt-1 flex min-w-0 items-baseline gap-2">
-						<h2 className="truncate font-serif text-base leading-5 tracking-[-0.015em] sm:text-lg">
-							{bookmark.title}
-						</h2>
-						{bookmark.kind === "scripture" ? (
-							<span className="shrink-0 text-[0.65rem] text-muted-foreground">
-								{bookmark.translation}
-							</span>
-						) : null}
-					</div>
-					{bookmark.kind === "community" ? (
-						<div className="mt-1 flex items-center gap-1.5 text-[0.7rem] text-muted-foreground">
-							<Avatar size="sm">
-								<AvatarFallback>{bookmark.authorInitials}</AvatarFallback>
-							</Avatar>
-							<span>{bookmark.author}</span>
-						</div>
-					) : null}
-					<p className="mt-1 line-clamp-2 text-muted-foreground text-xs leading-4 sm:text-sm sm:leading-5">
-						{bookmark.kind === "community" && bookmark.meta
-							? `${bookmark.meta} · `
-							: ""}
-						{bookmark.description}
+					<h2 className="mt-1 truncate font-serif text-base leading-5 tracking-[-0.015em] sm:text-lg">
+						{title}
+					</h2>
+					<p className="mt-1 text-muted-foreground text-xs leading-4 sm:text-sm sm:leading-5">
+						{isScripture
+							? "Saved Scripture passage"
+							: `Saved Community ${capitalize(bookmark.item.type)}`}
 					</p>
 				</div>
-				<div className="relative col-span-2 flex items-center gap-3 pt-1 text-right sm:col-span-1 sm:gap-4 sm:self-end sm:pt-0 sm:pl-1">
+				<div className="relative col-span-2 flex items-center gap-3 pt-1 text-right sm:col-span-1 sm:self-end sm:pt-0 sm:pl-1">
 					<BookmarkIcon
 						aria-hidden="true"
 						className="hidden size-4 fill-[oklch(0.68_0.13_85)] text-[oklch(0.68_0.13_85)] sm:block"
 					/>
-					<span className="mr-auto whitespace-nowrap text-[0.7rem] text-muted-foreground sm:mr-0">
-						{bookmark.savedAt}
-					</span>
-					<BookmarkMenu bookmark={bookmark} onRemove={onRemove} />
+					<BookmarkMenu bookmark={bookmark} href={href} onRemove={onRemove} />
 				</div>
 			</article>
 		</li>
@@ -342,20 +338,23 @@ function BookmarkCard({
 
 function BookmarkMenu({
 	bookmark,
+	href,
 	onRemove,
 }: {
-	bookmark: BookmarkItem;
-	onRemove: (bookmark: BookmarkItem) => void;
+	bookmark: SavedLibraryBookmark;
+	href: string;
+	onRemove: (bookmark: SavedLibraryBookmark) => Promise<void>;
 }) {
+	const title =
+		bookmark.kind === "scripture" ? bookmark.item.label : bookmark.item.title;
 	const openLabel =
-		bookmark.kind === "scripture" ? "Open passage" : "Open post";
-
+		bookmark.kind === "scripture" ? "Open passage" : "Open Community";
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger
 				render={
 					<Button
-						aria-label={`Options for ${bookmark.title}`}
+						aria-label={`Options for ${title}`}
 						className="size-7 rounded-md"
 						size="icon-sm"
 						type="button"
@@ -367,11 +366,11 @@ function BookmarkMenu({
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="end" className="w-40 rounded-lg p-1">
 				<DropdownMenuGroup>
-					<DropdownMenuItem render={<a href={bookmark.href} />}>
+					<DropdownMenuItem render={<a href={href} />}>
 						{openLabel}
 					</DropdownMenuItem>
 					<DropdownMenuItem
-						onClick={() => onRemove(bookmark)}
+						onClick={() => void onRemove(bookmark)}
 						variant="destructive"
 					>
 						Remove bookmark
@@ -382,28 +381,43 @@ function BookmarkMenu({
 	);
 }
 
+function bookmarkSearchText(bookmark: SavedLibraryBookmark) {
+	return [
+		bookmark.kind === "scripture" ? bookmark.item.label : bookmark.item.title,
+		bookmarkBadgeLabel(bookmark),
+	]
+		.join(" ")
+		.toLocaleLowerCase();
+}
+
+function bookmarkId(bookmark: SavedLibraryBookmark) {
+	return bookmark.kind === "scripture"
+		? bookmark.item.passageId
+		: bookmark.item.id;
+}
+
 function getBookmarksLabel(count: number, filter: BookmarkFilter) {
-	if (filter === "scripture") {
+	if (filter === "scripture")
 		return `${count} Scripture bookmark${count === 1 ? "" : "s"}`;
-	}
-
-	if (filter === "community") {
+	if (filter === "community")
 		return `${count} Community bookmark${count === 1 ? "" : "s"}`;
-	}
-
 	return `${count} saved item${count === 1 ? "" : "s"}`;
 }
 
-function bookmarkBadgeLabel(bookmark: BookmarkItem) {
+function bookmarkBadgeLabel(bookmark: SavedLibraryBookmark) {
 	return bookmark.kind === "scripture"
 		? "Scripture"
-		: `${bookmark.resourceType} · Community`;
+		: `${capitalize(bookmark.item.type)} · Community`;
 }
 
-function bookmarkBadgeTone(bookmark: BookmarkItem): BadgeTone {
-	if (bookmark.kind === "scripture") return "blue";
+function bookmarkBadgeTone(bookmark: SavedLibraryBookmark): BadgeTone {
+	return bookmark.kind === "scripture"
+		? "blue"
+		: communityBookmarkTypes[bookmark.item.type].tone;
+}
 
-	return communityBookmarkTypes[bookmark.resourceType].tone;
+function capitalize(value: string) {
+	return `${value.slice(0, 1).toLocaleUpperCase()}${value.slice(1)}`;
 }
 
 function badgeClassName(tone: BadgeTone) {
