@@ -14,10 +14,37 @@ import {
 	minimumPasswordLength,
 	PasswordStrengthIndicator,
 } from "../password-strength";
+
+const minimumNameLength = 5;
+const emailSchema = z.email("Enter a valid email address");
+const registrationSchema = z
+	.object({
+		name: z
+			.string()
+			.min(
+				minimumNameLength,
+				`Name must be at least ${minimumNameLength} characters`,
+			),
+		email: emailSchema,
+		password: z
+			.string()
+			.min(
+				minimumPasswordLength,
+				`Password must be at least ${minimumPasswordLength} characters`,
+			),
+		confirmPassword: z.string(),
+	})
+	.refine((value) => value.password === value.confirmPassword, {
+		message: "Passwords must match",
+		path: ["confirmPassword"],
+	});
+
 export default function RegisterForm() {
 	const navigate = useNavigate({ from: "/" });
+	const [showConfirmation, setShowConfirmation] = useState(false);
 	const [showPassword, setShowPassword] = useState(false);
 	const [draft, setDraft] = useFormDraft("auth.register", {
+		confirmPassword: "",
 		email: "",
 		name: "",
 		password: "",
@@ -39,16 +66,7 @@ export default function RegisterForm() {
 			);
 		},
 		validators: {
-			onSubmit: z.object({
-				name: z.string().min(2, "Name must be at least 2 characters"),
-				email: z.email("Enter a valid email address"),
-				password: z
-					.string()
-					.min(
-						minimumPasswordLength,
-						`Password must be at least ${minimumPasswordLength} characters`,
-					),
-			}),
+			onSubmit: registrationSchema,
 		},
 	});
 	return (
@@ -86,80 +104,170 @@ export default function RegisterForm() {
 			</form.Field>
 			<form.Field name="email">
 				{(field) => (
-					<Field
-						label="Email"
-						id={field.name}
-						error={field.state.meta.errors[0]?.message}
-					>
-						<Input
-							id={field.name}
-							name={field.name}
-							type="email"
-							autoComplete="email"
-							placeholder="you@example.com"
-							value={field.state.value}
-							onBlur={field.handleBlur}
-							onChange={(event) => {
-								const email = event.target.value;
-								field.handleChange(email);
-								setDraft((current) => ({ ...current, email }));
-							}}
-							className="h-12 rounded-xl bg-background px-4 text-[15px] shadow-none"
-						/>
-					</Field>
+					<form.Subscribe selector={(state) => state.values.name}>
+						{(name) => (
+							<Field
+								label="Email"
+								id={field.name}
+								error={field.state.meta.errors[0]?.message}
+							>
+								<Input
+									id={field.name}
+									name={field.name}
+									type="email"
+									autoComplete="email"
+									disabled={name.length < minimumNameLength}
+									placeholder="you@example.com"
+									value={field.state.value}
+									onBlur={field.handleBlur}
+									onChange={(event) => {
+										const email = event.target.value;
+										field.handleChange(email);
+										setDraft((current) => ({ ...current, email }));
+									}}
+									className="h-12 rounded-xl bg-background px-4 text-[15px] shadow-none"
+								/>
+							</Field>
+						)}
+					</form.Subscribe>
 				)}
 			</form.Field>
 			<form.Field name="password">
 				{(field) => (
-					<Field
-						label="Password"
-						id={field.name}
-						error={field.state.meta.errors[0]?.message}
+					<form.Subscribe
+						selector={(state) => ({
+							email: state.values.email,
+							name: state.values.name,
+						})}
 					>
-						<div className="relative">
-							<Input
+						{({ email, name }) => (
+							<Field
+								label="Password"
 								id={field.name}
-								name={field.name}
-								type={showPassword ? "text" : "password"}
-								autoComplete="new-password"
-								placeholder="Create a password"
-								value={field.state.value}
-								onBlur={field.handleBlur}
-								onChange={(event) => {
-									const password = event.target.value;
-									field.handleChange(password);
-									setDraft((current) => ({ ...current, password }));
-								}}
-								className="h-12 rounded-xl bg-background px-4 pr-12 text-[15px] shadow-none"
-							/>
-							<button
-								type="button"
-								aria-label={showPassword ? "Hide password" : "Show password"}
-								onClick={() => setShowPassword((current) => !current)}
-								className="absolute inset-y-0 right-0 grid w-12 place-items-center text-muted-foreground hover:text-foreground"
+								error={field.state.meta.errors[0]?.message}
 							>
-								{showPassword ? (
-									<EyeOffIcon aria-hidden="true" className="size-[18px]" />
-								) : (
-									<EyeIcon aria-hidden="true" className="size-[18px]" />
-								)}
-							</button>
-						</div>
-						<PasswordStrengthIndicator password={field.state.value} />
-					</Field>
+								<div className="relative">
+									<Input
+										id={field.name}
+										name={field.name}
+										type={showPassword ? "text" : "password"}
+										autoComplete="new-password"
+										disabled={
+											name.length < minimumNameLength ||
+											!emailSchema.safeParse(email).success
+										}
+										placeholder="Create a password"
+										value={field.state.value}
+										onBlur={field.handleBlur}
+										onChange={(event) => {
+											const password = event.target.value;
+											field.handleChange(password);
+											setDraft((current) => ({ ...current, password }));
+										}}
+										className="h-12 rounded-xl bg-background px-4 pr-12 text-[15px] shadow-none"
+									/>
+									<button
+										type="button"
+										disabled={
+											name.length < minimumNameLength ||
+											!emailSchema.safeParse(email).success
+										}
+										aria-label={
+											showPassword ? "Hide password" : "Show password"
+										}
+										onClick={() => setShowPassword((current) => !current)}
+										className="absolute inset-y-0 right-0 grid w-12 place-items-center text-muted-foreground hover:text-foreground"
+									>
+										{showPassword ? (
+											<EyeOffIcon aria-hidden="true" className="size-[18px]" />
+										) : (
+											<EyeIcon aria-hidden="true" className="size-[18px]" />
+										)}
+									</button>
+								</div>
+								<PasswordStrengthIndicator password={field.state.value} />
+							</Field>
+						)}
+					</form.Subscribe>
+				)}
+			</form.Field>
+			<form.Field name="confirmPassword">
+				{(field) => (
+					<form.Subscribe
+						selector={(state) => ({
+							email: state.values.email,
+							name: state.values.name,
+							password: state.values.password,
+						})}
+					>
+						{({ email, name, password }) => (
+							<Field
+								label="Confirm password"
+								id={field.name}
+								error={field.state.meta.errors[0]?.message}
+							>
+								<div className="relative">
+									<Input
+										id={field.name}
+										name={field.name}
+										type={showConfirmation ? "text" : "password"}
+										autoComplete="new-password"
+										placeholder="Confirm your password"
+										disabled={
+											name.length < minimumNameLength ||
+											!emailSchema.safeParse(email).success ||
+											isWeakPassword(password)
+										}
+										value={field.state.value}
+										onBlur={field.handleBlur}
+										onChange={(event) => {
+											const confirmPassword = event.target.value;
+											field.handleChange(confirmPassword);
+											setDraft((current) => ({ ...current, confirmPassword }));
+										}}
+										className="h-12 rounded-xl bg-background px-4 pr-12 text-[15px] shadow-none"
+									/>
+									<button
+										type="button"
+										disabled={
+											name.length < minimumNameLength ||
+											!emailSchema.safeParse(email).success ||
+											isWeakPassword(password)
+										}
+										aria-label={
+											showConfirmation
+												? "Hide confirmation"
+												: "Show confirmation"
+										}
+										onClick={() => setShowConfirmation((current) => !current)}
+										className="absolute inset-y-0 right-0 grid w-12 place-items-center text-muted-foreground hover:text-foreground"
+									>
+										{showConfirmation ? (
+											<EyeOffIcon aria-hidden="true" className="size-[18px]" />
+										) : (
+											<EyeIcon aria-hidden="true" className="size-[18px]" />
+										)}
+									</button>
+								</div>
+							</Field>
+						)}
+					</form.Subscribe>
 				)}
 			</form.Field>
 			<form.Subscribe
 				selector={(state) => ({
-					canSubmit: state.canSubmit,
 					isSubmitting: state.isSubmitting,
-					password: state.values.password,
+					values: state.values,
 				})}
 			>
-				{({ canSubmit, isSubmitting, password }) => (
+				{({ isSubmitting, values }) => (
 					<Button
 						type="submit"
-						disabled={!canSubmit || isSubmitting || isWeakPassword(password)}
+						disabled={
+							!registrationSchema.safeParse(values).success ||
+							isSubmitting ||
+							isWeakPassword(values.password)
+						}
 						className="mt-1 h-12 w-full rounded-xl font-medium text-sm shadow-none"
 					>
 						{isSubmitting ? "Creating account..." : "Create account"}
