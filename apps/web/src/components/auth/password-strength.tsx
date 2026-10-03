@@ -40,13 +40,9 @@ const strengthByScore: PasswordStrength[] = [
 export function getPasswordStrength(password: string): PasswordStrength {
 	if (password.length < minimumPasswordLength) return strengthByScore[0];
 
-	const score = [
-		true,
-		true,
-		/[a-z]/.test(password) && /[A-Z]/.test(password),
-		/\d/.test(password),
-		/[^A-Za-z0-9]/.test(password),
-	].filter(Boolean).length;
+	const score = getPasswordRequirements(password).filter(
+		(requirement) => requirement.complete,
+	).length;
 
 	return (
 		strengthByScore[Math.max(0, Math.min(score, 4) - 1)] ?? strengthByScore[0]
@@ -57,11 +53,8 @@ export function isWeakPassword(password: string) {
 	return getPasswordStrength(password).label === "Weak";
 }
 
-export function PasswordStrengthIndicator({ password }: { password: string }) {
-	if (!password) return null;
-
-	const strength = getPasswordStrength(password);
-	const requirements = [
+function getPasswordRequirements(password: string) {
+	return [
 		{
 			complete: password.length >= minimumPasswordLength,
 			label: "12+ characters",
@@ -73,6 +66,13 @@ export function PasswordStrengthIndicator({ password }: { password: string }) {
 		{ complete: /\d/.test(password), label: "A number" },
 		{ complete: /[^A-Za-z0-9]/.test(password), label: "A symbol" },
 	];
+}
+
+export function PasswordStrengthIndicator({ password }: { password: string }) {
+	if (!password) return null;
+
+	const strength = getPasswordStrength(password);
+	const requirements = getPasswordRequirements(password);
 
 	return (
 		<div aria-live="polite" className="mt-3 space-y-2.5">
