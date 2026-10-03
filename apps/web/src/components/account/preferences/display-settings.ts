@@ -19,6 +19,10 @@ export const displaySettingsInitializer = `(() => {
 			(theme === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
 		const root = document.documentElement;
 		root.classList.toggle("dark", isDark);
+		const favicon = document.getElementById("favicon");
+		if (favicon instanceof HTMLLinkElement) {
+			favicon.href = isDark ? "/favicon-dark.png" : "/favicon.png";
+		}
 		root.dataset.theme = theme;
 		root.dataset.textSize = textSize;
 		root.dataset.readingWidth = readingWidth;
@@ -36,6 +40,13 @@ export const defaultDisplaySettings: DisplaySettings = {
 	textSize: "default",
 	readingWidth: "default",
 };
+
+function syncFavicon(isDark: boolean) {
+	const favicon = document.getElementById("favicon");
+	if (favicon instanceof HTMLLinkElement) {
+		favicon.href = isDark ? "/favicon-dark.png" : "/favicon.png";
+	}
+}
 
 const themes = new Set<Theme>(["light", "dark", "system"]);
 const textSizes = new Set<TextSize>(["small", "default", "large"]);
@@ -80,6 +91,7 @@ export function applyDisplaySettings(settings: DisplaySettings) {
 			window.matchMedia("(prefers-color-scheme: dark)").matches);
 
 	root.classList.toggle("dark", isDark);
+	syncFavicon(isDark);
 	root.dataset.theme = settings.theme;
 	root.dataset.textSize = settings.textSize;
 	root.dataset.readingWidth = settings.readingWidth;
