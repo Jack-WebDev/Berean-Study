@@ -14,6 +14,7 @@ import { testimonies } from "./schema/testimonies";
 import { testimonyPassages } from "./schema/testimony_passages";
 
 type DbClient = ReturnType<typeof createDb>;
+type DbQueryClient = Pick<DbClient, "select">;
 
 export type CommunityPostType = "collection" | "note" | "testimony" | "prayer";
 
@@ -141,64 +142,68 @@ export async function publishCommunityPost(
 	userId: string,
 	input: CommunityPublicationInput,
 ) {
-	const source = await getPublishingSource(
-		db,
-		userId,
-		input.type,
-		input.sourceId,
-	);
-	if (!source) return null;
-
-	const existing = await findPublishedPost(
-		db,
-		userId,
-		input.type,
-		input.sourceId,
-	);
-	if (existing) return { alreadyPublished: true, id: existing.id };
-
-	const [post] = await db
-		.insert(communityPosts)
-		.values({
-			authorUserId: userId,
-			postType: input.type,
-			snapshot: normalizeSnapshot(input.snapshot ?? source.snapshot),
-			...(input.type === "note" ? { sourceNoteId: input.sourceId } : {}),
-			...(input.type === "collection"
-				? { sourceCollectionId: input.sourceId }
-				: {}),
-			...(input.type === "testimony"
-				? { sourceTestimonyId: input.sourceId }
-				: {}),
-			...(input.type === "prayer" ? { sourcePrayerId: input.sourceId } : {}),
-		})
-		.onConflictDoNothing()
-		.returning({ id: communityPosts.id });
-
-	if (!post) {
-		const publishedPost = await findPublishedPost(
-			db,
+	return db.transaction(async (tx) => {
+		const source = await getPublishingSource(
+			tx,
 			userId,
 			input.type,
 			input.sourceId,
 		);
-		if (publishedPost) return { alreadyPublished: true, id: publishedPost.id };
-		throw new Error("Unable to publish Community post.");
-	}
+		if (!source) return null;
 
-	if (source.passageIds.length > 0) {
-		await db
-			.insert(communityPostPassages)
-			.values(
-				source.passageIds.map((passageId) => ({
-					communityPostId: post.id,
-					passageId,
-				})),
-			)
-			.onConflictDoNothing();
-	}
+		const existing = await findPublishedPost(
+			tx,
+			userId,
+			input.type,
+			input.sourceId,
+		);
+		if (existing) return { alreadyPublished: true, id: existing.id };
 
-	return { alreadyPublished: false, id: post.id };
+		const [post] = await tx
+			.insert(communityPosts)
+			.values({
+				authorUserId: userId,
+				postType: input.type,
+				snapshot: normalizeSnapshot(input.snapshot ?? source.snapshot),
+				...(input.type === "note" ? { sourceNoteId: input.sourceId } : {}),
+				...(input.type === "collection"
+					? { sourceCollectionId: input.sourceId }
+					: {}),
+				...(input.type === "testimony"
+					? { sourceTestimonyId: input.sourceId }
+					: {}),
+				...(input.type === "prayer" ? { sourcePrayerId: input.sourceId } : {}),
+			})
+			.onConflictDoNothing()
+			.returning({ id: communityPosts.id });
+
+		if (!post) {
+			const publishedPost = await findPublishedPost(
+				tx,
+				userId,
+				input.type,
+				input.sourceId,
+			);
+			if (publishedPost) {
+				return { alreadyPublished: true, id: publishedPost.id };
+			}
+			throw new Error("Unable to publish Community post.");
+		}
+
+		if (source.passageIds.length > 0) {
+			await tx
+				.insert(communityPostPassages)
+				.values(
+					source.passageIds.map((passageId) => ({
+						communityPostId: post.id,
+						passageId,
+					})),
+				)
+				.onConflictDoNothing();
+		}
+
+		return { alreadyPublished: false, id: post.id };
+	});
 }
 
 export type CommunityFeedPost = {
@@ -419,7 +424,7 @@ export async function listSavedCommunityPosts(
 }
 
 async function getPublishingSource(
-	db: DbClient,
+	db: DbQueryClient,
 	userId: string,
 	type: CommunityPostType,
 	sourceId: number,
@@ -501,7 +506,7 @@ async function getPublishingSource(
 }
 
 async function findPublishedPost(
-	db: DbClient,
+	db: DbQueryClient,
 	userId: string,
 	type: CommunityPostType,
 	sourceId: number,

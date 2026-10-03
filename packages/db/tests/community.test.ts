@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { afterAll, describe, expect, it } from "vitest";
 
 import { db, pool } from "../src";
@@ -30,6 +30,7 @@ describeWithDatabase("Community publication", () => {
 		const otherUserId = `community-other-${suffix}`;
 		let bookId: number | undefined;
 		let passageId: number | undefined;
+		let rollbackPassageId: number | undefined;
 
 		try {
 			await db.insert(user).values([
@@ -141,6 +142,56 @@ describeWithDatabase("Community publication", () => {
 				type: "note",
 			});
 
+			const [failingTestimony] = await db
+				.insert(testimonies)
+				.values({
+					content: "This publication must roll back.",
+					title: "A failed publication",
+					userId: ownerId,
+				})
+				.returning({ id: testimonies.id });
+			if (!failingTestimony) {
+				throw new Error("Unable to create rollback test testimony.");
+			}
+			const [rollbackPassage] = await db
+				.insert(passages)
+				.values({ bookId, title: "Community rollback test passage" })
+				.returning({ id: passages.id });
+			if (!rollbackPassage) {
+				throw new Error("Unable to create rollback test passage.");
+			}
+			rollbackPassageId = rollbackPassage.id;
+			await db.insert(testimonyPassages).values({
+				passageId: rollbackPassage.id,
+				testimonyId: failingTestimony.id,
+			});
+
+			const failureConstraintName = `community_rollback_${suffix.replaceAll("-", "")}`;
+			await db.execute(
+				sql.raw(
+					`ALTER TABLE community_post_passages ADD CONSTRAINT ${failureConstraintName} CHECK (passage_id <> ${rollbackPassage.id})`,
+				),
+			);
+			try {
+				await expect(
+					publishCommunityPost(db, ownerId, {
+						sourceId: failingTestimony.id,
+						type: "testimony",
+					}),
+				).rejects.toThrow();
+			} finally {
+				await db.execute(
+					sql.raw(
+						`ALTER TABLE community_post_passages DROP CONSTRAINT ${failureConstraintName}`,
+					),
+				);
+			}
+			const failedPosts = await db
+				.select({ id: communityPosts.id })
+				.from(communityPosts)
+				.where(eq(communityPosts.sourceTestimonyId, failingTestimony.id));
+			expect(failedPosts).toEqual([]);
+
 			const testimonyFeed = await listCommunityFeed(db, ownerId, {
 				filter: "testimony",
 				page: 1,
@@ -187,6 +238,9 @@ describeWithDatabase("Community publication", () => {
 			await db.delete(user).where(eq(user.id, otherUserId));
 			if (passageId) {
 				await db.delete(passages).where(eq(passages.id, passageId));
+			}
+			if (rollbackPassageId) {
+				await db.delete(passages).where(eq(passages.id, rollbackPassageId));
 			}
 			if (bookId) {
 				await db.delete(books).where(eq(books.id, bookId));
