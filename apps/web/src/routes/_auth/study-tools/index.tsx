@@ -3,13 +3,13 @@ import { createFileRoute } from "@tanstack/react-router";
 import type { LucideIcon } from "lucide-react";
 import {
 	ArrowRightIcon,
+	BookMarkedIcon,
 	BookOpenIcon,
 	CircleHelpIcon,
 	Columns2Icon,
 	FileTextIcon,
 	LanguagesIcon,
 	LightbulbIcon,
-	LinkIcon,
 	NetworkIcon,
 	ShieldQuestionIcon,
 } from "lucide-react";
@@ -86,12 +86,12 @@ const studyTools = [
 	},
 	{
 		description:
-			"Explore quotations, fulfillments, types, and other connections across Scripture.",
-		icon: LinkIcon,
+			"Explore questions about the Bible’s canon and differences between Christian traditions.",
+		icon: BookMarkedIcon,
 		id: "canonical-connections",
 		label: "Canonical Connections",
 		tone: "umber",
-		utility: "See the bigger picture",
+		utility: "Books, traditions, and history",
 	},
 	{
 		description:

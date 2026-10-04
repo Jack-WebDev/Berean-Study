@@ -76,8 +76,7 @@ const studyToolNavigationItems = [
 		label: "Difficult Questions",
 	},
 	{
-		hash: "canonical-connections",
-		href: "/study-tools",
+		href: "/study-tools/canonical-connections",
 		hideIcon: true,
 		icon: ShapesIcon,
 		label: "Canonical Connections",
