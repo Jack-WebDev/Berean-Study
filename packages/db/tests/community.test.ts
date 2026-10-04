@@ -70,9 +70,13 @@ describeWithDatabase("Community publication", () => {
 					content: JSON.stringify({
 						content: [
 							{
-								content: [{ text: "God met us in a difficult season." }],
+								content: [
+									{ text: "God met us in a difficult season.", type: "text" },
+								],
+								type: "paragraph",
 							},
 						],
+						type: "doc",
 					}),
 					title: "A faithful season",
 					userId: ownerId,

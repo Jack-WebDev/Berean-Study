@@ -1,3 +1,7 @@
+import {
+	emptyRichTextDocument,
+	serializePersistedRichText,
+} from "@berean-study/rich-text-editor";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeftIcon } from "lucide-react";
 import { useRef } from "react";
@@ -5,7 +9,6 @@ import { toast } from "sonner";
 
 import { saveNote } from "@/functions/notes";
 import type { NoteFormValues } from "./note-autosave-status";
-import { emptyNoteDocument, serializeNoteContent } from "./note-content";
 import { NoteForm } from "./note-form";
 
 export function NewNotePage({
@@ -20,7 +23,7 @@ export function NewNotePage({
 	const persistNote = async (values: NoteFormValues) => {
 		const passageId = values.passageId ? Number(values.passageId) : null;
 		const data = {
-			content: serializeNoteContent(values.content),
+			content: serializePersistedRichText(values.content),
 			passageId,
 			title: values.title.trim(),
 		};
@@ -57,7 +60,7 @@ export function NewNotePage({
 				</header>
 				<NoteForm
 					initialValues={{
-						content: emptyNoteDocument,
+						content: emptyRichTextDocument,
 						passageId: initialPassageId?.toString() ?? "",
 						tags: [],
 						title: "",

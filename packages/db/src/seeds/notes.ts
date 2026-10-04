@@ -3,6 +3,7 @@ import {
 	createdAt,
 	db,
 	numberId,
+	richTextContent,
 	rows,
 	type SeedContext,
 	save,
@@ -19,7 +20,7 @@ export async function seedNotes(
 			rows(count, (i) => ({
 				userId: textId(context, "users", i),
 				passageId: numberId(context, "passages", i),
-				content: sentence(),
+				content: richTextContent(sentence()),
 				createdAt: createdAt(),
 				updatedAt: createdAt(),
 			})),

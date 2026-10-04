@@ -1,8 +1,10 @@
 import {
 	emptyRichTextDocument,
 	hasRichTextContent,
+	parsePersistedRichText,
 	type RichTextDocument,
 	RichTextEditorWorkspace,
+	serializePersistedRichText,
 } from "@berean-study/rich-text-editor";
 import { Button } from "@berean-study/ui/components/button";
 import { Input } from "@berean-study/ui/components/input";
@@ -10,7 +12,6 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { SaveIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { parsePrayerContent } from "@/components/prayer/prayer-content";
 import { getTestimony, updateTestimony } from "@/functions/testimonies";
 
 export function EditTestimonyPage({ testimonyId }: { testimonyId: number }) {
@@ -26,7 +27,7 @@ export function EditTestimonyPage({ testimonyId }: { testimonyId: number }) {
 			.then((testimony) => {
 				if (testimony) {
 					setTitle(testimony.title);
-					setContent(parsePrayerContent(testimony.content));
+					setContent(parsePersistedRichText(testimony.content));
 				}
 				setLoaded(true);
 			})
@@ -40,7 +41,7 @@ export function EditTestimonyPage({ testimonyId }: { testimonyId: number }) {
 				data: {
 					id: testimonyId,
 					title: title.trim(),
-					content: JSON.stringify(content),
+					content: serializePersistedRichText(content),
 				},
 			});
 			if (!testimony) throw new Error();

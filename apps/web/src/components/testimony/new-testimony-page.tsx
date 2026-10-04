@@ -3,6 +3,7 @@ import {
 	hasRichTextContent,
 	type RichTextDocument,
 	RichTextEditorWorkspace,
+	serializePersistedRichText,
 } from "@berean-study/rich-text-editor";
 import { Button } from "@berean-study/ui/components/button";
 import { Input } from "@berean-study/ui/components/input";
@@ -27,7 +28,10 @@ export function NewTestimonyPage() {
 		setSaving(true);
 		try {
 			await createTestimony({
-				data: { title: title.trim(), content: JSON.stringify(content) },
+				data: {
+					content: serializePersistedRichText(content),
+					title: title.trim(),
+				},
 			});
 			toast.success("Testimony saved.");
 			navigate({ to: "/library/testimonials" });

@@ -42,6 +42,8 @@ const removeSavedItemInput = z.discriminatedUnion("kind", [
 	}),
 ]);
 
+export type SavedItemRemoval = z.infer<typeof removeSavedItemInput>;
+
 export const removeSavedItem = createServerFn({ method: "POST" })
 	.middleware([authMiddleware])
 	.validator(removeSavedItemInput)

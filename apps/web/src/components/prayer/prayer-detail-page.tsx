@@ -1,4 +1,7 @@
-import { RichTextRenderer } from "@berean-study/rich-text-editor";
+import {
+	parsePersistedRichText,
+	RichTextRenderer,
+} from "@berean-study/rich-text-editor";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -23,7 +26,6 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { deletePrayerReflection, getPrayer } from "@/functions/prayers";
-import { parsePrayerContent } from "./prayer-content";
 
 type Prayer = Awaited<ReturnType<typeof getPrayer>>;
 
@@ -118,7 +120,7 @@ export function PrayerDetailPage({ prayerId }: { prayerId: number }) {
 				</header>
 				<div className="mt-8">
 					<RichTextRenderer
-						document={parsePrayerContent(prayer.content)}
+						document={parsePersistedRichText(prayer.content)}
 						preset="member"
 					/>
 				</div>
@@ -175,7 +177,7 @@ export function PrayerDetailPage({ prayerId }: { prayerId: number }) {
 										</div>
 									</div>
 									<RichTextRenderer
-										document={parsePrayerContent(reflection.content)}
+										document={parsePersistedRichText(reflection.content)}
 										preset="member"
 									/>
 								</article>

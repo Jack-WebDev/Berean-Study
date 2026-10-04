@@ -1,10 +1,11 @@
-import type { RichTextDocument } from "@berean-study/rich-text-editor";
+import {
+	hasRichTextContent,
+	type RichTextDocument,
+} from "@berean-study/rich-text-editor";
 import { Button } from "@berean-study/ui/components/button";
 import { Spinner } from "@berean-study/ui/components/spinner";
 import { CheckIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-
-import { hasNoteContent } from "./note-content";
 
 export type NoteFormValues = {
 	content: RichTextDocument;
@@ -132,5 +133,5 @@ function areValuesEqual(left: NoteFormValues, right: NoteFormValues) {
 }
 
 function isValidForAutosave(values: NoteFormValues) {
-	return Boolean(values.title.trim()) && hasNoteContent(values.content);
+	return Boolean(values.title.trim()) && hasRichTextContent(values.content);
 }

@@ -3,6 +3,7 @@ import {
 	createdAt,
 	db,
 	numberId,
+	richTextContent,
 	rows,
 	type SeedContext,
 	sentence,
@@ -15,7 +16,7 @@ export async function seedPrayerReflections(
 	await db.insert(prayerReflections).values(
 		rows(count, (i) => ({
 			prayerId: numberId(context, "prayers", i),
-			content: sentence(),
+			content: richTextContent(sentence()),
 			createdAt: createdAt(),
 		})),
 	);

@@ -2,6 +2,7 @@ import { testimonies } from "../schema/testimonies";
 import {
 	createdAt,
 	db,
+	richTextContent,
 	rows,
 	type SeedContext,
 	save,
@@ -19,7 +20,7 @@ export async function seedTestimonies(
 			rows(count, (i) => ({
 				userId: textId(context, "users", i),
 				title: `Seed Testimony ${i + 1}`,
-				content: sentence(),
+				content: richTextContent(sentence()),
 				createdAt: createdAt(),
 				updatedAt: createdAt(),
 			})),

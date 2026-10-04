@@ -1,3 +1,4 @@
+import { serializePersistedRichText } from "@berean-study/rich-text-editor/persistence";
 import { faker } from "@faker-js/faker";
 
 import { db } from "../index";
@@ -50,6 +51,18 @@ export function save(
 
 export function sentence(): string {
 	return faker.lorem.sentences({ min: 2, max: 4 });
+}
+
+export function richTextContent(text: string): string {
+	return serializePersistedRichText({
+		content: [
+			{
+				content: [{ text, type: "text" }],
+				type: "paragraph",
+			},
+		],
+		type: "doc",
+	});
 }
 
 export function createdAt(): Date {

@@ -12,6 +12,10 @@
 		"./types": {
 			"types": "./dist/types.d.mts",
 			"import": "./dist/types.mjs"
+		},
+		"./persistence": {
+			"types": "./dist/persisted-rich-text.d.mts",
+			"import": "./dist/persisted-rich-text.mjs"
 		}
 	},
 	"scripts": {

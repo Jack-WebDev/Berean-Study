@@ -232,6 +232,9 @@ importers:
       '@berean-study/env':
         specifier: workspace:*
         version: link:../env
+      '@berean-study/rich-text-editor':
+        specifier: workspace:*
+        version: link:../rich-text-editor
       '@faker-js/faker':
         specifier: ^10.6.0
         version: 10.6.0

@@ -1,35 +1,5 @@
 import { Button } from "@berean-study/ui/components/button";
 import type { LucideIcon } from "lucide-react";
-import type { ReactNode } from "react";
-
-export function SecurityPanel({
-	icon,
-	title,
-	description,
-	action,
-	onAction,
-	children,
-}: {
-	icon: LucideIcon;
-	title: string;
-	description: string;
-	action: string;
-	onAction: () => void;
-	children: ReactNode;
-}) {
-	return (
-		<section className="rounded-xl border border-border/60 bg-card p-4 shadow-sm sm:p-5">
-			<SecurityPanelHeader
-				action={action}
-				description={description}
-				icon={icon}
-				onAction={onAction}
-				title={title}
-			/>
-			<div className="mt-4">{children}</div>
-		</section>
-	);
-}
 
 export function SecurityPanelHeader({
 	icon: Icon,
@@ -63,31 +33,5 @@ export function SecurityPanelHeader({
 				{action}
 			</Button>
 		</header>
-	);
-}
-
-export function SecurityNotice({
-	icon: Icon,
-	title,
-	description,
-}: {
-	icon: LucideIcon;
-	title: string;
-	description: string;
-}) {
-	return (
-		<div className="flex gap-3 rounded-lg bg-secondary/70 px-3 py-3">
-			<Icon
-				aria-hidden="true"
-				className="mt-0.5 size-4 shrink-0 text-primary"
-				strokeWidth={1.8}
-			/>
-			<div>
-				<p className="font-medium text-xs">{title}</p>
-				<p className="mt-0.5 text-muted-foreground text-xs leading-5">
-					{description}
-				</p>
-			</div>
-		</div>
 	);
 }

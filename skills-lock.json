@@ -67,6 +67,12 @@
 			"skillPath": "better-auth/emailAndPassword/SKILL.md",
 			"computedHash": "863886759f729081e265941f4f72c503835d55a1f34f6d63cebe6571159fff4a"
 		},
+		"frontend-design": {
+			"source": "anthropics/skills",
+			"sourceType": "github",
+			"skillPath": "skills/frontend-design/SKILL.md",
+			"computedHash": "89496d5dd00f4810205f351759594fc2742bf8eea85a2f2b2d1de59f4bd91576"
+		},
 		"git-guardrails-claude-code": {
 			"source": "mattpocock/skills",
 			"sourceType": "github",
@@ -102,6 +108,12 @@
 			"sourceType": "github",
 			"skillPath": "skills/productivity/handoff/SKILL.md",
 			"computedHash": "20e5f4afdef502637510bc5c64d27645d3c85c88df9cb006824bbb0980166319"
+		},
+		"high-end-visual-design": {
+			"source": "leonxlnx/taste-skill",
+			"sourceType": "github",
+			"skillPath": "skills/soft-skill/SKILL.md",
+			"computedHash": "7db385e4c5370e5a7fca9704a1361b056e4504ea6a03924bb86f33a4f00b5c73"
 		},
 		"implement": {
 			"source": "mattpocock/skills",
@@ -156,6 +168,12 @@
 			"sourceType": "github",
 			"skillPath": "skills/react-best-practices/SKILL.md",
 			"computedHash": "fedc7ace30220ca107f7fc0d849f091cc3fc1ba4c14191394ee79fa2d83dbf32"
+		},
+		"redesign-existing-projects": {
+			"source": "leonxlnx/taste-skill",
+			"sourceType": "github",
+			"skillPath": "skills/redesign-skill/SKILL.md",
+			"computedHash": "b405eee0e0e80fc243f731d9aa368bca307e356db7e6157d27101d369dac6726"
 		},
 		"research": {
 			"source": "mattpocock/skills",

@@ -1,5 +1,6 @@
 "use client";
 
+import { getPersistedRichTextText } from "@berean-study/rich-text-editor";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -47,7 +48,6 @@ import {
 	Trash2Icon,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { getNoteContentText } from "@/components/notes/note-content";
 import {
 	deleteCollection,
 	getCollection,
@@ -527,7 +527,7 @@ function CollectionNotes({
 								{note.passageTitle ?? note.bookName ?? "Unlinked note"}
 							</p>
 							<p className="mt-1 line-clamp-3 whitespace-pre-wrap text-muted-foreground text-sm leading-6">
-								{getNoteContentText(note.content)}
+								{getPersistedRichTextText(note.content)}
 							</p>
 						</div>
 						<DropdownMenu>

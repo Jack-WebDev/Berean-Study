@@ -1,3 +1,4 @@
+import { getPersistedRichTextText } from "@berean-study/rich-text-editor";
 import { Button } from "@berean-study/ui/components/button";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
@@ -24,7 +25,6 @@ import {
 	removeTagFromNote,
 	setNoteCollection,
 } from "@/functions/notes";
-import { getNoteContentText } from "./note-content";
 import { NoteDetail } from "./note-detail";
 import { NotesControls } from "./notes-controls";
 import { NotesList } from "./notes-list";
@@ -381,7 +381,7 @@ function NotesInsightsRail({
 						</dt>
 						<dd>
 							{note
-								? `${getNoteContentText(note.content).trim().split(/\s+/).filter(Boolean).length} words`
+								? `${getPersistedRichTextText(note.content).split(/\s+/).filter(Boolean).length} words`
 								: "—"}
 						</dd>
 					</div>

@@ -1,3 +1,4 @@
+import { getPersistedRichTextText } from "@berean-study/rich-text-editor";
 import { Button } from "@berean-study/ui/components/button";
 import {
 	Empty,
@@ -12,7 +13,6 @@ import { BookOpenIcon, FileTextIcon } from "lucide-react";
 
 import { formatDate } from "@/lib/format";
 
-import { getNoteContentText } from "./note-content";
 import type { Note } from "./types";
 
 export function NotesList({
@@ -141,5 +141,5 @@ export function passageLabel(note: Note) {
 }
 
 function notePreview(content: string) {
-	return getNoteContentText(content).replace(/\s+/g, " ").trim();
+	return getPersistedRichTextText(content);
 }

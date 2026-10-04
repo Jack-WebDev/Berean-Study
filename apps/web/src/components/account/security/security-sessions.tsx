@@ -36,17 +36,19 @@ export function ActiveSessionsPanel({
 	const visibleSessions = showAll ? sessions : sessions.slice(0, 3);
 
 	return (
-		<section className="rounded-xl border border-border/60 bg-card p-4 shadow-sm sm:p-5">
-			<SecurityPanelHeader
-				action="Sign out all"
-				description="These are the devices currently signed in to your account."
-				icon={MonitorIcon}
-				onAction={onRevokeAll}
-				title="Active sessions"
-			/>
-			<div className="mt-4 overflow-hidden rounded-lg border border-border/60">
+		<section className="overflow-hidden rounded-xl border border-border/60 bg-card shadow-sm">
+			<div className="px-4 pt-4 sm:px-5 sm:pt-5">
+				<SecurityPanelHeader
+					action="Sign out all"
+					description="These are the devices currently signed in to your account."
+					icon={MonitorIcon}
+					onAction={onRevokeAll}
+					title="Active sessions"
+				/>
+			</div>
+			<div className="mt-4 border-border/60 border-t">
 				{isLoading ? (
-					<p className="px-3 py-4 text-muted-foreground text-xs">
+					<p className="px-4 py-4 text-muted-foreground text-xs sm:px-5">
 						Loading sessions…
 					</p>
 				) : visibleSessions.length > 0 ? (
@@ -59,20 +61,22 @@ export function ActiveSessionsPanel({
 						/>
 					))
 				) : (
-					<p className="px-3 py-4 text-muted-foreground text-xs">
+					<p className="px-4 py-4 text-muted-foreground text-xs sm:px-5">
 						No active sessions found.
 					</p>
 				)}
 			</div>
 			{sessions.length > 3 ? (
-				<Button
-					className="mx-auto mt-3 h-auto px-2 py-1 text-xs"
-					onClick={onShowAllChange}
-					variant="ghost"
-				>
-					{showAll ? "Show fewer sessions" : "Show more sessions"}
-					<ChevronDownIcon aria-hidden="true" data-icon="inline-end" />
-				</Button>
+				<div className="border-border/60 border-t px-4 py-2 sm:px-5">
+					<Button
+						className="h-auto px-1 py-1 text-xs"
+						onClick={onShowAllChange}
+						variant="ghost"
+					>
+						{showAll ? "Show fewer sessions" : "Show more sessions"}
+						<ChevronDownIcon aria-hidden="true" data-icon="inline-end" />
+					</Button>
+				</div>
 			) : null}
 		</section>
 	);
@@ -90,7 +94,7 @@ function SessionRow({
 	const device = describeDevice(session.userAgent);
 
 	return (
-		<div className="flex items-center gap-3 border-border/60 border-b px-3 py-2.5 last:border-b-0">
+		<div className="flex items-center gap-3 border-border/60 border-b px-4 py-3 last:border-b-0 sm:px-5">
 			<LaptopIcon
 				aria-hidden="true"
 				className="size-4 shrink-0 text-primary"

@@ -10,11 +10,14 @@ export const emptyRichTextDocument: RichTextDocument = {
  * foundation. Deeper node validation remains owned by the shared schema.
  */
 export function normalizeRichTextDocument(value: unknown): RichTextDocument {
-	if (!value || typeof value !== "object") return emptyRichTextDocument;
+	return isRichTextDocument(value) ? value : emptyRichTextDocument;
+}
+
+/** Checks the top-level document contract required by the editor foundation. */
+export function isRichTextDocument(value: unknown): value is RichTextDocument {
+	if (!value || typeof value !== "object") return false;
 	const document = value as { content?: unknown; type?: unknown };
-	return document.type === "doc" && Array.isArray(document.content)
-		? (document as RichTextDocument)
-		: emptyRichTextDocument;
+	return document.type === "doc" && Array.isArray(document.content);
 }
 
 /** Returns whether a document contains user-authored text or a structured inline reference. */

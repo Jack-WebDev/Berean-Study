@@ -1,3 +1,4 @@
+import { getPersistedRichTextExcerpt } from "@berean-study/rich-text-editor/persistence";
 import { and, count, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import type { db } from "./index";
@@ -590,26 +591,7 @@ function normalizeSnapshot(
 }
 
 function createExcerpt(content: string) {
-	const text = extractText(content).replace(/\s+/g, " ").trim();
-	return text.length > 180 ? `${text.slice(0, 177).trimEnd()}…` : text;
-}
-
-function extractText(content: string): string {
-	try {
-		return collectText(JSON.parse(content));
-	} catch {
-		return content;
-	}
-}
-
-function collectText(value: unknown): string {
-	if (typeof value === "string") return value;
-	if (Array.isArray(value)) return value.map(collectText).join(" ");
-	if (value && typeof value === "object") {
-		const record = value as Record<string, unknown>;
-		return [record.text, record.content].map(collectText).join(" ");
-	}
-	return "";
+	return getPersistedRichTextExcerpt(content, 177);
 }
 
 function asCommunityPostType(value: string): CommunityPostType | null {
