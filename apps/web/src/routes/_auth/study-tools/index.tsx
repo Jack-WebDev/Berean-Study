@@ -1,5 +1,5 @@
 import { cn } from "@berean-study/ui/lib/utils";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import type { LucideIcon } from "lucide-react";
 import {
 	ArrowRightIcon,
@@ -22,6 +22,15 @@ type ToolTone = "blue" | "gold" | "green" | "plum" | "red" | "teal" | "umber";
 
 type StudyTool = {
 	description: string;
+	href:
+		| "/study-tools/canonical-connections"
+		| "/study-tools/compare-passages"
+		| "/study-tools/cross-references"
+		| "/study-tools/difficult-questions"
+		| "/study-tools/interpretive-questions"
+		| "/study-tools/original-language"
+		| "/study-tools/textual-notes"
+		| "/study-tools/themes";
 	icon: LucideIcon;
 	id: string;
 	label: string;
@@ -33,6 +42,7 @@ const studyTools = [
 	{
 		description:
 			"Explore major themes in Scripture and see how they develop throughout the Bible.",
+		href: "/study-tools/themes",
 		icon: BookOpenIcon,
 		id: "themes",
 		label: "Themes",
@@ -42,6 +52,7 @@ const studyTools = [
 	{
 		description:
 			"Discover passages that are meaningfully connected, with clear explanations.",
+		href: "/study-tools/cross-references",
 		icon: NetworkIcon,
 		id: "cross-references",
 		label: "Cross References",
@@ -51,6 +62,7 @@ const studyTools = [
 	{
 		description:
 			"Explore genuine questions with multiple faithful interpretations and supporting evidence.",
+		href: "/study-tools/interpretive-questions",
 		icon: CircleHelpIcon,
 		id: "interpretive-questions",
 		label: "Interpretive Questions",
@@ -60,6 +72,7 @@ const studyTools = [
 	{
 		description:
 			"See important observations from the original Hebrew, Aramaic, and Greek texts.",
+		href: "/study-tools/original-language",
 		icon: LanguagesIcon,
 		id: "original-language",
 		label: "Original Language",
@@ -69,6 +82,7 @@ const studyTools = [
 	{
 		description:
 			"Learn about manuscript evidence and places where the biblical text has meaningful uncertainty.",
+		href: "/study-tools/textual-notes",
 		icon: FileTextIcon,
 		id: "textual-notes",
 		label: "Textual Notes",
@@ -78,6 +92,7 @@ const studyTools = [
 	{
 		description:
 			"Examine challenging passages, apparent contradictions, and common objections.",
+		href: "/study-tools/difficult-questions",
 		icon: ShieldQuestionIcon,
 		id: "difficult-questions",
 		label: "Difficult Questions",
@@ -87,6 +102,7 @@ const studyTools = [
 	{
 		description:
 			"Explore questions about the Bible’s canon and differences between Christian traditions.",
+		href: "/study-tools/canonical-connections",
 		icon: BookMarkedIcon,
 		id: "canonical-connections",
 		label: "Canonical Connections",
@@ -96,6 +112,7 @@ const studyTools = [
 	{
 		description:
 			"Place two passages side by side to study their similarities, differences, and context.",
+		href: "/study-tools/compare-passages",
 		icon: Columns2Icon,
 		id: "compare-passages",
 		label: "Compare Passages",
@@ -173,7 +190,10 @@ function StudyToolsHero() {
 function StudyToolCard({ tool }: { tool: StudyTool }) {
 	const Icon = tool.icon;
 	return (
-		<article className="group flex min-h-[194px] flex-col rounded-[8px] border border-[#e8e5df] bg-white px-4 py-3.5 shadow-[0_3px_10px_rgba(24,50,79,0.055)] transition-shadow hover:shadow-[0_6px_18px_rgba(24,50,79,0.09)] dark:border-border dark:bg-card dark:shadow-none">
+		<Link
+			className="group flex min-h-[194px] flex-col rounded-[8px] border border-[#e8e5df] bg-white px-4 py-3.5 shadow-[0_3px_10px_rgba(24,50,79,0.055)] transition-shadow hover:shadow-[0_6px_18px_rgba(24,50,79,0.09)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8da9c0] focus-visible:ring-offset-2 dark:border-border dark:bg-card dark:shadow-none"
+			to={tool.href}
+		>
 			<div
 				className={cn(
 					"flex size-[42px] shrink-0 items-center justify-center rounded-[7px] text-white shadow-sm",
@@ -199,7 +219,7 @@ function StudyToolCard({ tool }: { tool: StudyTool }) {
 					<ArrowRightIcon className="size-3.5" strokeWidth={1.8} />
 				</span>
 			</div>
-		</article>
+		</Link>
 	);
 }
 
