@@ -46,8 +46,7 @@ const studyToolNavigationItems = [
 		label: "Themes",
 	},
 	{
-		hash: "cross-references",
-		href: "/study-tools",
+		href: "/study-tools/cross-references",
 		hideIcon: true,
 		icon: ShapesIcon,
 		label: "Cross References",
