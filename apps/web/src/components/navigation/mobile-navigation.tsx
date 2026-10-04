@@ -11,7 +11,7 @@ import { cn } from "@berean-study/ui/lib/utils";
 import { useRouterState } from "@tanstack/react-router";
 import { MoreHorizontalIcon, SearchIcon } from "lucide-react";
 import { useState } from "react";
-
+import { isCurrentLocation } from "./is-current-location";
 import {
 	accessibleNavigationItems,
 	administrationNavigationItems,
@@ -280,11 +280,5 @@ function mobileNavigationClassName(isActive: boolean) {
 		isActive
 			? "font-medium text-foreground"
 			: "text-muted-foreground active:text-foreground",
-	);
-}
-
-function isCurrentLocation(pathname: string, item: NavigationItem) {
-	return [item.href, ...(item.activePaths ?? [])].some(
-		(href) => pathname === href || pathname.startsWith(`${href}/`),
 	);
 }

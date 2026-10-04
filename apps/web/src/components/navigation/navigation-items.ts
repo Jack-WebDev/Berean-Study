@@ -20,6 +20,7 @@ import {
 export type NavigationItem = {
 	activePaths?: readonly string[];
 	children?: readonly NavigationItem[];
+	exact?: boolean;
 	hash?: string;
 	href: string;
 	hideIcon?: boolean;
@@ -31,6 +32,7 @@ export type NavigationItem = {
 
 const studyToolNavigationItems = [
 	{
+		exact: true,
 		hash: "",
 		href: "/study-tools",
 		hideIcon: true,
@@ -38,8 +40,7 @@ const studyToolNavigationItems = [
 		label: "Overview",
 	},
 	{
-		hash: "themes",
-		href: "/study-tools",
+		href: "/study-tools/themes",
 		hideIcon: true,
 		icon: ShapesIcon,
 		label: "Themes",

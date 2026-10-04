@@ -35,6 +35,7 @@ import {
 	readDisplaySettings,
 	saveDisplaySettings,
 } from "./account/preferences/display-settings";
+import { isCurrentLocation } from "./navigation/is-current-location";
 import { MobileNavigation } from "./navigation/mobile-navigation";
 import {
 	accessibleNavigationItems,
@@ -395,18 +396,4 @@ function ApplicationToolbar({ onOpenSearch }: { onOpenSearch: () => void }) {
 			</div>
 		</header>
 	);
-}
-
-export function isCurrentLocation(
-	pathname: string,
-	item: NavigationItem,
-	hash = "",
-) {
-	const routeMatches = [item.href, ...(item.activePaths ?? [])].some(
-		(href) =>
-			pathname === href ||
-			(href !== "/home" && pathname.startsWith(`${href}/`)),
-	);
-
-	return routeMatches && (item.hash === undefined || item.hash === hash);
 }

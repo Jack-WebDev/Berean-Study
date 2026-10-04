@@ -58,7 +58,12 @@ const recentResults: SearchResult[] = [
 		label: "Genesis 1",
 		type: "Scripture",
 	},
-	{ href: "/themes", icon: TagIcon, label: "Covenant", type: "Theme" },
+	{
+		href: "/study-tools/themes",
+		icon: TagIcon,
+		label: "Covenant",
+		type: "Theme",
+	},
 ];
 
 const suggestedResults: SearchResult[] = [
@@ -68,14 +73,24 @@ const suggestedResults: SearchResult[] = [
 		label: "Browse Scripture",
 		type: "Explore",
 	},
-	{ href: "/themes", icon: ShapesIcon, label: "Themes", type: "Study" },
+	{
+		href: "/study-tools/themes",
+		icon: ShapesIcon,
+		label: "Themes",
+		type: "Study",
+	},
 	{
 		href: "/search",
 		icon: CircleUserRoundIcon,
 		label: "People",
 		type: "Explore",
 	},
-	{ href: "/themes", icon: BookmarkIcon, label: "Study Tools", type: "Study" },
+	{
+		href: "/study-tools",
+		icon: BookmarkIcon,
+		label: "Study Tools",
+		type: "Study",
+	},
 ];
 
 const resultGroups: ReadonlyArray<{
@@ -119,8 +134,18 @@ const resultGroups: ReadonlyArray<{
 	},
 	{
 		items: [
-			{ href: "/themes", icon: TagIcon, label: "Love", type: "Theme" },
-			{ href: "/themes", icon: TagIcon, label: "Salvation", type: "Theme" },
+			{
+				href: "/study-tools/themes",
+				icon: TagIcon,
+				label: "Love",
+				type: "Theme",
+			},
+			{
+				href: "/study-tools/themes",
+				icon: TagIcon,
+				label: "Salvation",
+				type: "Theme",
+			},
 		],
 		label: "Related Topics",
 	},
