@@ -20,12 +20,74 @@ import {
 export type NavigationItem = {
 	activePaths?: readonly string[];
 	children?: readonly NavigationItem[];
+	exact?: boolean;
+	hash?: string;
 	href: string;
+	hideIcon?: boolean;
 	icon: LucideIcon;
 	label: string;
 	mobileLabel?: string;
 	requiredPermission?: string;
 };
+
+const studyToolNavigationItems = [
+	{
+		exact: true,
+		hash: "",
+		href: "/study-tools",
+		hideIcon: true,
+		icon: ShapesIcon,
+		label: "Overview",
+	},
+	{
+		href: "/study-tools/themes",
+		hideIcon: true,
+		icon: ShapesIcon,
+		label: "Themes",
+	},
+	{
+		href: "/study-tools/cross-references",
+		hideIcon: true,
+		icon: ShapesIcon,
+		label: "Cross References",
+	},
+	{
+		href: "/study-tools/interpretive-questions",
+		hideIcon: true,
+		icon: ShapesIcon,
+		label: "Interpretive Questions",
+	},
+	{
+		href: "/study-tools/original-language",
+		hideIcon: true,
+		icon: ShapesIcon,
+		label: "Original Language",
+	},
+	{
+		href: "/study-tools/textual-notes",
+		hideIcon: true,
+		icon: ShapesIcon,
+		label: "Textual Notes",
+	},
+	{
+		href: "/study-tools/difficult-questions",
+		hideIcon: true,
+		icon: ShapesIcon,
+		label: "Difficult Questions",
+	},
+	{
+		href: "/study-tools/canonical-connections",
+		hideIcon: true,
+		icon: ShapesIcon,
+		label: "Canonical Connections",
+	},
+	{
+		href: "/study-tools/compare-passages",
+		hideIcon: true,
+		icon: ShapesIcon,
+		label: "Compare Passages",
+	},
+] as const satisfies readonly NavigationItem[];
 
 export const publicNavigationItems = [
 	{ href: "/#browse", icon: BookOpenIcon, label: "Read" },
@@ -68,7 +130,12 @@ export const primaryNavigationItems = [
 ] as const satisfies readonly NavigationItem[];
 
 export const secondaryNavigationItems = [
-	{ href: "/themes", icon: ShapesIcon, label: "Study Tools" },
+	{
+		children: studyToolNavigationItems,
+		href: "/study-tools",
+		icon: ShapesIcon,
+		label: "Study Tools",
+	},
 	{ href: "/history", icon: FileClockIcon, label: "Reading History" },
 	{ href: "/settings", icon: SettingsIcon, label: "Settings" },
 ] as const satisfies readonly NavigationItem[];

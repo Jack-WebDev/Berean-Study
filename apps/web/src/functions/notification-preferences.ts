@@ -19,6 +19,16 @@ const notificationPreferencesSchema = z.object({
 	reports: z.boolean(),
 	security: z.boolean(),
 	account: z.boolean(),
+	emailTopics: z.object({
+		comments: z.boolean(),
+		updates: z.boolean(),
+		resources: z.boolean(),
+		replies: z.boolean(),
+		mentions: z.boolean(),
+		reports: z.boolean(),
+		security: z.boolean(),
+		account: z.boolean(),
+	}),
 });
 
 export const getNotificationPreferences = createServerFn({ method: "GET" })

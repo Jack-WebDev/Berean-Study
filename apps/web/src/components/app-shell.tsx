@@ -35,6 +35,7 @@ import {
 	readDisplaySettings,
 	saveDisplaySettings,
 } from "./account/preferences/display-settings";
+import { isCurrentLocation } from "./navigation/is-current-location";
 import { MobileNavigation } from "./navigation/mobile-navigation";
 import {
 	accessibleNavigationItems,
@@ -55,8 +56,8 @@ type AppShellProps = {
 
 export function AppShell({ children, permissionKeys }: AppShellProps) {
 	const [searchOpen, setSearchOpen] = useState(false);
-	const pathname = useRouterState({
-		select: (state) => state.location.pathname,
+	const location = useRouterState({
+		select: (state) => state.location,
 	});
 	const editorialItems = useMemo(
 		() => accessibleNavigationItems(editorialNavigationItems, permissionKeys),
@@ -85,7 +86,8 @@ export function AppShell({ children, permissionKeys }: AppShellProps) {
 			<AppSidebar
 				administrationItems={administrationItems}
 				editorialItems={editorialItems}
-				pathname={pathname}
+				hash={location.hash}
+				pathname={location.pathname}
 			/>
 			<SidebarInset className="min-w-0">
 				<ApplicationToolbar onOpenSearch={() => setSearchOpen(true)} />
@@ -103,10 +105,12 @@ export function AppShell({ children, permissionKeys }: AppShellProps) {
 function AppSidebar({
 	administrationItems,
 	editorialItems,
+	hash,
 	pathname,
 }: {
 	administrationItems: NavigationItem[];
 	editorialItems: NavigationItem[];
+	hash: string;
 	pathname: string;
 }) {
 	return (
@@ -135,6 +139,7 @@ function AppSidebar({
 					<SidebarGroupContent>
 						<NavigationMenu
 							items={desktopPrimaryNavigationItems}
+							hash={hash}
 							pathname={pathname}
 						/>
 					</SidebarGroupContent>
@@ -143,6 +148,7 @@ function AppSidebar({
 					<NavigationGroup
 						label="Editorial"
 						items={editorialItems}
+						hash={hash}
 						pathname={pathname}
 					/>
 				)}
@@ -150,6 +156,7 @@ function AppSidebar({
 					<NavigationGroup
 						label="Administration"
 						items={administrationItems}
+						hash={hash}
 						pathname={pathname}
 					/>
 				)}
@@ -167,17 +174,19 @@ function AppSidebar({
 function NavigationGroup({
 	label,
 	items,
+	hash,
 	pathname,
 }: {
 	label: string;
 	items: readonly NavigationItem[];
+	hash: string;
 	pathname: string;
 }) {
 	return (
 		<SidebarGroup>
 			<SidebarGroupLabel>{label}</SidebarGroupLabel>
 			<SidebarGroupContent>
-				<NavigationMenu items={items} pathname={pathname} />
+				<NavigationMenu hash={hash} items={items} pathname={pathname} />
 			</SidebarGroupContent>
 		</SidebarGroup>
 	);
@@ -185,15 +194,22 @@ function NavigationGroup({
 
 function NavigationMenu({
 	items,
+	hash,
 	pathname,
 }: {
 	items: readonly NavigationItem[];
+	hash: string;
 	pathname: string;
 }) {
 	return (
 		<SidebarMenu>
 			{items.map((item) => (
-				<NavigationMenuItem item={item} key={item.href} pathname={pathname} />
+				<NavigationMenuItem
+					hash={hash}
+					item={item}
+					key={item.href}
+					pathname={pathname}
+				/>
 			))}
 		</SidebarMenu>
 	);
@@ -201,18 +217,20 @@ function NavigationMenu({
 
 function NavigationMenuItem({
 	item,
+	hash,
 	pathname,
 }: {
 	item: NavigationItem;
+	hash: string;
 	pathname: string;
 }) {
 	const hasChildren = Boolean(item.children?.length);
-	const isCurrentRoute = isCurrentLocation(pathname, item);
+	const isCurrentRoute = isCurrentLocation(pathname, item, hash);
 	const [isExpanded, setIsExpanded] = useState(isCurrentRoute);
 
 	useEffect(() => {
-		if (isCurrentLocation(pathname, item)) setIsExpanded(true);
-	}, [item, pathname]);
+		if (isCurrentLocation(pathname, item, hash)) setIsExpanded(true);
+	}, [hash, item, pathname]);
 
 	if (!hasChildren) {
 		return <NavigationLink item={item} isActive={isCurrentRoute} />;
@@ -233,7 +251,7 @@ function NavigationMenuItem({
 						isChildRoute && "bg-sidebar-accent/50",
 					)}
 					isActive={isParentRoute}
-					render={<Link to={item.href} />}
+					render={<Link hash={item.hash} to={item.href} />}
 					tooltip={item.label}
 				>
 					<Icon aria-hidden="true" />
@@ -257,8 +275,8 @@ function NavigationMenuItem({
 						{item.children?.map((child) => (
 							<NavigationSubmenuLink
 								child={child}
-								isActive={isCurrentLocation(pathname, child)}
-								key={child.href}
+								isActive={isCurrentLocation(pathname, child, hash)}
+								key={`${child.href}-${child.hash ?? ""}`}
 							/>
 						))}
 					</SidebarMenuSub>
@@ -282,7 +300,7 @@ function NavigationLink({
 			<SidebarMenuButton
 				aria-current={isActive ? "page" : undefined}
 				isActive={isActive}
-				render={<Link to={item.href} />}
+				render={<Link hash={item.hash} to={item.href} />}
 				tooltip={item.label}
 				className="h-10 rounded-lg px-3 text-sm"
 			>
@@ -308,9 +326,9 @@ function NavigationSubmenuLink({
 				aria-current={isActive ? "page" : undefined}
 				className="rounded-md"
 				isActive={isActive}
-				render={<Link to={child.href} />}
+				render={<Link hash={child.hash} to={child.href} />}
 			>
-				<ChildIcon aria-hidden="true" />
+				{!child.hideIcon && <ChildIcon aria-hidden="true" />}
 				<span>{child.label}</span>
 			</SidebarMenuSubButton>
 		</SidebarMenuSubItem>
@@ -320,9 +338,10 @@ function NavigationSubmenuLink({
 const desktopPrimaryNavigationItems = [
 	...primaryNavigationItems,
 	{
-		href: "/themes",
+		href: "/study-tools",
 		icon: secondaryNavigationItems[0].icon,
 		label: "Study Tools",
+		children: secondaryNavigationItems[0].children,
 	},
 ] as const satisfies readonly NavigationItem[];
 
@@ -376,13 +395,5 @@ function ApplicationToolbar({ onOpenSearch }: { onOpenSearch: () => void }) {
 				</Button>
 			</div>
 		</header>
-	);
-}
-
-export function isCurrentLocation(pathname: string, item: NavigationItem) {
-	return [item.href, ...(item.activePaths ?? [])].some(
-		(href) =>
-			pathname === href ||
-			(href !== "/home" && pathname.startsWith(`${href}/`)),
 	);
 }

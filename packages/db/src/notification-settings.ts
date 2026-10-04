@@ -26,6 +26,16 @@ function toNotificationPreferences(
 		reports: preferences.reportNotificationsEnabled,
 		security: preferences.securityNotificationsEnabled,
 		account: preferences.accountNotificationsEnabled,
+		emailTopics: {
+			comments: preferences.emailCommentaryNotificationsEnabled,
+			updates: preferences.emailContentUpdateNotificationsEnabled,
+			resources: preferences.emailResourceNotificationsEnabled,
+			replies: preferences.emailReplyNotificationsEnabled,
+			mentions: preferences.emailMentionNotificationsEnabled,
+			reports: preferences.emailReportNotificationsEnabled,
+			security: preferences.emailSecurityNotificationsEnabled,
+			account: preferences.emailAccountNotificationsEnabled,
+		},
 	};
 }
 
@@ -41,6 +51,14 @@ function toPreferenceColumns(preferences: NotificationPreferences) {
 		reportNotificationsEnabled: preferences.reports,
 		securityNotificationsEnabled: preferences.security,
 		accountNotificationsEnabled: preferences.account,
+		emailCommentaryNotificationsEnabled: preferences.emailTopics.comments,
+		emailContentUpdateNotificationsEnabled: preferences.emailTopics.updates,
+		emailResourceNotificationsEnabled: preferences.emailTopics.resources,
+		emailReplyNotificationsEnabled: preferences.emailTopics.replies,
+		emailMentionNotificationsEnabled: preferences.emailTopics.mentions,
+		emailReportNotificationsEnabled: preferences.emailTopics.reports,
+		emailSecurityNotificationsEnabled: preferences.emailTopics.security,
+		emailAccountNotificationsEnabled: preferences.emailTopics.account,
 	};
 }
 
