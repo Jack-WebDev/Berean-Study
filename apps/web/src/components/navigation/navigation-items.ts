@@ -64,8 +64,7 @@ const studyToolNavigationItems = [
 		label: "Original Language",
 	},
 	{
-		hash: "textual-notes",
-		href: "/study-tools",
+		href: "/study-tools/textual-notes",
 		hideIcon: true,
 		icon: ShapesIcon,
 		label: "Textual Notes",
