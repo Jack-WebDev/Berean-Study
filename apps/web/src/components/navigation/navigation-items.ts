@@ -20,12 +20,80 @@ import {
 export type NavigationItem = {
 	activePaths?: readonly string[];
 	children?: readonly NavigationItem[];
+	hash?: string;
 	href: string;
+	hideIcon?: boolean;
 	icon: LucideIcon;
 	label: string;
 	mobileLabel?: string;
 	requiredPermission?: string;
 };
+
+const studyToolNavigationItems = [
+	{
+		hash: "",
+		href: "/study-tools",
+		hideIcon: true,
+		icon: ShapesIcon,
+		label: "Overview",
+	},
+	{
+		hash: "themes",
+		href: "/study-tools",
+		hideIcon: true,
+		icon: ShapesIcon,
+		label: "Themes",
+	},
+	{
+		hash: "cross-references",
+		href: "/study-tools",
+		hideIcon: true,
+		icon: ShapesIcon,
+		label: "Cross References",
+	},
+	{
+		hash: "interpretive-questions",
+		href: "/study-tools",
+		hideIcon: true,
+		icon: ShapesIcon,
+		label: "Interpretive Questions",
+	},
+	{
+		hash: "original-language",
+		href: "/study-tools",
+		hideIcon: true,
+		icon: ShapesIcon,
+		label: "Original Language",
+	},
+	{
+		hash: "textual-notes",
+		href: "/study-tools",
+		hideIcon: true,
+		icon: ShapesIcon,
+		label: "Textual Notes",
+	},
+	{
+		hash: "difficult-questions",
+		href: "/study-tools",
+		hideIcon: true,
+		icon: ShapesIcon,
+		label: "Difficult Questions",
+	},
+	{
+		hash: "canonical-connections",
+		href: "/study-tools",
+		hideIcon: true,
+		icon: ShapesIcon,
+		label: "Canonical Connections",
+	},
+	{
+		hash: "compare-passages",
+		href: "/study-tools",
+		hideIcon: true,
+		icon: ShapesIcon,
+		label: "Compare Passages",
+	},
+] as const satisfies readonly NavigationItem[];
 
 export const publicNavigationItems = [
 	{ href: "/#browse", icon: BookOpenIcon, label: "Read" },
@@ -68,7 +136,12 @@ export const primaryNavigationItems = [
 ] as const satisfies readonly NavigationItem[];
 
 export const secondaryNavigationItems = [
-	{ href: "/themes", icon: ShapesIcon, label: "Study Tools" },
+	{
+		children: studyToolNavigationItems,
+		href: "/study-tools",
+		icon: ShapesIcon,
+		label: "Study Tools",
+	},
 	{ href: "/history", icon: FileClockIcon, label: "Reading History" },
 	{ href: "/settings", icon: SettingsIcon, label: "Settings" },
 ] as const satisfies readonly NavigationItem[];
