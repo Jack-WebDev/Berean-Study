@@ -58,8 +58,7 @@ const studyToolNavigationItems = [
 		label: "Interpretive Questions",
 	},
 	{
-		hash: "original-language",
-		href: "/study-tools",
+		href: "/study-tools/original-language",
 		hideIcon: true,
 		icon: ShapesIcon,
 		label: "Original Language",
