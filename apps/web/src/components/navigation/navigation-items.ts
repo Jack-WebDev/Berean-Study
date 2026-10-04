@@ -70,8 +70,7 @@ const studyToolNavigationItems = [
 		label: "Textual Notes",
 	},
 	{
-		hash: "difficult-questions",
-		href: "/study-tools",
+		href: "/study-tools/difficult-questions",
 		hideIcon: true,
 		icon: ShapesIcon,
 		label: "Difficult Questions",
