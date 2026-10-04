@@ -82,8 +82,7 @@ const studyToolNavigationItems = [
 		label: "Canonical Connections",
 	},
 	{
-		hash: "compare-passages",
-		href: "/study-tools",
+		href: "/study-tools/compare-passages",
 		hideIcon: true,
 		icon: ShapesIcon,
 		label: "Compare Passages",
