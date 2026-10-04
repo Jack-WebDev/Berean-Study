@@ -52,8 +52,7 @@ const studyToolNavigationItems = [
 		label: "Cross References",
 	},
 	{
-		hash: "interpretive-questions",
-		href: "/study-tools",
+		href: "/study-tools/interpretive-questions",
 		hideIcon: true,
 		icon: ShapesIcon,
 		label: "Interpretive Questions",
