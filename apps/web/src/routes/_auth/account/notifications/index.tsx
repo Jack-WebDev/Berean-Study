@@ -6,6 +6,7 @@ export const Route = createFileRoute("/_auth/account/notifications/")({
 	component: NotificationsPage,
 	staticData: {
 		title: "Notifications",
-		description: "Choose what you want to be notified about.",
+		description:
+			"Choose what you want to be notified about and how you want to receive it.",
 	},
 });

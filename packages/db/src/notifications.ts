@@ -46,7 +46,7 @@ export async function createOptionalNotification(
 	preference: Exclude<NotificationPreferenceKey, "email" | "push">,
 ) {
 	const preferences = await getNotificationPreferences(db, input.userId);
-	if (!preferences[preference]) return null;
+	if (!preferences.push || !preferences[preference]) return null;
 
 	return createNotification(db, input);
 }
