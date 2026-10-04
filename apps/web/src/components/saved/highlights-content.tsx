@@ -1,4 +1,3 @@
-import type { SavedHighlight } from "@berean-study/db/saved-items";
 import { Badge } from "@berean-study/ui/components/badge";
 import { Button } from "@berean-study/ui/components/button";
 import {
@@ -36,28 +35,31 @@ import {
 	SearchIcon,
 } from "lucide-react";
 import { useState } from "react";
+import type { SavedLibraryHighlight } from "./saved-library";
 
 export function HighlightsContent({
 	highlights,
 	onRemove,
 }: {
-	highlights: readonly SavedHighlight[];
-	onRemove: (highlight: SavedHighlight) => Promise<void>;
+	highlights: readonly SavedLibraryHighlight[];
+	onRemove: (highlight: SavedLibraryHighlight) => Promise<void>;
 }) {
 	const [book, setBook] = useState("all");
 	const [searchQuery, setSearchQuery] = useState("");
 	const [viewMode, setViewMode] = useState<"grid" | "list">("list");
 	const normalizedQuery = searchQuery.trim().toLocaleLowerCase();
-	const books = [...new Set(highlights.map((highlight) => highlight.bookName))];
+	const books = [
+		...new Set(highlights.map((highlight) => highlight.item.bookName)),
+	];
 	const visibleHighlights = highlights.filter(
 		(highlight) =>
-			(book === "all" || highlight.bookName === book) &&
+			(book === "all" || highlight.item.bookName === book) &&
 			[
-				highlight.bookName,
-				highlight.chapterNumber,
-				highlight.verseNumber,
-				highlight.text,
-				highlight.translationAbbreviation,
+				highlight.item.bookName,
+				highlight.item.chapterNumber,
+				highlight.item.verseNumber,
+				highlight.item.text,
+				highlight.item.translationAbbreviation,
 			]
 				.join(" ")
 				.toLocaleLowerCase()
@@ -116,9 +118,9 @@ function HighlightsList({
 }: {
 	book: string;
 	books: readonly string[];
-	highlights: readonly SavedHighlight[];
+	highlights: readonly SavedLibraryHighlight[];
 	onBookChange: (book: string) => void;
-	onRemove: (highlight: SavedHighlight) => Promise<void>;
+	onRemove: (highlight: SavedLibraryHighlight) => Promise<void>;
 	onSearchQueryChange: (query: string) => void;
 	onViewModeChange: (viewMode: "grid" | "list") => void;
 	searchQuery: string;
@@ -200,7 +202,7 @@ function HighlightsList({
 					)}
 				>
 					{highlights.map((highlight) => (
-						<li key={highlight.id}>
+						<li key={highlight.identity.highlightId}>
 							<HighlightCard highlight={highlight} onRemove={onRemove} />
 						</li>
 					))}
@@ -229,15 +231,16 @@ function HighlightCard({
 	highlight,
 	onRemove,
 }: {
-	highlight: SavedHighlight;
-	onRemove: (highlight: SavedHighlight) => Promise<void>;
+	highlight: SavedLibraryHighlight;
+	onRemove: (highlight: SavedLibraryHighlight) => Promise<void>;
 }) {
+	const savedHighlight = highlight.item;
 	const excerpt = getHighlightedExcerpt(
-		highlight.text,
-		highlight.startOffset,
-		highlight.endOffset,
+		savedHighlight.text,
+		savedHighlight.startOffset,
+		savedHighlight.endOffset,
 	);
-	const reference = `${highlight.bookName} ${highlight.chapterNumber}:${highlight.verseNumber}`;
+	const reference = `${savedHighlight.bookName} ${savedHighlight.chapterNumber}:${savedHighlight.verseNumber}`;
 
 	return (
 		<article className="rounded-xl border border-border/70 bg-card px-4 py-3.5 shadow-[0_2px_8px_color-mix(in_oklab,var(--foreground),transparent_95%)] sm:px-5 sm:py-4">
@@ -246,12 +249,14 @@ function HighlightCard({
 					<h2 className="truncate font-serif text-base tracking-[-0.015em] sm:text-lg">
 						{reference}
 					</h2>
-					<Badge variant="secondary">{highlight.translationAbbreviation}</Badge>
+					<Badge variant="secondary">
+						{savedHighlight.translationAbbreviation}
+					</Badge>
 				</div>
 			</header>
 			<p className="mt-4 font-serif text-[0.98rem] text-foreground leading-7 sm:text-base">
 				<span className="mr-3 align-top font-sans text-muted-foreground text-xs leading-7">
-					{highlight.verseNumber}
+					{savedHighlight.verseNumber}
 				</span>
 				{excerpt.before}
 				<mark className="rounded-sm bg-accent/25 px-0.5 text-inherit">
@@ -276,8 +281,8 @@ function HighlightMenu({
 	onRemove,
 	reference,
 }: {
-	highlight: SavedHighlight;
-	onRemove: (highlight: SavedHighlight) => Promise<void>;
+	highlight: SavedLibraryHighlight;
+	onRemove: (highlight: SavedLibraryHighlight) => Promise<void>;
 	reference: string;
 }) {
 	return (

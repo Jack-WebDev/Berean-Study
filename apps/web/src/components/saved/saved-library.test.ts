@@ -32,10 +32,12 @@ describe("createSavedLibrary", () => {
 
 		expect(library.bookmarks).toEqual([
 			{
+				identity: { kind: "scripture", passageId: 16 },
 				item: { label: "John 3:16", passageId: 16 },
 				kind: "scripture",
 			},
 			{
+				identity: { kind: "community", postId: 12 },
 				item: {
 					coverImage: null,
 					id: 12,
@@ -45,7 +47,21 @@ describe("createSavedLibrary", () => {
 				kind: "community",
 			},
 		]);
-		expect(library.highlights).toHaveLength(1);
-		expect(library.highlights[0]?.id).toBe(8);
+		expect(library.highlights).toEqual([
+			{
+				identity: { highlightId: 8, kind: "highlight" },
+				item: {
+					bookName: "John",
+					chapterNumber: 3,
+					endOffset: 16,
+					id: 8,
+					startOffset: 9,
+					text: "For God so loved the world.",
+					translationAbbreviation: "ESV",
+					verseNumber: 16,
+				},
+				kind: "highlight",
+			},
+		]);
 	});
 });

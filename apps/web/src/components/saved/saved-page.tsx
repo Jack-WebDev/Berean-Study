@@ -1,16 +1,16 @@
-import type { SavedHighlight } from "@berean-study/db/saved-items";
 import { toast } from "sonner";
+import type { SavedItemRemoval } from "@/functions/saved-items";
 import { BookmarksView } from "./bookmarks-view";
 import { HighlightsContent } from "./highlights-content";
 import { SavedHeader, type SavedView } from "./saved-header";
-import type { SavedLibrary, SavedLibraryBookmark } from "./saved-library";
+import type {
+	SavedLibrary,
+	SavedLibraryBookmark,
+	SavedLibraryHighlight,
+} from "./saved-library";
 
+export type { SavedItemRemoval } from "@/functions/saved-items";
 export type { SavedView } from "./saved-header";
-
-export type SavedItemRemoval =
-	| { kind: "community"; postId: number }
-	| { kind: "highlight"; highlightId: number }
-	| { kind: "scripture"; passageId: number };
 
 export function SavedPage({
 	library,
@@ -24,20 +24,10 @@ export function SavedPage({
 	view: SavedView;
 }) {
 	const removeBookmark = async (bookmark: SavedLibraryBookmark) => {
-		await handleRemoval(
-			onRemove,
-			bookmark.kind === "scripture"
-				? { kind: "scripture", passageId: bookmark.item.passageId }
-				: { kind: "community", postId: bookmark.item.id },
-			"Bookmark removed",
-		);
+		await handleRemoval(onRemove, bookmark.identity, "Bookmark removed");
 	};
-	const removeHighlight = async (highlight: SavedHighlight) => {
-		await handleRemoval(
-			onRemove,
-			{ highlightId: highlight.id, kind: "highlight" },
-			"Highlight removed",
-		);
+	const removeHighlight = async (highlight: SavedLibraryHighlight) => {
+		await handleRemoval(onRemove, highlight.identity, "Highlight removed");
 	};
 
 	return (

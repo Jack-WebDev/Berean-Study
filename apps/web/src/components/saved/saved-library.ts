@@ -4,20 +4,29 @@ import type {
 	SavedHighlight,
 	SavedItems,
 } from "@berean-study/db/saved-items";
+import type { SavedItemRemoval } from "@/functions/saved-items";
 
 export type SavedLibraryBookmark =
 	| {
+			identity: Extract<SavedItemRemoval, { kind: "scripture" }>;
 			item: SavedBookmark;
 			kind: "scripture";
 	  }
 	| {
+			identity: Extract<SavedItemRemoval, { kind: "community" }>;
 			item: SavedCommunityPost;
 			kind: "community";
 	  };
 
+export type SavedLibraryHighlight = {
+	identity: Extract<SavedItemRemoval, { kind: "highlight" }>;
+	item: SavedHighlight;
+	kind: "highlight";
+};
+
 export type SavedLibrary = {
 	bookmarks: SavedLibraryBookmark[];
-	highlights: SavedHighlight[];
+	highlights: SavedLibraryHighlight[];
 };
 
 /** Combines the authenticated member's saved material for the Saved library. */
@@ -27,15 +36,37 @@ export function createSavedLibrary(
 ): SavedLibrary {
 	return {
 		bookmarks: [
-			...savedItems.bookmarks.map((item) => ({
-				item,
-				kind: "scripture" as const,
-			})),
-			...communityBookmarks.map((item) => ({
-				item,
-				kind: "community" as const,
-			})),
+			...savedItems.bookmarks.map(toSavedScriptureBookmark),
+			...communityBookmarks.map(toSavedCommunityBookmark),
 		],
-		highlights: savedItems.highlights,
+		highlights: savedItems.highlights.map(toSavedHighlight),
+	};
+}
+
+function toSavedScriptureBookmark(
+	item: SavedBookmark,
+): Extract<SavedLibraryBookmark, { kind: "scripture" }> {
+	return {
+		identity: { kind: "scripture", passageId: item.passageId },
+		item,
+		kind: "scripture",
+	};
+}
+
+function toSavedCommunityBookmark(
+	item: SavedCommunityPost,
+): Extract<SavedLibraryBookmark, { kind: "community" }> {
+	return {
+		identity: { kind: "community", postId: item.id },
+		item,
+		kind: "community",
+	};
+}
+
+function toSavedHighlight(item: SavedHighlight): SavedLibraryHighlight {
+	return {
+		identity: { highlightId: item.id, kind: "highlight" },
+		item,
+		kind: "highlight",
 	};
 }
