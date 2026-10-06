@@ -43,20 +43,16 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { AddNoteToCollectionDialog } from "../collections/add-note-to-collection-dialog";
-import { NoteCollectionControl } from "./note-collection";
 import { NoteTags } from "./note-tags";
 import { passageLabel } from "./notes-list";
-import type { Note, NoteCollection } from "./types";
+import type { Note } from "./types";
 
 export function NoteDetail({
 	note,
 	onDelete,
 	onEdit,
 	onAddTag,
-	collections,
 	openCollectionPicker = false,
-	onAssignCollection,
-	onCreateCollection,
 	onRemoveTag,
 	onReturnToScripture,
 }: {
@@ -64,13 +60,7 @@ export function NoteDetail({
 	onDelete: (noteId: number) => Promise<void>;
 	onEdit: (noteId: number) => void;
 	onAddTag: (noteId: number, name: string) => Promise<void>;
-	collections: NoteCollection[];
 	openCollectionPicker?: boolean;
-	onAssignCollection: (
-		noteId: number,
-		collectionId: number | null,
-	) => Promise<void>;
-	onCreateCollection: (name: string) => Promise<NoteCollection>;
 	onRemoveTag: (noteId: number, tagId: number) => Promise<void>;
 	onReturnToScripture?: () => void;
 }) {
@@ -165,12 +155,6 @@ export function NoteDetail({
 				onAdd={(name) => onAddTag(note.id, name)}
 				onRemove={(tagId) => onRemoveTag(note.id, tagId)}
 				tags={note.tags}
-			/>
-			<NoteCollectionControl
-				collectionId={note.collectionId}
-				collections={collections}
-				onAssign={(collectionId) => onAssignCollection(note.id, collectionId)}
-				onCreate={onCreateCollection}
 			/>
 			<AddNoteToCollectionDialog
 				noteId={note.id}

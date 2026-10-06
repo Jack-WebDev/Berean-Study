@@ -1,12 +1,8 @@
 import { db } from "@berean-study/db";
 import {
-	listSavedCommunityPosts,
-	setCommunityPostBookmark,
-} from "@berean-study/db/community";
-import {
-	listSavedItems as listSavedItemsFromDb,
-	removeSavedBookmark,
-	removeSavedHighlight,
+	listSavedItems,
+	removeSavedItem as removeSavedItemFromDb,
+	type SavedItemRemoval,
 } from "@berean-study/db/saved-items";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
@@ -18,13 +14,7 @@ export const getSavedItems = createServerFn({ method: "GET" })
 	.handler(({ context }) => {
 		if (!context.session) throw new Error("Unauthorized");
 
-		return Promise.all([
-			listSavedItemsFromDb(db, context.session.user.id),
-			listSavedCommunityPosts(db, context.session.user.id),
-		]).then(([savedItems, communityBookmarks]) => ({
-			communityBookmarks,
-			savedItems,
-		}));
+		return listSavedItems(db, context.session.user.id);
 	});
 
 const removeSavedItemInput = z.discriminatedUnion("kind", [
@@ -42,7 +32,7 @@ const removeSavedItemInput = z.discriminatedUnion("kind", [
 	}),
 ]);
 
-export type SavedItemRemoval = z.infer<typeof removeSavedItemInput>;
+export type { SavedItemRemoval } from "@berean-study/db/saved-items";
 
 export const removeSavedItem = createServerFn({ method: "POST" })
 	.middleware([authMiddleware])
@@ -50,21 +40,9 @@ export const removeSavedItem = createServerFn({ method: "POST" })
 	.handler(async ({ context, data }) => {
 		if (!context.session) throw new Error("Unauthorized");
 
-		switch (data.kind) {
-			case "scripture":
-				return removeSavedBookmark(db, context.session.user.id, data.passageId);
-			case "highlight":
-				return removeSavedHighlight(
-					db,
-					context.session.user.id,
-					data.highlightId,
-				);
-			case "community":
-				return setCommunityPostBookmark(
-					db,
-					context.session.user.id,
-					data.postId,
-					false,
-				);
-		}
+		return removeSavedItemFromDb(
+			db,
+			context.session.user.id,
+			data satisfies SavedItemRemoval,
+		);
 	});

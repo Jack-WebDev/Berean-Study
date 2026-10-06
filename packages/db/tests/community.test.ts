@@ -10,6 +10,7 @@ import {
 	publishCommunityPost,
 	setCommunityPostBookmark,
 } from "../src/community";
+import { listSavedItems, removeSavedItem } from "../src/saved-items";
 import { user } from "../src/schema/auth";
 import { books } from "../src/schema/books";
 import { communityPostPassages } from "../src/schema/community_post_passages";
@@ -239,6 +240,31 @@ describeWithDatabase("Community publication", () => {
 					type: "testimony",
 				},
 			]);
+			expect(await listSavedItems(db, otherUserId)).toEqual({
+				bookmarks: [
+					{
+						identity: { kind: "community", postId: published.id },
+						item: {
+							coverImage: null,
+							id: published.id,
+							title: "A faithful season",
+							type: "testimony",
+						},
+						kind: "community",
+					},
+				],
+				highlights: [],
+			});
+			expect(
+				await removeSavedItem(db, otherUserId, {
+					kind: "community",
+					postId: published.id,
+				}),
+			).toBe(true);
+			expect(await listSavedItems(db, otherUserId)).toEqual({
+				bookmarks: [],
+				highlights: [],
+			});
 			expect(
 				await setCommunityPostBookmark(db, otherUserId, published.id, false),
 			).toBe(true);

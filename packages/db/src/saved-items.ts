@@ -1,5 +1,10 @@
 import { and, asc, desc, eq } from "drizzle-orm";
 
+import {
+	listSavedCommunityPosts,
+	type SavedCommunityPost,
+	setCommunityPostBookmark,
+} from "./community";
 import type { db } from "./index";
 import { bookmarks } from "./schema/bookmarks";
 import { books } from "./schema/books";
@@ -33,8 +38,78 @@ export type SavedItems = {
 	highlights: SavedHighlight[];
 };
 
-/** Returns the authenticated member's saved highlights and bookmarks. */
+export type SavedItemRemoval =
+	| { kind: "scripture"; passageId: number }
+	| { highlightId: number; kind: "highlight" }
+	| { kind: "community"; postId: number };
+
+export type SavedLibraryBookmark =
+	| {
+			identity: Extract<SavedItemRemoval, { kind: "scripture" }>;
+			item: SavedBookmark;
+			kind: "scripture";
+	  }
+	| {
+			identity: Extract<SavedItemRemoval, { kind: "community" }>;
+			item: SavedCommunityPost;
+			kind: "community";
+	  };
+
+export type SavedLibraryHighlight = {
+	identity: Extract<SavedItemRemoval, { kind: "highlight" }>;
+	item: SavedHighlight;
+	kind: "highlight";
+};
+
+export type SavedLibrary = {
+	bookmarks: SavedLibraryBookmark[];
+	highlights: SavedLibraryHighlight[];
+};
+
+/** Returns the authenticated member's saved Scripture, highlights, and Community posts. */
 export async function listSavedItems(
+	db: DbClient,
+	userId: string,
+): Promise<SavedLibrary> {
+	const [savedItems, communityBookmarks] = await Promise.all([
+		listSavedScriptureItems(db, userId),
+		listSavedCommunityPosts(db, userId),
+	]);
+
+	return createSavedLibrary(savedItems, communityBookmarks);
+}
+
+/** Removes one saved item owned by the current member. */
+export async function removeSavedItem(
+	db: DbClient,
+	userId: string,
+	item: SavedItemRemoval,
+): Promise<boolean> {
+	switch (item.kind) {
+		case "scripture":
+			return removeSavedBookmark(db, userId, item.passageId);
+		case "highlight":
+			return removeSavedHighlight(db, userId, item.highlightId);
+		case "community":
+			return setCommunityPostBookmark(db, userId, item.postId, false);
+	}
+}
+
+/** Combines saved material into the Saved library's display groups. */
+export function createSavedLibrary(
+	savedItems: SavedItems,
+	communityBookmarks: readonly SavedCommunityPost[],
+): SavedLibrary {
+	return {
+		bookmarks: [
+			...savedItems.bookmarks.map(toSavedScriptureBookmark),
+			...communityBookmarks.map(toSavedCommunityBookmark),
+		],
+		highlights: savedItems.highlights.map(toSavedHighlight),
+	};
+}
+
+async function listSavedScriptureItems(
 	db: DbClient,
 	userId: string,
 ): Promise<SavedItems> {
@@ -87,7 +162,7 @@ export async function listSavedItems(
 }
 
 /** Removes the current member's bookmark for one Scripture passage. */
-export async function removeSavedBookmark(
+async function removeSavedBookmark(
 	db: DbClient,
 	userId: string,
 	passageId: number,
@@ -103,7 +178,7 @@ export async function removeSavedBookmark(
 }
 
 /** Removes one of the current member's saved highlights. */
-export async function removeSavedHighlight(
+async function removeSavedHighlight(
 	db: DbClient,
 	userId: string,
 	highlightId: number,
@@ -114,4 +189,32 @@ export async function removeSavedHighlight(
 		.returning({ id: highlights.id });
 
 	return removed.length > 0;
+}
+
+function toSavedScriptureBookmark(
+	item: SavedBookmark,
+): Extract<SavedLibraryBookmark, { kind: "scripture" }> {
+	return {
+		identity: { kind: "scripture", passageId: item.passageId },
+		item,
+		kind: "scripture",
+	};
+}
+
+function toSavedCommunityBookmark(
+	item: SavedCommunityPost,
+): Extract<SavedLibraryBookmark, { kind: "community" }> {
+	return {
+		identity: { kind: "community", postId: item.id },
+		item,
+		kind: "community",
+	};
+}
+
+function toSavedHighlight(item: SavedHighlight): SavedLibraryHighlight {
+	return {
+		identity: { highlightId: item.id, kind: "highlight" },
+		item,
+		kind: "highlight",
+	};
 }

@@ -1,15 +1,15 @@
-import { toast } from "sonner";
-import type { SavedItemRemoval } from "@/functions/saved-items";
-import { BookmarksView } from "./bookmarks-view";
-import { HighlightsContent } from "./highlights-content";
-import { SavedHeader, type SavedView } from "./saved-header";
 import type {
+	SavedItemRemoval,
 	SavedLibrary,
 	SavedLibraryBookmark,
 	SavedLibraryHighlight,
-} from "./saved-library";
+} from "@berean-study/db/saved-items";
+import { toast } from "sonner";
+import { BookmarksView } from "./bookmarks-view";
+import { HighlightsContent } from "./highlights-content";
+import { SavedHeader, type SavedView } from "./saved-header";
 
-export type { SavedItemRemoval } from "@/functions/saved-items";
+export type { SavedItemRemoval } from "@berean-study/db/saved-items";
 export type { SavedView } from "./saved-header";
 
 export function SavedPage({

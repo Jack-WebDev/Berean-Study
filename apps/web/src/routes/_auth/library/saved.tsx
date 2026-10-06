@@ -4,7 +4,6 @@ import {
 	useRouter,
 } from "@tanstack/react-router";
 import { z } from "zod";
-import { createSavedLibrary } from "@/components/saved/saved-library";
 import {
 	type SavedItemRemoval,
 	SavedPage,
@@ -22,10 +21,9 @@ export const Route = createFileRoute("/_auth/library/saved")({
 
 function SavedRoute() {
 	const { tab } = Route.useSearch();
-	const { communityBookmarks, savedItems } = Route.useLoaderData();
+	const library = Route.useLoaderData();
 	const navigate = useNavigate({ from: "/library/saved" });
 	const router = useRouter();
-	const library = createSavedLibrary(savedItems, communityBookmarks);
 
 	return (
 		<SavedPage

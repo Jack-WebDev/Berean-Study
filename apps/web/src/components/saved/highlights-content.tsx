@@ -1,3 +1,4 @@
+import type { SavedLibraryHighlight } from "@berean-study/db/saved-items";
 import { Badge } from "@berean-study/ui/components/badge";
 import { Button } from "@berean-study/ui/components/button";
 import {
@@ -35,7 +36,6 @@ import {
 	SearchIcon,
 } from "lucide-react";
 import { useState } from "react";
-import type { SavedLibraryHighlight } from "./saved-library";
 
 export function HighlightsContent({
 	highlights,

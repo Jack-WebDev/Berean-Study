@@ -13,17 +13,14 @@ import {
 	Trash2Icon,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-
+import { listCollectionsForNotes } from "@/functions/collections";
 import {
 	addTagToNote,
-	createNoteCollection,
 	deleteNote,
 	listNoteBooks,
-	listNoteCollections,
 	listNotes,
 	listNoteTags,
 	removeTagFromNote,
-	setNoteCollection,
 } from "@/functions/notes";
 import { NoteDetail } from "./note-detail";
 import { NotesControls } from "./notes-controls";
@@ -100,7 +97,7 @@ export function NotesPage({
 		setHasCollectionLoadError(false);
 
 		try {
-			setCollections(await listNoteCollections());
+			setCollections(await listCollectionsForNotes());
 		} catch {
 			setHasCollectionLoadError(true);
 		}
@@ -187,52 +184,6 @@ export function NotesPage({
 		[loadTags],
 	);
 
-	const handleCreateCollection = useCallback(async (name: string) => {
-		const collection = await createNoteCollection({ data: { name } });
-		setCollections((currentCollections) => {
-			if (
-				!currentCollections ||
-				currentCollections.some(
-					(existingCollection) => existingCollection.id === collection.id,
-				)
-			) {
-				return currentCollections;
-			}
-
-			return [...currentCollections, collection].sort((left, right) =>
-				left.name.localeCompare(right.name),
-			);
-		});
-		return collection;
-	}, []);
-
-	const handleAssignCollection = useCallback(
-		async (noteId: number, nextCollectionId: number | null) => {
-			const assigned = await setNoteCollection({
-				data: { collectionId: nextCollectionId, id: noteId },
-			});
-			if (!assigned) throw new Error("Note not found.");
-
-			setNotes((currentNotes) =>
-				currentNotes
-					? currentNotes.map((note) =>
-							note.id === noteId
-								? {
-										...note,
-										collectionId: nextCollectionId,
-										collectionName:
-											collections?.find(
-												(collection) => collection.id === nextCollectionId,
-											)?.name ?? null,
-									}
-								: note,
-						)
-					: null,
-			);
-		},
-		[collections],
-	);
-
 	return (
 		<div className="min-h-full bg-background px-4 py-5 text-foreground sm:px-6 lg:px-8">
 			<div className="mx-auto flex w-full max-w-[90rem] flex-col gap-4">
@@ -294,10 +245,7 @@ export function NotesPage({
 							<NoteDetail
 								note={selectedNote}
 								onAddTag={handleAddTag}
-								collections={collections ?? []}
 								openCollectionPicker={openCollectionPicker}
-								onAssignCollection={handleAssignCollection}
-								onCreateCollection={handleCreateCollection}
 								onDelete={handleDelete}
 								onEdit={(noteId) =>
 									navigate({

@@ -1,8 +1,5 @@
-import type {
-	listNoteCollections,
-	listNotes,
-	listNoteTags,
-} from "@/functions/notes";
+import type { listCollectionsForNotes } from "@/functions/collections";
+import type { listNotes, listNoteTags } from "@/functions/notes";
 
 export type Note = Awaited<ReturnType<typeof listNotes>>[number];
 
@@ -23,5 +20,5 @@ export type NoteBook = {
 export type NoteTag = Awaited<ReturnType<typeof listNoteTags>>[number];
 
 export type NoteCollection = Awaited<
-	ReturnType<typeof listNoteCollections>
+	ReturnType<typeof listCollectionsForNotes>
 >[number];

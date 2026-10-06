@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createSavedLibrary } from "./saved-library";
+import { createSavedLibrary } from "../src/saved-items";
 
 describe("createSavedLibrary", () => {
 	it("keeps Scripture, Community, and highlight identities intact", () => {

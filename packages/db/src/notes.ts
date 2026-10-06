@@ -2,7 +2,8 @@ import { and, asc, count, desc, eq, ilike, inArray, or } from "drizzle-orm";
 
 import type { db } from "./index";
 import { books } from "./schema/books";
-import { userNoteCollections } from "./schema/note_collections";
+import { collectionNotes } from "./schema/collection_notes";
+import { collections } from "./schema/collections";
 import { noteTagAssignments, userNoteTags } from "./schema/note_tags";
 import { notes } from "./schema/notes";
 import { passages } from "./schema/passages";
@@ -40,15 +41,8 @@ export type NoteTag = {
 	name: string;
 };
 
-export type NoteCollection = {
-	id: number;
-	name: string;
-};
-
 const noteSelection = {
 	bookName: books.name,
-	collectionId: notes.collectionId,
-	collectionName: userNoteCollections.name,
 	content: notes.content,
 	createdAt: notes.createdAt,
 	id: notes.id,
@@ -68,7 +62,17 @@ export async function listNotes(
 
 	if (input.bookId) conditions.push(eq(passages.bookId, input.bookId));
 	if (input.collectionId) {
-		conditions.push(eq(notes.collectionId, input.collectionId));
+		const noteIdsForCollection = db
+			.select({ noteId: collectionNotes.noteId })
+			.from(collectionNotes)
+			.innerJoin(collections, eq(collections.id, collectionNotes.collectionId))
+			.where(
+				and(
+					eq(collectionNotes.collectionId, input.collectionId),
+					eq(collections.userId, userId),
+				),
+			);
+		conditions.push(inArray(notes.id, noteIdsForCollection));
 	}
 	if (input.passageId) conditions.push(eq(notes.passageId, input.passageId));
 	if (input.tagId) {
@@ -98,10 +102,6 @@ export async function listNotes(
 	const matchingNotes = await db
 		.select(noteSelection)
 		.from(notes)
-		.leftJoin(
-			userNoteCollections,
-			eq(userNoteCollections.id, notes.collectionId),
-		)
 		.leftJoin(passages, eq(passages.id, notes.passageId))
 		.leftJoin(books, eq(books.id, passages.bookId))
 		.where(and(...conditions))
@@ -134,15 +134,6 @@ export async function listNoteTags(db: DbClient, userId: string) {
 		.orderBy(asc(userNoteTags.name));
 }
 
-/** Returns all of the user's private collections, including empty ones. */
-export async function listNoteCollections(db: DbClient, userId: string) {
-	return db
-		.select({ id: userNoteCollections.id, name: userNoteCollections.name })
-		.from(userNoteCollections)
-		.where(eq(userNoteCollections.userId, userId))
-		.orderBy(asc(userNoteCollections.name));
-}
-
 /** Returns the authenticated user's note count for one conceptual passage. */
 export async function countNotesForPassage(
 	db: DbClient,
@@ -162,10 +153,6 @@ export async function getNote(db: DbClient, userId: string, noteId: number) {
 	const [note] = await db
 		.select(noteSelection)
 		.from(notes)
-		.leftJoin(
-			userNoteCollections,
-			eq(userNoteCollections.id, notes.collectionId),
-		)
 		.leftJoin(passages, eq(passages.id, notes.passageId))
 		.leftJoin(books, eq(books.id, passages.bookId))
 		.where(and(eq(notes.id, noteId), eq(notes.userId, userId)))
@@ -250,56 +237,6 @@ export async function setNoteTags(
 	const tags = normalizeTags(input.tags);
 
 	return db.transaction((tx) => replaceNoteTags(tx, userId, noteId, tags));
-}
-
-/** Creates or reuses a private collection for the supplied user. */
-export async function createNoteCollection(
-	db: DbClient,
-	userId: string,
-	name: string,
-): Promise<NoteCollection> {
-	const collection = normalizeCollection(name);
-	await db
-		.insert(userNoteCollections)
-		.values({
-			name: collection.name,
-			normalizedName: collection.normalizedName,
-			userId,
-		})
-		.onConflictDoNothing();
-
-	const [storedCollection] = await db
-		.select({ id: userNoteCollections.id, name: userNoteCollections.name })
-		.from(userNoteCollections)
-		.where(
-			and(
-				eq(userNoteCollections.userId, userId),
-				eq(userNoteCollections.normalizedName, collection.normalizedName),
-			),
-		)
-		.limit(1);
-	if (!storedCollection) throw new Error("Unable to create note collection.");
-
-	return storedCollection;
-}
-
-/** Assigns a note to one private collection, or removes its collection. */
-export async function setNoteCollection(
-	db: DbClient,
-	userId: string,
-	noteId: number,
-	collectionId: number | null,
-) {
-	await assertNoteOwned(db, userId, noteId);
-	if (collectionId) await assertCollectionOwned(db, userId, collectionId);
-
-	const [updatedNote] = await db
-		.update(notes)
-		.set({ collectionId })
-		.where(and(eq(notes.id, noteId), eq(notes.userId, userId)))
-		.returning({ id: notes.id });
-
-	return Boolean(updatedNote);
 }
 
 export async function createNote(
@@ -402,25 +339,6 @@ async function assertNoteOwned(db: DbClient, userId: string, noteId: number) {
 	if (!note) throw new Error("Note not found.");
 }
 
-async function assertCollectionOwned(
-	db: DbClient,
-	userId: string,
-	collectionId: number,
-) {
-	const [collection] = await db
-		.select({ id: userNoteCollections.id })
-		.from(userNoteCollections)
-		.where(
-			and(
-				eq(userNoteCollections.id, collectionId),
-				eq(userNoteCollections.userId, userId),
-			),
-		)
-		.limit(1);
-
-	if (!collection) throw new Error("Collection not found.");
-}
-
 async function addTagsToNotes<Note extends { id: number }>(
 	db: DbClient,
 	userId: string,
@@ -518,11 +436,6 @@ async function replaceNoteTags(
 		.values(storedTags.map((tag) => ({ noteId, tagId: tag.id })));
 
 	return storedTags;
-}
-
-function normalizeCollection(name: string) {
-	const trimmedName = name.trim().replace(/\s+/g, " ");
-	return { name: trimmedName, normalizedName: trimmedName.toLowerCase() };
 }
 
 function escapeLikePattern(value: string) {

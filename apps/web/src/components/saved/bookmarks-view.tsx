@@ -1,4 +1,5 @@
 import type { CommunityPostType } from "@berean-study/db/community";
+import type { SavedLibraryBookmark } from "@berean-study/db/saved-items";
 import { Badge } from "@berean-study/ui/components/badge";
 import { Button } from "@berean-study/ui/components/button";
 import {
@@ -36,8 +37,6 @@ import {
 	UsersRoundIcon,
 } from "lucide-react";
 import { useState } from "react";
-
-import type { SavedLibraryBookmark } from "./saved-library";
 
 const bookmarkFilters = [
 	{ label: "All", value: "all" },
