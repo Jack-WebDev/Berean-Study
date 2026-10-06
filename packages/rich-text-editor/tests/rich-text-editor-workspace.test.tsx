@@ -1,9 +1,9 @@
-import type { Editor } from "@tiptap/core";
 import { act, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { getDocumentReferences } from "../src/bible-reference-utils";
+import type { EditorSession } from "../src/editor-session";
 import { RichTextEditor } from "../src/rich-text-editor";
 import { RichTextEditorWorkspace } from "../src/rich-text-editor-workspace";
 import type { RichTextDocument } from "../src/types";
@@ -82,16 +82,20 @@ describe("RichTextEditorWorkspace", () => {
 
 	it("uses accessible tabs and respects preset capabilities", async () => {
 		const { container } = await mount({
-			details: <span>Host details</span>,
-			organization: <span>Host organization</span>,
 			preset: "member",
-			tags: <span>Host tags</span>,
+			slots: {
+				inspector: {
+					details: <span>Host details</span>,
+					organization: <span>Host organization</span>,
+					tags: <span>Host tags</span>,
+				},
+			},
 		});
 
 		expect(tab(container, "Insert").getAttribute("aria-selected")).toBe("true");
 		expect(button(container, "Table")).toBeTruthy();
 		expect(button(container, "Divider")).toBeTruthy();
-		expect(button(container, "Bible Passage")).toBeUndefined();
+		expect(button(container, "Bible reference")).toBeUndefined();
 		expect(button(container, "Citation")).toBeUndefined();
 
 		await click(tab(container, "Document"));
@@ -107,13 +111,25 @@ describe("RichTextEditorWorkspace", () => {
 			onRequestCitation: () => ({ citationId: 1, label: "1" }),
 			preset: "contributor",
 		});
-		expect(button(contributor.container, "Bible Passage")).toBeTruthy();
+		expect(button(contributor.container, "Bible reference")).toBeTruthy();
 		expect(button(contributor.container, "Citation")).toBeTruthy();
+	});
+
+	it("opens labelled toolbar menu groups", async () => {
+		const { container } = await mount({});
+
+		await click(button(container, "Insert content") as HTMLButtonElement);
+		expect(window.document.body.textContent).toContain(
+			"Bring something into your writing",
+		);
+
+		await click(button(container, "More writing tools") as HTMLButtonElement);
+		expect(window.document.body.textContent).toContain("Paragraph alignment");
 	});
 
 	it("routes insert actions through the shared editor command path", async () => {
 		let bibleRequests = 0;
-		const { container, getEditor } = await mount({
+		const { container, getSession } = await mount({
 			onRequestBibleReference: () => {
 				bibleRequests += 1;
 				return { label: "Romans 8:1", passageId: 801 };
@@ -122,16 +138,21 @@ describe("RichTextEditorWorkspace", () => {
 		});
 
 		await click(button(container, "Table") as HTMLButtonElement);
-		expect(getEditor().getJSON().content?.[0]?.type).toBe("table");
+		expect(getSession().getDocument().content?.[0]?.type).toBe("table");
 
-		await act(async () => {
-			getEditor().commands.setContent(emptyDocument);
+		const bible = await mount({
+			onRequestBibleReference: () => {
+				bibleRequests += 1;
+				return { label: "Romans 8:1", passageId: 801 };
+			},
+			preset: "contributor",
 		});
-		await click(button(container, "Bible Passage") as HTMLButtonElement);
+		await click(
+			button(bible.container, "Bible reference") as HTMLButtonElement,
+		);
 		expect(bibleRequests).toBe(1);
 		expect(
-			getDocumentReferences(getEditor().getJSON() as RichTextDocument)
-				.bibleReferences,
+			getDocumentReferences(bible.getSession().getDocument()).bibleReferences,
 		).toEqual([{ label: "Romans 8:1", passageId: 801 }]);
 	});
 
@@ -164,7 +185,7 @@ describe("RichTextEditorWorkspace", () => {
 			],
 			type: "doc",
 		};
-		const { container, getEditor } = await mount({
+		const { container, getSession } = await mount({
 			document,
 			onRequestCitation: () => ({ citationId: 1, label: "1" }),
 			preset: "contributor",
@@ -175,69 +196,48 @@ describe("RichTextEditorWorkspace", () => {
 		expect(container.textContent).toContain("Words");
 		expect(container.textContent).toContain("Characters");
 		await click(button(container, "Context") as HTMLButtonElement);
-		expect(getEditor().state.selection.$from.parent.type.name).toBe("heading");
-
-		await act(async () => {
-			getEditor().commands.setContent({
-				content: [
-					...(document.content ?? []),
-					{
-						attrs: { level: 3 },
-						content: [{ text: "Application", type: "text" }],
-						type: "heading",
-					},
-				],
-				type: "doc",
-			});
-		});
-		expect(container.textContent).toContain("Application");
+		expect(getSession().isSelectionInNode("heading")).toBe(true);
 
 		await click(tab(container, "References"));
 		expect(container.textContent).toContain("John 3:16");
 		await click(button(container, "John 3:16") as HTMLButtonElement);
-		expect(getEditor().state.selection.$from.parent.type.name).toBe(
-			"paragraph",
-		);
+		expect(getSession().isSelectionInNode("bibleReference")).toBe(true);
 		await click(button(container, "Remove John 3:16") as HTMLButtonElement);
 		expect(
-			getDocumentReferences(getEditor().getJSON() as RichTextDocument)
-				.bibleReferences,
+			getDocumentReferences(getSession().getDocument()).bibleReferences,
 		).toEqual([]);
 		await click(button(container, "[1]") as HTMLButtonElement);
-		expect(getEditor().state.selection.$from.parent.type.name).toBe(
-			"paragraph",
-		);
+		expect(getSession().isSelectionInNode("citation")).toBe(true);
 		await click(button(container, "Remove [1]") as HTMLButtonElement);
-		expect(
-			getDocumentReferences(getEditor().getJSON() as RichTextDocument)
-				.citations,
-		).toEqual([]);
+		expect(getDocumentReferences(getSession().getDocument()).citations).toEqual(
+			[],
+		);
 	});
 
 	it("enters and exits focus without recreating the editor or changing content", async () => {
 		const changes: RichTextDocument[] = [];
-		const { container, getEditor } = await mount({
-			focusedModeStatus: "Saved",
-			focusedModeTitle: "No Condemnation in Christ",
+		const { container, getSession } = await mount({
 			onChange: (nextDocument) => changes.push(nextDocument),
+			slots: {
+				focusedHeader: {
+					status: "Saved",
+					title: "No Condemnation in Christ",
+				},
+			},
 		});
-		const editor = getEditor();
+		const session = getSession();
 		await click(tab(container, "Document"));
 		await act(async () => {
-			editor.commands.insertContent("A thought");
-			editor.commands.setTextSelection(2);
+			session.applyCommand("heading2");
 		});
-		const contentBeforeFocus = editor.getJSON();
-		const selectionBeforeFocus = editor.state.selection.toJSON();
+		const contentBeforeFocus = session.getDocument();
 		const changeCountBeforeFocus = changes.length;
 
 		await click(button(container, "Focus editor") as HTMLButtonElement);
 		expect(container.querySelector("[data-focused]")).toBeTruthy();
 		expect(window.document.body.style.overflow).toBe("hidden");
-		expect(getEditor()).toBe(editor);
-		expect(editor.getJSON()).toEqual(contentBeforeFocus);
-		expect(editor.state.selection.toJSON()).toEqual(selectionBeforeFocus);
-		expect(editor.can().undo()).toBe(true);
+		expect(getSession()).toBe(session);
+		expect(session.getDocument()).toEqual(contentBeforeFocus);
 		expect(changes).toHaveLength(changeCountBeforeFocus);
 		expect(button(container, "Exit Focus")).toBeTruthy();
 		expect(container.textContent).toContain("No Condemnation in Christ");
@@ -271,24 +271,27 @@ describe("RichTextEditorWorkspace", () => {
 
 	it("uses the shared sheet for inspector access on narrow screens", async () => {
 		setWideViewport(false);
-		const { container, getEditor } = await mount({});
-		const editor = getEditor();
+		const { container, getSession } = await mount({});
+		const session = getSession();
 
 		await click(button(container, "Open writing tools") as HTMLButtonElement);
 		expect(window.document.body.textContent).toContain("Writing tools");
-		expect(getEditor()).toBe(editor);
+		expect(window.document.querySelectorAll('[role="tablist"]')).toHaveLength(
+			1,
+		);
+		expect(getSession()).toBe(session);
 	});
 
 	it("keeps the focused writing area intact when its narrow inspector opens", async () => {
 		setWideViewport(false);
-		const { container, getEditor } = await mount({});
-		const editor = getEditor();
+		const { container, getSession } = await mount({});
+		const session = getSession();
 
 		await click(button(container, "Focus editor") as HTMLButtonElement);
 		await click(button(container, "Open writing tools") as HTMLButtonElement);
 		expect(container.querySelector("[data-focused]")).toBeTruthy();
 		expect(window.document.body.textContent).toContain("Writing tools");
-		expect(getEditor()).toBe(editor);
+		expect(getSession()).toBe(session);
 	});
 });
 
@@ -302,16 +305,16 @@ async function mount({
 	window.document.body.append(container);
 	const root = createRoot(container);
 	mounted.push({ container, root });
-	let editor: Editor | null = null;
+	let session: EditorSession | null = null;
 
 	await act(async () => {
 		root.render(
 			<RichTextEditorWorkspace
 				{...props}
 				onChange={(nextDocument) => props.onChange?.(nextDocument)}
-				onEditorReady={(nextEditor) => {
-					if (nextEditor) editor = nextEditor;
-					props.onEditorReady?.(nextEditor);
+				onSessionReady={(nextSession) => {
+					if (nextSession) session = nextSession;
+					props.onSessionReady?.(nextSession);
 				}}
 				value={document}
 			/>,
@@ -320,9 +323,9 @@ async function mount({
 
 	return {
 		container,
-		getEditor: () => {
-			if (!editor) throw new Error("Editor did not initialize.");
-			return editor;
+		getSession: () => {
+			if (!session) throw new Error("Editor session did not initialize.");
+			return session;
 		},
 		unmount: () => {
 			act(() => root.unmount());

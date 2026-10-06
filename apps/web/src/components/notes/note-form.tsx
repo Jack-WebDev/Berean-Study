@@ -239,28 +239,84 @@ export function NoteForm({
 																ariaLabel="Note content"
 																contentClassName="[&_.ProseMirror]:min-h-96"
 																editable
-																editorHeader={
-																	<>
-																		<form.Field name="title">
-																			{(titleField) => (
-																				<NoteTitleField field={titleField} />
-																			)}
-																		</form.Field>
-																		<div className="note-content-heading">
-																			<label
-																				className="note-field-label"
-																				htmlFor={field.name}
+																slots={{
+																	editorHeader: (
+																		<>
+																			<form.Field name="title">
+																				{(titleField) => (
+																					<NoteTitleField field={titleField} />
+																				)}
+																			</form.Field>
+																			<div className="note-content-heading">
+																				<label
+																					className="note-field-label"
+																					htmlFor={field.name}
+																				>
+																					Content{" "}
+																					<span aria-hidden="true">*</span>
+																				</label>
+																				<EditorModeToggle
+																					editorMode={editorMode}
+																					onChange={setEditorMode}
+																				/>
+																			</div>
+																		</>
+																	),
+																	focusedHeader: {
+																		status: isSubmitting
+																			? "Saving…"
+																			: focusedSaveStatus(autosaveStatus),
+																		title: title || "Untitled note",
+																	},
+																	inspector: {
+																		footer: (
+																			<div className="note-inspector-footer">
+																				<form.Subscribe
+																					selector={(state) =>
+																						state.values.tags
+																					}
+																				>
+																					{(tags) => (
+																						<DraftTags
+																							tags={tags}
+																							onChange={(nextTags) =>
+																								form.setFieldValue(
+																									"tags",
+																									nextTags,
+																								)
+																							}
+																						/>
+																					)}
+																				</form.Subscribe>
+																				<NoteInspectorDetails
+																					content={field.state.value}
+																				/>
+																			</div>
+																		),
+																		details: (
+																			<NoteDetails status={autosaveStatus} />
+																		),
+																		organization: <NoteOrganization />,
+																		tags: (
+																			<form.Subscribe
+																				selector={(state) => state.values.tags}
 																			>
-																				Content{" "}
-																				<span aria-hidden="true">*</span>
-																			</label>
-																			<EditorModeToggle
-																				editorMode={editorMode}
-																				onChange={setEditorMode}
-																			/>
-																		</div>
-																	</>
-																}
+																				{(tags) => (
+																					<DraftTags
+																						tags={tags}
+																						onChange={(nextTags) =>
+																							form.setFieldValue(
+																								"tags",
+																								nextTags,
+																							)
+																						}
+																					/>
+																				)}
+																			</form.Subscribe>
+																		),
+																	},
+																}}
+																id={field.name}
 																footer={
 																	<div className="note-editor-footer">
 																		<span>/ Type / for commands...</span>
@@ -275,55 +331,11 @@ export function NoteForm({
 																		</form.Subscribe>
 																	</div>
 																}
-																focusedModeStatus={
-																	isSubmitting
-																		? "Saving…"
-																		: focusedSaveStatus(autosaveStatus)
-																}
-																focusedModeTitle={title || "Untitled note"}
-																id={field.name}
-																inspectorFooter={
-																	<div className="note-inspector-footer">
-																		<form.Subscribe
-																			selector={(state) => state.values.tags}
-																		>
-																			{(tags) => (
-																				<DraftTags
-																					tags={tags}
-																					onChange={(nextTags) =>
-																						form.setFieldValue("tags", nextTags)
-																					}
-																				/>
-																			)}
-																		</form.Subscribe>
-																		<NoteInspectorDetails
-																			content={field.state.value}
-																		/>
-																	</div>
-																}
 																onChange={field.handleChange}
 																onRequestBibleReference={requestBibleReference}
-																details={
-																	<NoteDetails status={autosaveStatus} />
-																}
-																organization={<NoteOrganization />}
 																placeholder="Start writing your note here…"
 																presentation="composer"
 																preset="member"
-																tags={
-																	<form.Subscribe
-																		selector={(state) => state.values.tags}
-																	>
-																		{(tags) => (
-																			<DraftTags
-																				tags={tags}
-																				onChange={(nextTags) =>
-																					form.setFieldValue("tags", nextTags)
-																				}
-																			/>
-																		)}
-																	</form.Subscribe>
-																}
 																value={field.state.value}
 															/>
 														)}

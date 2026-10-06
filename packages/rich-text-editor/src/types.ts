@@ -1,5 +1,7 @@
-import type { Editor, JSONContent } from "@tiptap/core";
+import type { JSONContent } from "@tiptap/core";
 import type { ReactNode } from "react";
+
+import type { EditorSession } from "./editor-session";
 
 /**
  * The persisted document contract. Its shape intentionally matches the JSON
@@ -56,8 +58,8 @@ export type RichTextEditorProps = {
 		| null
 		| undefined
 		| Promise<CitationAttributes | null | undefined>;
-	/** Receives the editor instance for optional composition layers. */
-	onEditorReady?: (editor: Editor | null) => void;
+	/** Receives semantic editing operations for optional composition layers. */
+	onSessionReady?: (session: EditorSession | null) => void;
 	placeholder?: string;
 	preset?: RichTextEditorPreset;
 	value: RichTextDocument;
@@ -70,21 +72,32 @@ export type RichTextRendererProps = {
 	preset?: RichTextEditorPreset;
 };
 
-export type RichTextEditorWorkspaceProps = RichTextEditorProps & {
-	/** Optional controls rendered above the writing surface. */
+export type RichTextEditorWorkspaceSlots = {
+	/** Optional host controls rendered above the writing surface. */
 	editorHeader?: ReactNode;
-	/** Host-provided context displayed only in the focused workspace header. */
-	focusedModeTitle?: ReactNode;
-	/** Host-owned save status displayed only in the focused workspace header. */
-	focusedModeStatus?: ReactNode;
-	/** Host-rendered tag controls; the editor has no tag persistence knowledge. */
-	tags?: ReactNode;
-	/** Host-rendered organization context, such as a location or collection. */
-	organization?: ReactNode;
-	/** Host-rendered resource details, such as status and timestamps. */
-	details?: ReactNode;
-	/** Supporting content displayed beneath the desktop inspector. */
-	inspectorFooter?: ReactNode;
+	/** Content owned by the workspace inspector, grouped by its semantic region. */
+	inspector?: {
+		/** Host-rendered tag controls; the editor has no tag persistence knowledge. */
+		tags?: ReactNode;
+		/** Host-rendered organization context, such as a location or collection. */
+		organization?: ReactNode;
+		/** Host-rendered resource details, such as status and timestamps. */
+		details?: ReactNode;
+		/** Supporting content displayed below the inline inspector rail. */
+		footer?: ReactNode;
+	};
+	/** Content displayed in the focused workspace header. */
+	focusedHeader?: {
+		/** Host-owned save status. */
+		status?: ReactNode;
+		/** Host-provided document context. */
+		title?: ReactNode;
+	};
+};
+
+export type RichTextEditorWorkspaceProps = RichTextEditorProps & {
+	/** Host-owned regions rendered by the workspace. */
+	slots?: RichTextEditorWorkspaceSlots;
 	/** Visual arrangement for a dedicated writing composer. */
 	presentation?: "composer" | "default";
 };

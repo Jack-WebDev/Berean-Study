@@ -173,21 +173,25 @@ export function ReflectionEditorPage({
 								ariaLabel="Reflection content"
 								contentClassName="[&_.ProseMirror]:min-h-96"
 								editable
-								editorHeader={
-									<div className="note-content-heading mt-0!">
-										<label
-											className="note-field-label"
-											htmlFor="reflection-content"
-										>
-											Reflection <span aria-hidden="true">*</span>
-										</label>
-									</div>
-								}
-								focusedModeStatus={isSaving ? "Saving…" : "Unsaved changes"}
-								focusedModeTitle={prayer?.title}
+								slots={{
+									editorHeader: (
+										<div className="note-content-heading mt-0!">
+											<label
+												className="note-field-label"
+												htmlFor="reflection-content"
+											>
+												Reflection <span aria-hidden="true">*</span>
+											</label>
+										</div>
+									),
+									focusedHeader: {
+										status: isSaving ? "Saving…" : "Unsaved changes",
+										title: prayer?.title,
+									},
+									inspector: { organization: <ReflectionOrganization /> },
+								}}
 								id="reflection-content"
 								onChange={setContent}
-								organization={<ReflectionOrganization />}
 								placeholder="Write your reflection…"
 								presentation="composer"
 								preset="member"

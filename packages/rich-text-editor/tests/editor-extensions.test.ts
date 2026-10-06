@@ -5,8 +5,13 @@ import {
 	getDocumentCitations,
 	getDocumentReferences,
 } from "../src/bible-reference-utils";
-import { executeEditorAction } from "../src/editor-actions";
+import {
+	createEditorCommandCatalog,
+	type EditorCommand,
+	type EditorCommandCatalog,
+} from "../src/editor-actions";
 import { createRichTextExtensions } from "../src/editor-extensions";
+import { createEditorSession } from "../src/editor-session";
 import { sanitizePastedHtml } from "../src/paste-sanitization";
 import type { RichTextEditorPreset } from "../src/types";
 
@@ -28,6 +33,12 @@ function createEditor(
 afterEach(() => {
 	for (const editor of editors.splice(0)) editor.destroy();
 });
+
+function command(catalog: EditorCommandCatalog, id: string): EditorCommand {
+	const selectedCommand = catalog.find(id);
+	if (!selectedCommand) throw new Error(`Missing editor command: ${id}`);
+	return selectedCommand;
+}
 
 describe("Berean rich-text schema", () => {
 	it("supports H2 and H3 but rejects H1", () => {
@@ -100,14 +111,15 @@ describe("Berean rich-text schema", () => {
 
 	it("executes list and quote actions through the shared action layer", async () => {
 		const editor = createEditor();
-		const context = { preset: "member" as const };
-		await executeEditorAction(editor, "bullet", context);
+		const session = createEditorSession(editor);
+		const catalog = createEditorCommandCatalog({ preset: "member" });
+		await command(catalog, "bullet").execute(session);
 		expect(editor.isActive("bulletList")).toBe(true);
-		await executeEditorAction(editor, "bullet", context);
-		await executeEditorAction(editor, "numbered", context);
+		await command(catalog, "bullet").execute(session);
+		await command(catalog, "numbered").execute(session);
 		expect(editor.isActive("orderedList")).toBe(true);
-		await executeEditorAction(editor, "numbered", context);
-		await executeEditorAction(editor, "quote", context);
+		await command(catalog, "numbered").execute(session);
+		await command(catalog, "quote").execute(session);
 		expect(editor.isActive("blockquote")).toBe(true);
 	});
 
@@ -371,17 +383,13 @@ describe("Berean rich-text schema", () => {
 		expect(contributor.commands.insertCitation).toBeTypeOf("function");
 	});
 
-	it("safely ignores unavailable reference and citation callbacks", async () => {
-		const member = createEditor();
-		const contributor = createEditor("<p>Testing</p>", "contributor");
-		expect(
-			await executeEditorAction(member, "bible", { preset: "member" }),
-		).toBe(false);
-		expect(
-			await executeEditorAction(contributor, "citation", {
-				preset: "contributor",
-			}),
-		).toBe(false);
+	it("omits commands that require unavailable reference callbacks", () => {
+		const memberCatalog = createEditorCommandCatalog({ preset: "member" });
+		const contributorCatalog = createEditorCommandCatalog({
+			preset: "contributor",
+		});
+		expect(memberCatalog.find("bible")).toBeUndefined();
+		expect(contributorCatalog.find("citation")).toBeUndefined();
 	});
 
 	it("inserts, serializes, deserializes, and deletes citations", () => {

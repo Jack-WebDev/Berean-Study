@@ -1,45 +1,36 @@
-import type { Editor } from "@tiptap/core";
-import { useEditorState } from "@tiptap/react";
 import { useEffect, useMemo, useState } from "react";
 
 import {
-	type EditorActionContext,
-	executeEditorAction,
-	filterEditorActions,
-	getAvailableEditorActions,
+	createEditorCommandCatalog,
+	type EditorCommand,
+	type EditorCommandContext,
+	filterEditorCommands,
 } from "./editor-actions";
-import {
-	getNextCommandIndex,
-	type SlashCommandState,
-	slashCommandPluginKey,
-} from "./slash-commands";
+import { type EditorSession, useSlashCommandState } from "./editor-session";
+import { getNextCommandIndex } from "./slash-commands";
 
 export function SlashCommandMenu({
-	editor,
+	session,
 	onRequestBibleReference,
 	onRequestCitation,
 	preset,
-}: { editor: Editor } & EditorActionContext) {
+}: { session: EditorSession } & EditorCommandContext) {
 	const context = useMemo(
 		() => ({ onRequestBibleReference, onRequestCitation, preset }),
 		[onRequestBibleReference, onRequestCitation, preset],
 	);
-	const slashState = useEditorState({
-		editor,
-		selector: ({ editor: currentEditor }) =>
-			slashCommandPluginKey.getState(currentEditor.state) as SlashCommandState,
-	});
-	const actions = useMemo(
-		() =>
-			filterEditorActions(
-				getAvailableEditorActions(context),
-				slashState?.query ?? "",
-			),
-		[context, slashState?.query],
+	const slashState = useSlashCommandState(session);
+	const catalog = useMemo(() => createEditorCommandCatalog(context), [context]);
+	const commands = useMemo(
+		() => filterEditorCommands(catalog.commands(), slashState?.query ?? ""),
+		[catalog, slashState?.query],
 	);
 	const [selection, setSelection] = useState({ index: 0, query: "" });
 	const query = slashState?.query ?? "";
 	const selectedIndex = selection.query === query ? selection.index : 0;
+	const position = slashState
+		? session.getSlashMenuPosition(slashState.from)
+		: undefined;
 
 	useEffect(() => {
 		if (!slashState) return;
@@ -50,7 +41,7 @@ export function SlashCommandMenu({
 					index: getNextCommandIndex(
 						currentSelection.query === query ? currentSelection.index : 0,
 						event.key === "ArrowDown" ? "down" : "up",
-						actions.length,
+						commands.length,
 					),
 					query,
 				}));
@@ -58,49 +49,50 @@ export function SlashCommandMenu({
 			}
 			if (event.key === "Escape") {
 				event.preventDefault();
-				editor.commands.deleteRange({
-					from: slashState.from,
-					to: editor.state.selection.from,
-				});
+				session.clearSlashCommand(slashState.from);
 				return;
 			}
-			if (event.key === "Enter" && actions[selectedIndex]) {
+			if (event.key === "Enter" && commands[selectedIndex]) {
 				event.preventDefault();
 				void executeSlashAction(
-					editor,
-					actions[selectedIndex].id,
+					session,
+					commands[selectedIndex],
 					slashState.from,
-					context,
 				);
 			}
 		};
-		editor.view.dom.addEventListener("keydown", handleKeyDown, true);
-		return () =>
-			editor.view.dom.removeEventListener("keydown", handleKeyDown, true);
-	}, [actions, context, editor, query, selectedIndex, slashState]);
+		return session.registerKeyDownListener(handleKeyDown);
+	}, [commands, query, selectedIndex, session, slashState]);
 
-	if (!slashState || !actions.length) return null;
+	if (!slashState || !commands.length) return null;
 
 	return (
 		<div
 			aria-label="Slash commands"
-			className="absolute z-20 mt-1 w-56 overflow-hidden rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md"
+			className="fixed z-50 w-64 overflow-hidden rounded-md border border-border bg-popover p-1.5 text-popover-foreground shadow-lg"
 			role="listbox"
+			style={position}
 		>
-			{actions.map((action, index) => (
+			<div className="px-2 py-1.5 text-muted-foreground text-xs">
+				{query
+					? `Commands matching “${query}”`
+					: "Start with a writing command"}
+			</div>
+			{commands.map((command, index) => (
 				<button
 					aria-selected={index === selectedIndex}
 					className="flex w-full items-center rounded-sm px-2 py-1.5 text-left text-xs hover:bg-muted aria-selected:bg-muted"
-					key={action.id}
+					key={command.id}
+					onMouseEnter={() => setSelection({ index, query })}
 					onMouseDown={(event) => event.preventDefault()}
 					onClick={() =>
-						void executeSlashAction(editor, action.id, slashState.from, context)
+						void executeSlashAction(session, command, slashState.from)
 					}
 					role="option"
 					type="button"
 				>
-					<span className="mr-2 text-muted-foreground">/{action.id}</span>
-					{action.label}
+					<span className="mr-2 text-muted-foreground">/{command.id}</span>
+					{command.label}
 				</button>
 			))}
 		</div>
@@ -108,11 +100,10 @@ export function SlashCommandMenu({
 }
 
 async function executeSlashAction(
-	editor: Editor,
-	actionId: Parameters<typeof executeEditorAction>[1],
+	session: EditorSession,
+	command: EditorCommand,
 	from: number,
-	context: EditorActionContext,
 ) {
-	editor.commands.deleteRange({ from, to: editor.state.selection.from });
-	return executeEditorAction(editor, actionId, context);
+	session.clearSlashCommand(from);
+	return command.execute(session);
 }

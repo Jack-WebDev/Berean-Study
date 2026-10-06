@@ -10,11 +10,8 @@ import {
 	TabsList,
 	TabsTrigger,
 } from "@berean-study/ui/components/tabs";
-import type { Editor } from "@tiptap/core";
 import {
 	BookOpenIcon,
-	ChevronRightIcon,
-	EllipsisIcon,
 	Maximize2Icon,
 	Minimize2Icon,
 	MinusIcon,
@@ -32,14 +29,19 @@ import {
 	getWordCount,
 } from "./document-utils";
 import {
-	type EditorActionId,
-	executeEditorAction,
-	getAvailableEditorActions,
+	createEditorCommandCatalog,
+	type EditorCommand,
+	type EditorCommandCatalog,
+	type EditorCommandContext,
 } from "./editor-actions";
+import type { EditorSession } from "./editor-session";
 import { RichTextEditor } from "./rich-text-editor";
 import type { RichTextDocument, RichTextEditorWorkspaceProps } from "./types";
 
 type InspectorTab = "insert" | "document" | "references";
+type InspectorSlots = NonNullable<
+	RichTextEditorWorkspaceProps["slots"]
+>["inspector"];
 
 /**
  * Optional writing shell around RichTextEditor. Resource-specific metadata is
@@ -47,23 +49,17 @@ type InspectorTab = "insert" | "document" | "references";
  * the editor's structured JSON.
  */
 export function RichTextEditorWorkspace({
-	details,
-	editorHeader,
-	focusedModeStatus,
-	focusedModeTitle,
 	onChange,
-	onEditorReady,
+	onSessionReady,
 	onRequestBibleReference,
 	onRequestCitation,
-	organization,
-	inspectorFooter,
 	presentation = "default",
 	preset = "member",
-	tags,
+	slots,
 	value,
 	...editorProps
 }: RichTextEditorWorkspaceProps) {
-	const [editor, setEditor] = useState<Editor | null>(null);
+	const [session, setSession] = useState<EditorSession | null>(null);
 	const [document, setDocument] = useState(value);
 	const [inspectorTab, setInspectorTab] = useState<InspectorTab>("insert");
 	const [isFocused, setIsFocused] = useState(false);
@@ -105,14 +101,14 @@ export function RichTextEditorWorkspace({
 		},
 		[onChange],
 	);
-	const handleEditorReady = useCallback(
-		(nextEditor: Editor | null) => {
-			setEditor(nextEditor);
-			onEditorReady?.(nextEditor);
+	const handleSessionReady = useCallback(
+		(nextSession: EditorSession | null) => {
+			setSession(nextSession);
+			onSessionReady?.(nextSession);
 		},
-		[onEditorReady],
+		[onSessionReady],
 	);
-	const actionContext = useMemo(
+	const commandContext = useMemo(
 		() => ({ onRequestBibleReference, onRequestCitation, preset }),
 		[onRequestBibleReference, onRequestCitation, preset],
 	);
@@ -136,6 +132,21 @@ export function RichTextEditorWorkspace({
 	const isFocusedInspectorOpen = isWideLayout
 		? focusedInspectorOpen
 		: inspectorSheetOpen;
+	const inspectorPlacement = getInspectorPlacement({
+		isFocused,
+		isFocusedInspectorOpen,
+		isWideLayout,
+	});
+	const inspector = (
+		<WorkspaceInspector
+			commandContext={commandContext}
+			document={document}
+			session={session}
+			onTabChange={setInspectorTab}
+			slots={slots?.inspector}
+			tab={inspectorTab}
+		/>
+	);
 
 	return (
 		<section
@@ -165,12 +176,12 @@ export function RichTextEditorWorkspace({
 					Exit Focus
 				</button>
 				<div className="min-w-0 flex-1 truncate text-center font-medium text-sm">
-					{focusedModeTitle}
+					{slots?.focusedHeader?.title}
 				</div>
 				<div className="flex items-center gap-2">
-					{focusedModeStatus ? (
+					{slots?.focusedHeader?.status ? (
 						<div className="text-muted-foreground text-xs">
-							{focusedModeStatus}
+							{slots.focusedHeader.status}
 						</div>
 					) : null}
 					<button
@@ -202,14 +213,14 @@ export function RichTextEditorWorkspace({
 				<div
 					className={
 						isFocused
-							? "mx-auto w-full min-w-0 max-w-[52rem] overflow-y-auto px-4 py-6 sm:px-6"
+							? "mx-auto w-full min-w-0 max-w-208 overflow-y-auto px-4 py-6 sm:px-6"
 							: presentation === "composer"
 								? "min-w-0 overflow-hidden rounded-lg border border-border bg-card shadow-sm"
 								: "min-w-0"
 					}
 				>
-					{!isFocused && editorHeader ? (
-						<div className="p-4 pb-3">{editorHeader}</div>
+					{!isFocused && slots?.editorHeader ? (
+						<div className="p-4 pb-3">{slots.editorHeader}</div>
 					) : null}
 					<div className={isFocused ? "hidden" : "mb-2 flex justify-end"}>
 						<button
@@ -245,66 +256,93 @@ export function RichTextEditorWorkspace({
 								: undefined
 						}
 						onChange={handleChange}
-						onEditorReady={handleEditorReady}
+						onSessionReady={handleSessionReady}
 						onRequestBibleReference={onRequestBibleReference}
 						onRequestCitation={onRequestCitation}
 						preset={preset}
 						value={value}
 					/>
 				</div>
-				<aside
-					className={
-						isFocused
-							? isWideLayout && focusedInspectorOpen
-								? "w-72 shrink-0 overflow-y-auto border-border border-l bg-card"
-								: "hidden"
-							: "hidden min-h-0 flex-col gap-2.5 lg:flex"
-					}
-				>
-					<div
-						className={
-							isFocused
-								? undefined
-								: "overflow-hidden rounded-lg border border-border bg-card shadow-sm"
-						}
-					>
-						<WorkspaceInspector
-							details={details}
-							document={document}
-							editor={editor}
-							organization={organization}
-							actionContext={actionContext}
-							onTabChange={setInspectorTab}
-							tab={inspectorTab}
-							tags={tags}
-						/>
-					</div>
-					{!isFocused ? inspectorFooter : null}
-				</aside>
+				{inspectorPlacement === "inline-rail" ? (
+					<InlineInspectorRail footer={slots?.inspector?.footer}>
+						{inspector}
+					</InlineInspectorRail>
+				) : null}
+				{inspectorPlacement === "focused-rail" ? (
+					<FocusedInspectorRail>{inspector}</FocusedInspectorRail>
+				) : null}
 			</div>
-			<Sheet
-				onOpenChange={setInspectorSheetOpen}
-				open={!isWideLayout && inspectorSheetOpen}
-			>
-				<SheetContent side="right">
-					<SheetHeader>
-						<SheetTitle>Writing tools</SheetTitle>
-					</SheetHeader>
-					<div className="min-h-0 overflow-y-auto">
-						<WorkspaceInspector
-							actionContext={actionContext}
-							details={details}
-							document={document}
-							editor={editor}
-							onTabChange={setInspectorTab}
-							organization={organization}
-							tab={inspectorTab}
-							tags={tags}
-						/>
-					</div>
-				</SheetContent>
-			</Sheet>
+			{inspectorPlacement === "sheet" ? (
+				<InspectorSheet
+					onOpenChange={setInspectorSheetOpen}
+					open={inspectorSheetOpen}
+				>
+					{inspector}
+				</InspectorSheet>
+			) : null}
 		</section>
+	);
+}
+
+type InspectorPlacement = "focused-rail" | "inline-rail" | "sheet" | null;
+
+function getInspectorPlacement({
+	isFocused,
+	isFocusedInspectorOpen,
+	isWideLayout,
+}: {
+	isFocused: boolean;
+	isFocusedInspectorOpen: boolean;
+	isWideLayout: boolean;
+}): InspectorPlacement {
+	if (!isWideLayout) return "sheet";
+	if (!isFocused) return "inline-rail";
+	return isFocusedInspectorOpen ? "focused-rail" : null;
+}
+
+function InlineInspectorRail({
+	children,
+	footer,
+}: {
+	children: React.ReactNode;
+	footer?: React.ReactNode;
+}) {
+	return (
+		<aside className="hidden min-h-0 flex-col gap-2.5 lg:flex">
+			<div className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
+				{children}
+			</div>
+			{footer}
+		</aside>
+	);
+}
+
+function FocusedInspectorRail({ children }: { children: React.ReactNode }) {
+	return (
+		<aside className="w-72 shrink-0 overflow-y-auto border-border border-l bg-card">
+			{children}
+		</aside>
+	);
+}
+
+function InspectorSheet({
+	children,
+	onOpenChange,
+	open,
+}: {
+	children: React.ReactNode;
+	onOpenChange: (open: boolean) => void;
+	open: boolean;
+}) {
+	return (
+		<Sheet onOpenChange={onOpenChange} open={open}>
+			<SheetContent side="right">
+				<SheetHeader>
+					<SheetTitle>Writing tools</SheetTitle>
+				</SheetHeader>
+				<div className="min-h-0 overflow-y-auto">{children}</div>
+			</SheetContent>
+		</Sheet>
 	);
 }
 
@@ -324,29 +362,25 @@ function useMediaQuery(query: string) {
 }
 
 function WorkspaceInspector({
-	actionContext,
-	details,
+	commandContext,
 	document,
-	editor,
+	session,
 	onTabChange,
-	organization,
-	tags,
+	slots,
 	tab,
 }: {
-	actionContext: Parameters<typeof getAvailableEditorActions>[0];
-	details?: React.ReactNode;
+	commandContext: EditorCommandContext;
 	document: RichTextDocument;
-	editor: Editor | null;
+	session: EditorSession | null;
 	onTabChange: (tab: InspectorTab) => void;
-	organization?: React.ReactNode;
-	tags?: React.ReactNode;
+	slots?: InspectorSlots;
 	tab: InspectorTab;
 }) {
 	const headings = useMemo(() => extractDocumentHeadings(document), [document]);
 	const references = useMemo(() => getDocumentReferences(document), [document]);
-	const actions = useMemo(
-		() => getAvailableEditorActions(actionContext),
-		[actionContext],
+	const catalog = useMemo(
+		() => createEditorCommandCatalog(commandContext),
+		[commandContext],
 	);
 
 	return (
@@ -367,26 +401,22 @@ function WorkspaceInspector({
 				</TabsList>
 				<TabsContent className="p-3" value="insert">
 					<InsertPanel
-						actions={actions}
-						context={actionContext}
-						editor={editor}
+						commands={catalog.commands("insert")}
+						session={session}
 					/>
 				</TabsContent>
 				<TabsContent className="p-3" value="document">
 					<DocumentPanel
-						details={details}
 						document={document}
-						editor={editor}
+						session={session}
 						headings={headings}
-						organization={organization}
-						tags={tags}
+						slots={slots}
 					/>
 				</TabsContent>
 				<TabsContent className="p-3" value="references">
 					<ReferencesPanel
-						actions={actions}
-						context={actionContext}
-						editor={editor}
+						catalog={catalog}
+						session={session}
 						references={references}
 					/>
 				</TabsContent>
@@ -396,58 +426,22 @@ function WorkspaceInspector({
 }
 
 function InsertPanel({
-	actions,
-	context,
-	editor,
+	commands,
+	session,
 }: {
-	actions: ReturnType<typeof getAvailableEditorActions>;
-	context: Parameters<typeof getAvailableEditorActions>[0];
-	editor: Editor | null;
+	commands: readonly EditorCommand[];
+	session: EditorSession | null;
 }) {
-	const items: {
-		description: string;
-		id: EditorActionId;
-		icon: typeof Table2Icon;
-		label: string;
-	}[] = [
-		{
-			description: "Insert a table into your document",
-			icon: Table2Icon,
-			id: "table",
-			label: "Table",
-		},
-		{
-			description: "Add a visual section divider",
-			icon: MinusIcon,
-			id: "divider",
-			label: "Divider",
-		},
-		{
-			description: "Insert a Scripture reference",
-			icon: BookOpenIcon,
-			id: "bible",
-			label: "Bible Passage",
-		},
-		{
-			description: "Add a citation or source",
-			icon: QuoteIcon,
-			id: "citation",
-			label: "Citation",
-		},
-	];
-	const available = new Set(actions.map((action) => action.id));
 	return (
-		<div className="grid gap-1">
-			{items
-				.filter((item) => available.has(item.id))
-				.map(({ description, icon: Icon, id, label }) => (
+		<div className="grid gap-1.5">
+			{commands.map((command) => {
+				const Icon = insertCommandIcon(command.id);
+				return (
 					<button
-						className="flex items-start gap-2 rounded-md border border-border/70 bg-muted/20 px-3 py-3 text-left transition-colors hover:bg-muted disabled:opacity-40"
-						disabled={!editor}
-						key={id}
-						onClick={() =>
-							editor && void executeEditorAction(editor, id, context)
-						}
+						className="flex items-start gap-2 rounded-sm border border-border/70 bg-background px-3 py-2.5 text-left transition-colors hover:border-primary/30 hover:bg-secondary/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-40"
+						disabled={!session}
+						key={command.id}
+						onClick={() => session && void command.execute(session)}
 						type="button"
 					>
 						<Icon
@@ -455,53 +449,45 @@ function InsertPanel({
 							className="mt-0.5 size-4 text-muted-foreground"
 						/>
 						<span className="grid flex-1 gap-0.5">
-							<span className="font-medium text-foreground text-xs">
-								{label}
+							<span className="font-medium text-foreground text-sm">
+								{command.label}
 							</span>
-							<ChevronRightIcon
-								aria-hidden="true"
-								className="mt-1 size-3.5 text-muted-foreground"
-							/>
 							<span className="text-muted-foreground text-xs">
-								{description}
+								{command.description}
 							</span>
 						</span>
 					</button>
-				))}
-			<div className="flex items-start gap-2 rounded-md border border-border/70 bg-muted/20 px-3 py-3 text-left">
-				<EllipsisIcon
-					aria-hidden="true"
-					className="mt-0.5 size-4 text-muted-foreground"
-				/>
-				<span className="grid flex-1 gap-0.5">
-					<span className="font-medium text-foreground text-xs">More</span>
-					<span className="text-muted-foreground text-xs">
-						Explore more insert options
-					</span>
-				</span>
-				<ChevronRightIcon
-					aria-hidden="true"
-					className="mt-1 size-3.5 text-muted-foreground"
-				/>
-			</div>
+				);
+			})}
 		</div>
 	);
 }
 
+function insertCommandIcon(id: EditorCommand["id"]) {
+	switch (id) {
+		case "table":
+			return Table2Icon;
+		case "divider":
+			return MinusIcon;
+		case "bible":
+			return BookOpenIcon;
+		case "citation":
+			return QuoteIcon;
+		default:
+			return Table2Icon;
+	}
+}
+
 function DocumentPanel({
-	details,
 	document,
-	editor,
+	session,
 	headings,
-	organization,
-	tags,
+	slots,
 }: {
-	details?: React.ReactNode;
 	document: RichTextDocument;
-	editor: Editor | null;
+	session: EditorSession | null;
 	headings: ReturnType<typeof extractDocumentHeadings>;
-	organization?: React.ReactNode;
-	tags?: React.ReactNode;
+	slots?: InspectorSlots;
 }) {
 	return (
 		<div className="space-y-5 text-xs">
@@ -511,7 +497,7 @@ function DocumentPanel({
 						<button
 							className="block w-full truncate rounded-sm py-1 text-left hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
 							key={heading.id}
-							onClick={() => focusHeading(editor, index)}
+							onClick={() => session?.focusHeading(index)}
 							style={{ paddingLeft: `${(heading.level - 2) * 12}px` }}
 							type="button"
 						>
@@ -522,11 +508,13 @@ function DocumentPanel({
 					<Empty>Headings will appear here.</Empty>
 				)}
 			</Section>
-			{tags ? <Section title="Tags">{tags}</Section> : null}
-			{organization ? (
-				<Section title="Organization">{organization}</Section>
+			{slots?.tags ? <Section title="Tags">{slots.tags}</Section> : null}
+			{slots?.organization ? (
+				<Section title="Organization">{slots.organization}</Section>
 			) : null}
-			{details ? <Section title="Details">{details}</Section> : null}
+			{slots?.details ? (
+				<Section title="Details">{slots.details}</Section>
+			) : null}
 			<Section title="Statistics">
 				<dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-muted-foreground">
 					<dt>Words</dt>
@@ -548,24 +536,23 @@ function DocumentPanel({
 }
 
 function ReferencesPanel({
-	actions,
-	context,
-	editor,
+	catalog,
+	session,
 	references,
 }: {
-	actions: ReturnType<typeof getAvailableEditorActions>;
-	context: Parameters<typeof getAvailableEditorActions>[0];
-	editor: Editor | null;
+	catalog: EditorCommandCatalog;
+	session: EditorSession | null;
 	references: ReturnType<typeof getDocumentReferences>;
 }) {
-	const available = new Set(actions.map((action) => action.id));
+	const bibleCommand = catalog.find("bible");
+	const citationCommand = catalog.find("citation");
 	return (
 		<div className="space-y-5 text-xs">
 			<Section title="Scripture">
 				{references.bibleReferences.length ? (
 					references.bibleReferences.map((reference, index) => (
 						<ReferenceRow
-							editor={editor}
+							session={session}
 							index={index}
 							key={`${reference.passageId}-${index}`}
 							label={reference.label}
@@ -576,12 +563,12 @@ function ReferencesPanel({
 					<Empty>No Scripture references.</Empty>
 				)}
 			</Section>
-			{available.has("citation") ? (
+			{citationCommand ? (
 				<Section title="Citations">
 					{references.citations.length ? (
 						references.citations.map((citation, index) => (
 							<ReferenceRow
-								editor={editor}
+								session={session}
 								index={index}
 								key={`${citation.citationId}-${index}`}
 								label={`[${citation.label}]`}
@@ -594,21 +581,11 @@ function ReferencesPanel({
 				</Section>
 			) : null}
 			<div className="grid gap-1">
-				{available.has("bible") ? (
-					<ActionButton
-						action="bible"
-						context={context}
-						editor={editor}
-						label="Add Bible reference"
-					/>
+				{bibleCommand ? (
+					<ActionButton command={bibleCommand} session={session} />
 				) : null}
-				{available.has("citation") ? (
-					<ActionButton
-						action="citation"
-						context={context}
-						editor={editor}
-						label="Add citation"
-					/>
+				{citationCommand ? (
+					<ActionButton command={citationCommand} session={session} />
 				) : null}
 			</div>
 		</div>
@@ -633,36 +610,30 @@ function Empty({ children }: { children: React.ReactNode }) {
 	return <p className="text-muted-foreground">{children}</p>;
 }
 function ActionButton({
-	action,
-	context,
-	editor,
-	label,
+	command,
+	session,
 }: {
-	action: EditorActionId;
-	context: Parameters<typeof getAvailableEditorActions>[0];
-	editor: Editor | null;
-	label: string;
+	command: EditorCommand;
+	session: EditorSession | null;
 }) {
 	return (
 		<button
 			className="rounded-sm px-2 py-1 text-left text-primary hover:bg-primary/10 disabled:opacity-40"
-			disabled={!editor}
-			onClick={() =>
-				editor && void executeEditorAction(editor, action, context)
-			}
+			disabled={!session}
+			onClick={() => session && void command.execute(session)}
 			type="button"
 		>
-			{label}
+			Add {command.label.toLowerCase()}
 		</button>
 	);
 }
 function ReferenceRow({
-	editor,
+	session,
 	index,
 	label,
 	type,
 }: {
-	editor: Editor | null;
+	session: EditorSession | null;
 	index: number;
 	label: string;
 	type: "bibleReference" | "citation";
@@ -671,8 +642,8 @@ function ReferenceRow({
 		<div className="flex items-center gap-1 rounded-sm hover:bg-muted">
 			<button
 				className="min-w-0 flex-1 truncate px-2 py-1 text-left disabled:opacity-40"
-				disabled={!editor}
-				onClick={() => focusStructuredNode(editor, type, index)}
+				disabled={!session}
+				onClick={() => session?.focusStructuredNode(type, index)}
 				type="button"
 			>
 				{label}
@@ -680,54 +651,12 @@ function ReferenceRow({
 			<button
 				aria-label={`Remove ${label}`}
 				className="px-2 py-1 text-destructive text-xs hover:bg-destructive/10 disabled:opacity-40"
-				disabled={!editor}
-				onClick={() => removeStructuredNode(editor, type, index)}
+				disabled={!session}
+				onClick={() => session?.deleteStructuredNode(type, index)}
 				type="button"
 			>
 				Remove
 			</button>
 		</div>
 	);
-}
-function focusHeading(editor: Editor | null, index: number) {
-	const position = findNodePosition(editor, "heading", index);
-	if (position !== null)
-		editor
-			?.chain()
-			.focus()
-			.setTextSelection(position + 1)
-			.scrollIntoView()
-			.run();
-}
-function focusStructuredNode(
-	editor: Editor | null,
-	type: "bibleReference" | "citation",
-	index: number,
-) {
-	const position = findNodePosition(editor, type, index);
-	if (position !== null)
-		editor?.chain().focus().setNodeSelection(position).scrollIntoView().run();
-}
-
-function removeStructuredNode(
-	editor: Editor | null,
-	type: "bibleReference" | "citation",
-	index: number,
-) {
-	const position = findNodePosition(editor, type, index);
-	if (position !== null)
-		editor?.chain().focus().setNodeSelection(position).deleteSelection().run();
-}
-function findNodePosition(editor: Editor | null, type: string, index: number) {
-	if (!editor) return null;
-	let found = 0;
-	let position: number | null = null;
-	editor.state.doc.descendants((node, pos) => {
-		if (node.type.name !== type) return;
-		if (found++ === index) {
-			position = pos;
-			return false;
-		}
-	});
-	return position;
 }

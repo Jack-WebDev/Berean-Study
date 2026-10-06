@@ -5,6 +5,7 @@ import {
 	createRichTextExtensions,
 	transformPastedHtml,
 } from "./editor-extensions";
+import { createEditorSession } from "./editor-session";
 import { EditorToolbar } from "./editor-toolbar";
 import { richTextContentClassName } from "./rich-text-content-styles";
 import { SlashCommandMenu } from "./slash-command-menu";
@@ -18,7 +19,7 @@ export function RichTextEditor({
 	footer,
 	id,
 	onChange,
-	onEditorReady,
+	onSessionReady,
 	onRequestBibleReference,
 	onRequestCitation,
 	placeholder = "Start writing…",
@@ -48,16 +49,20 @@ export function RichTextEditor({
 			transformPastedHTML: transformPastedHtml,
 		},
 	});
+	const session = useMemo(
+		() => (editor ? createEditorSession(editor) : null),
+		[editor],
+	);
 
 	useEffect(() => {
 		if (editor) editor.setEditable(editable);
 	}, [editable, editor]);
 
 	useEffect(() => {
-		if (!editor) return;
-		onEditorReady?.(editor);
-		return () => onEditorReady?.(null);
-	}, [editor, onEditorReady]);
+		if (!session) return;
+		onSessionReady?.(session);
+		return () => onSessionReady?.(null);
+	}, [onSessionReady, session]);
 
 	useEffect(() => {
 		const nextDocument = normalizeRichTextDocument(value);
@@ -65,12 +70,12 @@ export function RichTextEditor({
 		editor.commands.setContent(nextDocument, { emitUpdate: false });
 	}, [editor, value]);
 
-	if (!editor) return null;
+	if (!editor || !session) return null;
 
 	return (
 		<section
 			className={[
-				"relative overflow-hidden rounded-md border border-border bg-card text-card-foreground",
+				"relative overflow-hidden rounded-lg border border-border bg-card text-card-foreground shadow-sm transition-[border-color,box-shadow] focus-within:border-primary/45 focus-within:ring-4 focus-within:ring-primary/8",
 				className,
 			]
 				.filter(Boolean)
@@ -78,7 +83,7 @@ export function RichTextEditor({
 		>
 			{editable ? (
 				<EditorToolbar
-					editor={editor}
+					session={session}
 					onRequestBibleReference={onRequestBibleReference}
 					onRequestCitation={
 						preset === "contributor" ? onRequestCitation : undefined
@@ -97,7 +102,7 @@ export function RichTextEditor({
 			) : null}
 			{editable ? (
 				<SlashCommandMenu
-					editor={editor}
+					session={session}
 					onRequestBibleReference={onRequestBibleReference}
 					onRequestCitation={
 						preset === "contributor" ? onRequestCitation : undefined
