@@ -39,7 +39,7 @@ export function RichTextRenderer({
 	if (!editor) return null;
 
 	return (
-		<section className="overflow-hidden rounded-md border border-border bg-card text-card-foreground">
+		<section className="overflow-hidden rounded-lg border border-border bg-card text-card-foreground shadow-sm">
 			<EditorContent
 				className={richTextReaderContentClassName}
 				editor={editor}

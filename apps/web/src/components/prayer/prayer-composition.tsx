@@ -218,20 +218,29 @@ export function NewPrayerPage() {
 									ariaLabel="Prayer content"
 									contentClassName="[&_.ProseMirror]:min-h-96"
 									editable
-									editorHeader={
-										<>
-											<PrayerEditorHeader
-												category={composition.draft.category}
-												onCategoryChange={composition.setCategory}
-												onTitleChange={composition.setTitle}
-												title={composition.draft.title}
-											/>
-											<PrayerContentHeading
-												editorMode={editorMode}
-												onModeChange={setEditorMode}
-											/>
-										</>
-									}
+									slots={{
+										editorHeader: (
+											<>
+												<PrayerEditorHeader
+													category={composition.draft.category}
+													onCategoryChange={composition.setCategory}
+													onTitleChange={composition.setTitle}
+													title={composition.draft.title}
+												/>
+												<PrayerContentHeading
+													editorMode={editorMode}
+													onModeChange={setEditorMode}
+												/>
+											</>
+										),
+										focusedHeader: {
+											status: composition.isSaving
+												? "Saving…"
+												: "Unsaved changes",
+											title: composition.draft.title || "Untitled prayer",
+										},
+										inspector: { organization: <PrayerOrganization /> },
+									}}
 									footer={
 										<div className="note-editor-footer">
 											<span>/ Type / for commands...</span>
@@ -240,15 +249,8 @@ export function NewPrayerPage() {
 											</span>
 										</div>
 									}
-									focusedModeStatus={
-										composition.isSaving ? "Saving…" : "Unsaved changes"
-									}
-									focusedModeTitle={
-										composition.draft.title || "Untitled prayer"
-									}
 									id="prayer-content"
 									onChange={composition.setContent}
-									organization={<PrayerOrganization />}
 									placeholder="Write your prayer…"
 									presentation="composer"
 									preset="member"
@@ -391,16 +393,20 @@ function EditPrayerEditor({
 								ariaLabel="Prayer content"
 								contentClassName="[&_.ProseMirror]:min-h-96"
 								editable
-								editorHeader={
-									<PrayerEditorHeader
-										category={composition.draft.category}
-										onCategoryChange={composition.setCategory}
-										onTitleChange={composition.setTitle}
-										title={composition.draft.title}
-										titlePresentation="edit"
-									/>
-								}
-								focusedModeTitle={composition.draft.title || "Untitled prayer"}
+								slots={{
+									editorHeader: (
+										<PrayerEditorHeader
+											category={composition.draft.category}
+											onCategoryChange={composition.setCategory}
+											onTitleChange={composition.setTitle}
+											title={composition.draft.title}
+											titlePresentation="edit"
+										/>
+									),
+									focusedHeader: {
+										title: composition.draft.title || "Untitled prayer",
+									},
+								}}
 								onChange={composition.setContent}
 								placeholder="Write your prayer…"
 								presentation="composer"

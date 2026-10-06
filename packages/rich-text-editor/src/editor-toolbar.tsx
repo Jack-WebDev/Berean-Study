@@ -7,15 +7,24 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@berean-study/ui/components/dialog";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuGroup,
+	DropdownMenuItem,
+	DropdownMenuLabel,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "@berean-study/ui/components/dropdown-menu";
 import { Input } from "@berean-study/ui/components/input";
-import type { Editor } from "@tiptap/core";
-import { useEditorState } from "@tiptap/react";
 import {
 	AlignCenterIcon,
 	AlignLeftIcon,
 	AlignRightIcon,
 	BoldIcon,
 	BookOpenIcon,
+	ChevronDownIcon,
+	EllipsisIcon,
 	ItalicIcon,
 	LinkIcon,
 	ListIcon,
@@ -29,312 +38,322 @@ import {
 	UnderlineIcon,
 	Undo2Icon,
 } from "lucide-react";
-import { type FormEvent, type ReactNode, useRef, useState } from "react";
+import { type FormEvent, type ReactNode, useMemo, useState } from "react";
 
 import {
 	type CitationRequest,
-	type EditorActionContext,
-	executeEditorAction,
+	createEditorCommandCatalog,
+	type EditorCommand,
 	type ReferenceRequest,
 } from "./editor-actions";
+import {
+	type EditorSession,
+	type EditorSessionState,
+	useEditorSessionState,
+} from "./editor-session";
 import type { RichTextEditorPreset } from "./types";
 
-type ToolbarState = {
-	activeAlignment: "left" | "center" | "right" | null;
-	activeBlock: "blockquote" | "bulletList" | "orderedList" | null;
-	activeHeading: 2 | 3 | null;
-	canRedo: boolean;
-	canUndo: boolean;
-	isBold: boolean;
-	isBibleReference: boolean;
-	isCitation: boolean;
-	isItalic: boolean;
-	isLink: boolean;
-	isStrike: boolean;
-	isUnderline: boolean;
-	isTable: boolean;
-};
-
 export function EditorToolbar({
-	editor,
+	session,
 	onRequestBibleReference,
 	onRequestCitation,
 	preset,
 }: {
-	editor: Editor;
+	session: EditorSession;
 	onRequestBibleReference?: ReferenceRequest;
 	onRequestCitation?: CitationRequest;
 	preset: RichTextEditorPreset;
 }) {
-	const actionContext: EditorActionContext = {
-		onRequestBibleReference,
-		onRequestCitation,
-		preset,
-	};
-	const state = useEditorState({
-		editor,
-		selector: ({ editor: currentEditor }): ToolbarState => ({
-			activeAlignment: getActiveAlignment(currentEditor),
-			activeBlock: getActiveBlock(currentEditor),
-			activeHeading: getActiveHeading(currentEditor),
-			canRedo: currentEditor.can().redo(),
-			canUndo: currentEditor.can().undo(),
-			isBold: currentEditor.isActive("bold"),
-			isBibleReference: currentEditor.isActive("bibleReference"),
-			isCitation: currentEditor.isActive("citation"),
-			isItalic: currentEditor.isActive("italic"),
-			isLink: currentEditor.isActive("link"),
-			isStrike: currentEditor.isActive("strike"),
-			isUnderline: currentEditor.isActive("underline"),
-			isTable: currentEditor.isActive("table"),
-		}),
-	});
+	const catalog = useMemo(
+		() =>
+			createEditorCommandCatalog({
+				onRequestBibleReference,
+				onRequestCitation,
+				preset,
+			}),
+		[onRequestBibleReference, onRequestCitation, preset],
+	);
+	const blockCommands = catalog.commands("block");
+	const structureCommands = catalog.commands("structure");
+	const insertCommands = catalog.commands("insert");
+	const state = useEditorSessionState(session);
 
 	return (
 		<div
-			aria-label="Rich text formatting"
-			className="flex flex-nowrap items-center gap-0.5 overflow-x-auto border-border border-b bg-muted/35 px-2 py-1.5"
+			aria-label="Writing tools"
+			className="flex flex-wrap items-center gap-1 border-border border-b bg-secondary/45 px-2 py-2"
 			role="toolbar"
 		>
-			<select
-				aria-label="Block format"
-				className="h-7 rounded-sm border border-input bg-background px-2 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-				onChange={(event) =>
-					void executeEditorAction(
-						editor,
-						blockFormatAction(event.target.value),
-						actionContext,
-					)
-				}
-				value={blockFormatValue(state.activeHeading)}
-			>
-				<option value="paragraph">Paragraph</option>
-				<option value="heading-2">Heading 2</option>
-				<option value="heading-3">Heading 3</option>
-			</select>
-			<ToolbarSeparator />
-			<ToolbarButton
-				active={state.isBold}
-				label="Bold"
-				onClick={() => editor.chain().focus().toggleBold().run()}
-			>
-				<BoldIcon aria-hidden="true" />
-			</ToolbarButton>
-			<ToolbarButton
-				active={state.isItalic}
-				label="Italic"
-				onClick={() => editor.chain().focus().toggleItalic().run()}
-			>
-				<ItalicIcon aria-hidden="true" />
-			</ToolbarButton>
-			<ToolbarButton
-				active={state.isUnderline}
-				label="Underline"
-				onClick={() => editor.chain().focus().toggleUnderline().run()}
-			>
-				<UnderlineIcon aria-hidden="true" />
-			</ToolbarButton>
-			<ToolbarButton
-				active={state.isStrike}
-				label="Strikethrough"
-				onClick={() => editor.chain().focus().toggleStrike().run()}
-			>
-				<StrikethroughIcon aria-hidden="true" />
-			</ToolbarButton>
-			<ToolbarSeparator />
-			<ToolbarButton
-				active={state.activeAlignment === "left"}
-				label="Align left"
-				onClick={() => editor.chain().focus().setTextAlign("left").run()}
-			>
-				<AlignLeftIcon aria-hidden="true" />
-			</ToolbarButton>
-			<ToolbarButton
-				active={state.activeAlignment === "center"}
-				label="Align center"
-				onClick={() => editor.chain().focus().setTextAlign("center").run()}
-			>
-				<AlignCenterIcon aria-hidden="true" />
-			</ToolbarButton>
-			<ToolbarButton
-				active={state.activeAlignment === "right"}
-				label="Align right"
-				onClick={() => editor.chain().focus().setTextAlign("right").run()}
-			>
-				<AlignRightIcon aria-hidden="true" />
-			</ToolbarButton>
-			<ToolbarSeparator />
-			<ToolbarButton
-				active={state.activeBlock === "bulletList"}
-				label="Bulleted list"
-				onClick={() =>
-					void executeEditorAction(editor, "bullet", actionContext)
-				}
-			>
-				<ListIcon aria-hidden="true" />
-			</ToolbarButton>
-			<ToolbarButton
-				active={state.activeBlock === "orderedList"}
-				label="Numbered list"
-				onClick={() =>
-					void executeEditorAction(editor, "numbered", actionContext)
-				}
-			>
-				<ListOrderedIcon aria-hidden="true" />
-			</ToolbarButton>
-			<ToolbarButton
-				active={state.activeBlock === "blockquote"}
-				label="Blockquote"
-				onClick={() => void executeEditorAction(editor, "quote", actionContext)}
-			>
-				<QuoteIcon aria-hidden="true" />
-			</ToolbarButton>
-			<LinkControl active={state.isLink} editor={editor} />
-			<ToolbarButton
-				label="Insert horizontal divider"
-				onClick={() =>
-					void executeEditorAction(editor, "divider", actionContext)
-				}
-			>
-				<MinusIcon aria-hidden="true" />
-			</ToolbarButton>
-			<TableControls
-				actionContext={actionContext}
-				editor={editor}
-				isTable={state.isTable}
+			<ToolbarGroup label="Text style">
+				<select
+					aria-label="Text style"
+					className="h-7 min-w-25 rounded-sm bg-transparent px-2 text-xs outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50"
+					onChange={(event) => {
+						const command = catalog.find(event.target.value);
+						if (command) void command.execute(session);
+					}}
+					value={blockFormatValue(state.activeHeading)}
+				>
+					{blockCommands.map((command) => (
+						<option key={command.id} value={command.id}>
+							{command.label}
+						</option>
+					))}
+				</select>
+				<ToolbarButton
+					active={state.isBold}
+					label="Bold"
+					onClick={() => session.toggleMark("bold")}
+				>
+					<BoldIcon aria-hidden="true" />
+				</ToolbarButton>
+				<ToolbarButton
+					active={state.isItalic}
+					label="Italic"
+					onClick={() => session.toggleMark("italic")}
+				>
+					<ItalicIcon aria-hidden="true" />
+				</ToolbarButton>
+				<ToolbarButton
+					active={state.isUnderline}
+					label="Underline"
+					onClick={() => session.toggleMark("underline")}
+				>
+					<UnderlineIcon aria-hidden="true" />
+				</ToolbarButton>
+				<ToolbarButton
+					active={state.isStrike}
+					label="Strikethrough"
+					onClick={() => session.toggleMark("strike")}
+				>
+					<StrikethroughIcon aria-hidden="true" />
+				</ToolbarButton>
+				<LinkControl active={state.isLink} session={session} />
+			</ToolbarGroup>
+
+			<ToolbarGroup label="Structure">
+				{structureCommands.map((command) => {
+					const Icon = structureCommandIcon(command.id);
+					return (
+						<ToolbarButton
+							active={isStructureCommandActive(command.id, state.activeBlock)}
+							key={command.id}
+							label={command.label}
+							onClick={() => void command.execute(session)}
+						>
+							<Icon aria-hidden="true" />
+						</ToolbarButton>
+					);
+				})}
+			</ToolbarGroup>
+
+			<InsertMenu
+				commands={insertCommands}
+				session={session}
+				isBibleReference={state.isBibleReference}
+				isCitation={state.isCitation}
 			/>
-			{onRequestBibleReference ? (
+			<MoreMenu session={session} isTable={state.isTable} />
+			<div className="ml-auto flex items-center gap-0.5">
 				<ToolbarButton
-					active={state.isBibleReference}
-					label={
-						state.isBibleReference
-							? "Replace Bible reference"
-							: "Insert Bible reference"
-					}
-					onClick={() =>
-						void executeEditorAction(editor, "bible", actionContext)
-					}
+					disabled={!state.canUndo}
+					label="Undo"
+					onClick={session.undo}
 				>
-					<BookOpenIcon aria-hidden="true" />
+					<Undo2Icon aria-hidden="true" />
 				</ToolbarButton>
-			) : null}
-			{preset === "contributor" && onRequestCitation ? (
 				<ToolbarButton
-					active={state.isCitation}
-					label={state.isCitation ? "Replace citation" : "Insert citation"}
-					onClick={() =>
-						void executeEditorAction(editor, "citation", actionContext)
-					}
+					disabled={!state.canRedo}
+					label="Redo"
+					onClick={session.redo}
 				>
-					<QuoteIcon aria-hidden="true" />
+					<Redo2Icon aria-hidden="true" />
 				</ToolbarButton>
-			) : null}
-			<ToolbarSeparator />
-			<ToolbarButton
-				disabled={!state.canUndo}
-				label="Undo"
-				onClick={() => editor.chain().focus().undo().run()}
-			>
-				<Undo2Icon aria-hidden="true" />
-			</ToolbarButton>
-			<ToolbarButton
-				disabled={!state.canRedo}
-				label="Redo"
-				onClick={() => editor.chain().focus().redo().run()}
-			>
-				<Redo2Icon aria-hidden="true" />
-			</ToolbarButton>
+			</div>
 		</div>
 	);
 }
 
-function TableControls({
-	actionContext,
-	editor,
+function InsertMenu({
+	commands,
+	session,
+	isBibleReference,
+	isCitation,
+}: {
+	commands: readonly EditorCommand[];
+	session: EditorSession;
+	isBibleReference: boolean;
+	isCitation: boolean;
+}) {
+	return (
+		<DropdownMenu>
+			<DropdownMenuTrigger
+				aria-label="Insert content"
+				className="inline-flex h-7 items-center gap-1 rounded-sm border border-border/70 bg-background/70 px-2 font-medium text-xs outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50"
+			>
+				Insert <ChevronDownIcon aria-hidden="true" className="size-3" />
+			</DropdownMenuTrigger>
+			<DropdownMenuContent className="w-52 p-1" sideOffset={6}>
+				<DropdownMenuGroup>
+					<DropdownMenuLabel>
+						Bring something into your writing
+					</DropdownMenuLabel>
+					{commands.map((command) => {
+						const Icon = insertCommandIcon(command.id);
+						return (
+							<EditorMenuItem
+								active={
+									(command.id === "bible" && isBibleReference) ||
+									(command.id === "citation" && isCitation)
+								}
+								icon={Icon}
+								key={command.id}
+								label={insertCommandLabel(command, {
+									isBibleReference,
+									isCitation,
+								})}
+								onSelect={() => void command.execute(session)}
+							/>
+						);
+					})}
+				</DropdownMenuGroup>
+			</DropdownMenuContent>
+		</DropdownMenu>
+	);
+}
+
+function MoreMenu({
+	session,
 	isTable,
 }: {
-	actionContext: EditorActionContext;
-	editor: Editor;
+	session: EditorSession;
 	isTable: boolean;
 }) {
 	return (
-		<div className="flex items-center gap-0.5">
-			<ToolbarButton
-				label="Insert table"
-				onClick={() => void executeEditorAction(editor, "table", actionContext)}
+		<DropdownMenu>
+			<DropdownMenuTrigger
+				aria-label="More writing tools"
+				className="inline-flex size-7 items-center justify-center rounded-sm text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
 			>
-				<Table2Icon aria-hidden="true" />
-			</ToolbarButton>
-			{isTable ? (
-				<details className="relative">
-					<summary className="flex h-7 cursor-pointer list-none items-center rounded-sm px-1.5 text-xs hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
-						Table
-					</summary>
-					<div className="absolute top-8 right-0 z-10 grid w-48 gap-1 rounded-md border border-border bg-popover p-2 shadow-md">
-						<TableMenuButton
-							label="Add row"
-							onClick={() => editor.chain().focus().addRowAfter().run()}
-						/>
-						<TableMenuButton
-							label="Remove row"
-							onClick={() => editor.chain().focus().deleteRow().run()}
-						/>
-						<TableMenuButton
-							label="Add column"
-							onClick={() => editor.chain().focus().addColumnAfter().run()}
-						/>
-						<TableMenuButton
-							label="Remove column"
-							onClick={() => editor.chain().focus().deleteColumn().run()}
-						/>
-						<TableMenuButton
-							label="Toggle header row"
-							onClick={() => editor.chain().focus().toggleHeaderRow().run()}
-						/>
-						<TableMenuButton
-							label="Toggle header column"
-							onClick={() => editor.chain().focus().toggleHeaderColumn().run()}
-						/>
-						<TableMenuButton
-							destructive
-							label="Delete table"
-							onClick={() => editor.chain().focus().deleteTable().run()}
-						/>
-					</div>
-				</details>
-			) : null}
-		</div>
+				<EllipsisIcon aria-hidden="true" className="size-4" />
+			</DropdownMenuTrigger>
+			<DropdownMenuContent className="w-48 p-1" sideOffset={6}>
+				<DropdownMenuGroup>
+					<DropdownMenuLabel>Paragraph alignment</DropdownMenuLabel>
+					<EditorMenuItem
+						icon={AlignLeftIcon}
+						label="Align left"
+						onSelect={() => session.setTextAlignment("left")}
+					/>
+					<EditorMenuItem
+						icon={AlignCenterIcon}
+						label="Align center"
+						onSelect={() => session.setTextAlignment("center")}
+					/>
+					<EditorMenuItem
+						icon={AlignRightIcon}
+						label="Align right"
+						onSelect={() => session.setTextAlignment("right")}
+					/>
+				</DropdownMenuGroup>
+				{isTable ? <TableMenu session={session} /> : null}
+			</DropdownMenuContent>
+		</DropdownMenu>
 	);
 }
 
-function TableMenuButton({
+function TableMenu({ session }: { session: EditorSession }) {
+	return (
+		<>
+			<DropdownMenuSeparator className="my-1" />
+			<DropdownMenuGroup>
+				<DropdownMenuLabel>Table</DropdownMenuLabel>
+				<EditorMenuItem
+					label="Add row"
+					onSelect={() => session.updateTable("addRow")}
+				/>
+				<EditorMenuItem
+					label="Remove row"
+					onSelect={() => session.updateTable("deleteRow")}
+				/>
+				<EditorMenuItem
+					label="Add column"
+					onSelect={() => session.updateTable("addColumn")}
+				/>
+				<EditorMenuItem
+					label="Remove column"
+					onSelect={() => session.updateTable("deleteColumn")}
+				/>
+				<EditorMenuItem
+					label="Toggle header row"
+					onSelect={() => session.updateTable("toggleHeaderRow")}
+				/>
+				<EditorMenuItem
+					label="Toggle header column"
+					onSelect={() => session.updateTable("toggleHeaderColumn")}
+				/>
+				<EditorMenuItem
+					destructive
+					icon={Trash2Icon}
+					label="Delete table"
+					onSelect={() => session.updateTable("delete")}
+				/>
+			</DropdownMenuGroup>
+		</>
+	);
+}
+
+function EditorMenuItem({
+	active = false,
 	destructive = false,
+	icon: Icon,
 	label,
-	onClick,
+	onSelect,
 }: {
+	active?: boolean;
 	destructive?: boolean;
+	icon?: typeof BoldIcon;
 	label: string;
-	onClick: () => void;
+	onSelect: () => void;
 }) {
 	return (
-		<button
-			className={`rounded-sm px-2 py-1 text-left text-xs hover:bg-muted ${destructive ? "text-destructive" : ""}`}
-			onClick={onClick}
-			type="button"
+		<DropdownMenuItem
+			onClick={onSelect}
+			variant={destructive ? "destructive" : "default"}
 		>
-			{destructive ? (
-				<Trash2Icon aria-hidden="true" className="mr-1 inline size-3" />
-			) : null}
-			{label}
-		</button>
+			{Icon ? <Icon aria-hidden="true" /> : null}
+			<span className={active ? "font-semibold" : undefined}>{label}</span>
+		</DropdownMenuItem>
 	);
 }
 
-function LinkControl({ active, editor }: { active: boolean; editor: Editor }) {
+function ToolbarGroup({
+	children,
+	label,
+}: {
+	children: ReactNode;
+	label: string;
+}) {
+	return (
+		<fieldset
+			aria-label={label}
+			className="m-0 flex min-w-0 items-center gap-0.5 rounded-sm border border-border/65 bg-background/70 p-0.5"
+		>
+			{children}
+		</fieldset>
+	);
+}
+
+function LinkControl({
+	active,
+	session,
+}: {
+	active: boolean;
+	session: EditorSession;
+}) {
 	const [open, setOpen] = useState(false);
 	const [href, setHref] = useState("");
 	const [error, setError] = useState<string | null>(null);
-	const selectionRef = useRef({ from: 0, to: 0 });
 	const close = () => {
 		setError(null);
 		setOpen(false);
@@ -346,41 +365,23 @@ function LinkControl({ active, editor }: { active: boolean; editor: Editor }) {
 			setError("Enter a valid http, https, or mailto link.");
 			return;
 		}
-		editor
-			.chain()
-			.setTextSelection(selectionRef.current)
-			.focus()
-			.extendMarkRange("link")
-			.setLink({ href: normalizedHref })
-			.run();
+		session.applyLink(normalizedHref);
 		close();
 	};
-
 	return (
 		<>
 			<ToolbarButton
 				active={active}
 				label="Add or edit link"
 				onClick={() => {
-					selectionRef.current = {
-						from: editor.state.selection.from,
-						to: editor.state.selection.to,
-					};
-					setHref(
-						(editor.getAttributes("link").href as string | undefined) ?? "",
-					);
+					setHref(session.getLinkHref());
 					setError(null);
 					setOpen(true);
 				}}
 			>
 				<LinkIcon aria-hidden="true" />
 			</ToolbarButton>
-			<Dialog
-				onOpenChange={(nextOpen) => {
-					if (!nextOpen) close();
-				}}
-				open={open}
-			>
+			<Dialog onOpenChange={(nextOpen) => !nextOpen && close()} open={open}>
 				<DialogContent>
 					<DialogHeader>
 						<DialogTitle>Add link</DialogTitle>
@@ -407,12 +408,7 @@ function LinkControl({ active, editor }: { active: boolean; editor: Editor }) {
 							{active ? (
 								<Button
 									onClick={() => {
-										editor
-											.chain()
-											.setTextSelection(selectionRef.current)
-											.focus()
-											.unsetLink()
-											.run();
+										session.removeLink();
 										close();
 									}}
 									type="button"
@@ -450,6 +446,7 @@ function ToolbarButton({
 			className="inline-flex size-7 shrink-0 items-center justify-center rounded-sm text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-40 aria-pressed:bg-primary aria-pressed:text-primary-foreground [&_svg]:size-3.5"
 			disabled={disabled}
 			onClick={onClick}
+			title={label}
 			type="button"
 		>
 			{children}
@@ -457,29 +454,60 @@ function ToolbarButton({
 	);
 }
 
-function ToolbarSeparator() {
+function blockFormatValue(activeHeading: 2 | 3 | null) {
+	return activeHeading ? `heading${activeHeading}` : "paragraph";
+}
+
+function isStructureCommandActive(
+	id: EditorCommand["id"],
+	activeBlock: EditorSessionState["activeBlock"],
+) {
 	return (
-		<span aria-hidden="true" className="mx-1 h-5 w-px shrink-0 bg-border" />
+		(id === "bullet" && activeBlock === "bulletList") ||
+		(id === "numbered" && activeBlock === "orderedList") ||
+		(id === "quote" && activeBlock === "blockquote")
 	);
 }
-function blockFormatValue(activeHeading: 2 | 3 | null) {
-	return activeHeading ? `heading-${activeHeading}` : "paragraph";
+
+function structureCommandIcon(id: EditorCommand["id"]) {
+	switch (id) {
+		case "bullet":
+			return ListIcon;
+		case "numbered":
+			return ListOrderedIcon;
+		case "quote":
+			return QuoteIcon;
+		default:
+			return QuoteIcon;
+	}
 }
-function getActiveAlignment(editor: Editor): ToolbarState["activeAlignment"] {
-	for (const alignment of ["left", "center", "right"] as const)
-		if (editor.isActive({ textAlign: alignment })) return alignment;
-	return null;
+
+function insertCommandIcon(id: EditorCommand["id"]) {
+	switch (id) {
+		case "table":
+			return Table2Icon;
+		case "divider":
+			return MinusIcon;
+		case "bible":
+			return BookOpenIcon;
+		case "citation":
+			return QuoteIcon;
+		default:
+			return Table2Icon;
+	}
 }
-function getActiveBlock(editor: Editor): ToolbarState["activeBlock"] {
-	for (const block of ["blockquote", "bulletList", "orderedList"] as const)
-		if (editor.isActive(block)) return block;
-	return null;
+
+function insertCommandLabel(
+	command: EditorCommand,
+	state: { isBibleReference: boolean; isCitation: boolean },
+) {
+	if (command.id === "bible" && state.isBibleReference)
+		return `Replace ${command.label.toLowerCase()}`;
+	if (command.id === "citation" && state.isCitation)
+		return `Replace ${command.label.toLowerCase()}`;
+	return command.label;
 }
-function getActiveHeading(editor: Editor): 2 | 3 | null {
-	if (editor.isActive("heading", { level: 2 })) return 2;
-	if (editor.isActive("heading", { level: 3 })) return 3;
-	return null;
-}
+
 function normalizeLink(value: string) {
 	const trimmed = value.trim();
 	if (!trimmed) return null;
@@ -493,11 +521,4 @@ function normalizeLink(value: string) {
 	} catch {
 		return null;
 	}
-}
-function blockFormatAction(
-	value: string,
-): "paragraph" | "heading2" | "heading3" {
-	if (value === "heading-2") return "heading2";
-	if (value === "heading-3") return "heading3";
-	return "paragraph";
 }

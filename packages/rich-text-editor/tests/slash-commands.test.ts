@@ -1,28 +1,28 @@
 import { describe, expect, it } from "vitest";
 
 import {
-	filterEditorActions,
-	getAvailableEditorActions,
+	createEditorCommandCatalog,
+	filterEditorCommands,
 } from "../src/editor-actions";
 import { getNextCommandIndex } from "../src/slash-commands";
 
 describe("slash commands", () => {
 	it("filters actions by query and preset capabilities", () => {
-		const memberActions = getAvailableEditorActions({ preset: "member" });
-		expect(memberActions.map((action) => action.id)).not.toContain("citation");
-		expect(memberActions.map((action) => action.id)).not.toContain("bible");
+		const memberCatalog = createEditorCommandCatalog({ preset: "member" });
+		expect(memberCatalog.has("citation")).toBe(false);
+		expect(memberCatalog.has("bible")).toBe(false);
 
-		const contributorActions = getAvailableEditorActions({
+		const contributorCatalog = createEditorCommandCatalog({
 			onRequestBibleReference: () => ({ label: "John 3:16", passageId: 316 }),
 			onRequestCitation: () => ({ citationId: 1, label: "1" }),
 			preset: "contributor",
 		});
-		expect(contributorActions.map((action) => action.id)).toEqual(
+		expect(contributorCatalog.commands().map((command) => command.id)).toEqual(
 			expect.arrayContaining(["bible", "citation"]),
 		);
 		expect(
-			filterEditorActions(contributorActions, "head").map(
-				(action) => action.id,
+			filterEditorCommands(contributorCatalog.commands(), "head").map(
+				(command) => command.id,
 			),
 		).toEqual(["heading2", "heading3"]);
 	});

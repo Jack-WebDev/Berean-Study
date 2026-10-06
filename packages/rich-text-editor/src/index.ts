@@ -19,10 +19,21 @@ export {
 	isRichTextDocument,
 	normalizeRichTextDocument,
 } from "./document-validation";
+export type {
+	EditorCommand,
+	EditorCommandCatalog,
+	EditorCommandContext,
+	EditorCommandGroup,
+	EditorCommandId,
+} from "./editor-actions";
 export {
+	createEditorCommandCatalog,
+	executeEditorAction,
 	filterEditorActions,
+	filterEditorCommands,
 	getAvailableEditorActions,
 } from "./editor-actions";
+export type { EditorSession } from "./editor-session";
 export { sanitizePastedHtml } from "./paste-sanitization";
 export {
 	getPersistedRichTextExcerpt,
@@ -42,6 +53,7 @@ export type {
 	RichTextEditorPreset,
 	RichTextEditorProps,
 	RichTextEditorWorkspaceProps,
+	RichTextEditorWorkspaceSlots,
 	RichTextNode,
 	RichTextRendererProps,
 	RichTextSelectionResult,
