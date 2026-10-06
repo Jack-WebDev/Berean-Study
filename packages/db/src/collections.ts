@@ -54,6 +54,20 @@ export async function listCollections(db: DbClient, userId: string) {
 		.orderBy(desc(collections.updatedAt), desc(collections.id));
 }
 
+/** Lists the user's collections that accept notes, including empty collections. */
+export async function listCollectionsForNotes(db: DbClient, userId: string) {
+	return db
+		.select({ id: collections.id, name: collections.name })
+		.from(collections)
+		.where(
+			and(
+				eq(collections.userId, userId),
+				sql`${collections.allowedContent} @> ARRAY['notes']::text[]`,
+			),
+		)
+		.orderBy(collections.name);
+}
+
 /** Returns one private collection when it belongs to the supplied user. */
 export async function getCollection(
 	db: DbClient,
@@ -255,7 +269,19 @@ export async function setCollectionsForNote(
 	);
 
 	await db.transaction(async (tx) => {
-		await tx.delete(collectionNotes).where(eq(collectionNotes.noteId, noteId));
+		const ownedCollectionIds = tx
+			.select({ id: collections.id })
+			.from(collections)
+			.where(eq(collections.userId, userId));
+
+		await tx
+			.delete(collectionNotes)
+			.where(
+				and(
+					eq(collectionNotes.noteId, noteId),
+					inArray(collectionNotes.collectionId, ownedCollectionIds),
+				),
+			);
 		if (uniqueCollectionIds.length > 0) {
 			await tx
 				.insert(collectionNotes)
@@ -318,8 +344,8 @@ export async function listCollectionNotes(
 		.select(collectionNoteSelection)
 		.from(collectionNotes)
 		.innerJoin(notes, eq(notes.id, collectionNotes.noteId))
-		.innerJoin(passages, eq(passages.id, notes.passageId))
-		.innerJoin(books, eq(books.id, passages.bookId))
+		.leftJoin(passages, eq(passages.id, notes.passageId))
+		.leftJoin(books, eq(books.id, passages.bookId))
 		.where(
 			and(
 				eq(collectionNotes.collectionId, collectionId),

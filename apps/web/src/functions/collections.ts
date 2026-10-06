@@ -6,6 +6,7 @@ import {
 	listCollectionNotes as listCollectionNotesFromDb,
 	listCollectionPassages as listCollectionPassagesFromDb,
 	listCollectionsForNote as listCollectionsForNoteFromDb,
+	listCollectionsForNotes as listCollectionsForNotesFromDb,
 	listCollectionsForPassage as listCollectionsForPassageFromDb,
 	listCollections as listCollectionsFromDb,
 	removeNoteFromCollection as removeNoteFromCollectionInDb,
@@ -42,6 +43,12 @@ export const listCollections = createServerFn({ method: "GET" })
 	.middleware([authMiddleware])
 	.handler(({ context }) =>
 		listCollectionsFromDb(db, requireUserId(context.session)),
+	);
+
+export const listCollectionsForNotes = createServerFn({ method: "GET" })
+	.middleware([authMiddleware])
+	.handler(({ context }) =>
+		listCollectionsForNotesFromDb(db, requireUserId(context.session)),
 	);
 
 export const getCollection = createServerFn({ method: "GET" })

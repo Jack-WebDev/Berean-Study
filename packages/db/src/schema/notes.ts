@@ -10,7 +10,6 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
-import { userNoteCollections } from "./note_collections";
 import { passages } from "./passages";
 
 export const notes = pgTable(
@@ -25,11 +24,6 @@ export const notes = pgTable(
 		passageId: integer("passage_id").references(() => passages.id, {
 			onDelete: "restrict",
 		}),
-
-		collectionId: integer("collection_id").references(
-			() => userNoteCollections.id,
-			{ onDelete: "set null" },
-		),
 
 		title: text().notNull().default(""),
 

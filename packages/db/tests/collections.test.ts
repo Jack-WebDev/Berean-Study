@@ -4,11 +4,17 @@ import { and, eq, inArray } from "drizzle-orm";
 import { afterAll, describe, expect, it } from "vitest";
 
 import { db, pool } from "../src";
-import { setCollectionsForPassage } from "../src/collections";
+import {
+	setCollectionsForNote,
+	setCollectionsForPassage,
+} from "../src/collections";
+import { listNotes } from "../src/notes";
 import { user } from "../src/schema/auth";
 import { books } from "../src/schema/books";
+import { collectionNotes } from "../src/schema/collection_notes";
 import { collectionPassages } from "../src/schema/collection_passages";
 import { collections } from "../src/schema/collections";
+import { notes } from "../src/schema/notes";
 import { passages } from "../src/schema/passages";
 
 const describeWithDatabase = process.env.DATABASE_URL
@@ -120,6 +126,81 @@ describeWithDatabase("passage collection memberships", () => {
 			if (bookId) {
 				await db.delete(books).where(eq(books.id, bookId));
 			}
+		}
+	});
+});
+
+describeWithDatabase("note collection memberships", () => {
+	it("allows a note in multiple owned collections and filters by each collection", async () => {
+		const suffix = randomUUID();
+		const userId = `note-collection-test-${suffix}`;
+
+		try {
+			await db.insert(user).values({
+				email: `note-collection-test-${suffix}@example.test`,
+				id: userId,
+				name: "Note collection test user",
+			});
+
+			const [firstCollection, secondCollection] = await db
+				.insert(collections)
+				.values([
+					{
+						allowedContent: ["notes"],
+						coverId: "open-bible",
+						name: "First note collection",
+						normalizedName: "first note collection",
+						userId,
+					},
+					{
+						allowedContent: ["notes"],
+						coverId: "open-bible",
+						name: "Second note collection",
+						normalizedName: "second note collection",
+						userId,
+					},
+				])
+				.returning({ id: collections.id });
+			if (!firstCollection || !secondCollection) {
+				throw new Error("Unable to create test collections.");
+			}
+
+			const [note] = await db
+				.insert(notes)
+				.values({ content: "A collection membership test note", userId })
+				.returning({ id: notes.id });
+			if (!note) throw new Error("Unable to create a test note.");
+
+			await setCollectionsForNote(db, userId, note.id, [
+				firstCollection.id,
+				secondCollection.id,
+			]);
+
+			const memberships = await db
+				.select({ collectionId: collectionNotes.collectionId })
+				.from(collectionNotes)
+				.where(eq(collectionNotes.noteId, note.id));
+			expect(memberships.map((membership) => membership.collectionId)).toEqual(
+				expect.arrayContaining([firstCollection.id, secondCollection.id]),
+			);
+
+			const notesInFirstCollection = await listNotes(db, userId, {
+				collectionId: firstCollection.id,
+				sort: "updated-desc",
+			});
+			const notesInSecondCollection = await listNotes(db, userId, {
+				collectionId: secondCollection.id,
+				sort: "updated-desc",
+			});
+
+			expect(
+				notesInFirstCollection.map((storedNote) => storedNote.id),
+			).toContain(note.id);
+			expect(
+				notesInSecondCollection.map((storedNote) => storedNote.id),
+			).toContain(note.id);
+		} finally {
+			await db.delete(user).where(eq(user.id, userId));
 		}
 	});
 });
