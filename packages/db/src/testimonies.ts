@@ -1,6 +1,11 @@
+import type { RichTextDocument } from "@berean-study/rich-text-editor/document";
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 
 import type { db } from "./index";
+import {
+	parseStoredRichText,
+	serializeRichTextDocument,
+} from "./rich-text-storage";
 import { communityPosts } from "./schema/community_posts";
 import { passages } from "./schema/passages";
 import { testimonies } from "./schema/testimonies";
@@ -11,7 +16,7 @@ import { testimonyPrayers } from "./schema/testimony_prayers";
 type DbClient = typeof db;
 
 export type Testimony = {
-	content: string;
+	content: RichTextDocument;
 	createdAt: Date;
 	id: number;
 	passages: { id: number; title: string | null }[];
@@ -25,14 +30,18 @@ export type Testimony = {
 export async function createTestimony(
 	db: DbClient,
 	userId: string,
-	input: { content: string; title: string },
+	input: { content: RichTextDocument; title: string },
 ) {
 	const [testimony] = await db
 		.insert(testimonies)
-		.values({ ...input, userId })
+		.values({
+			...input,
+			content: serializeRichTextDocument(input.content),
+			userId,
+		})
 		.returning();
 	if (!testimony) throw new Error("Unable to create testimony.");
-	return testimony;
+	return toTestimonyDocument(testimony);
 }
 
 export async function getTestimony(db: DbClient, userId: string, id: number) {
@@ -40,20 +49,24 @@ export async function getTestimony(db: DbClient, userId: string, id: number) {
 		.select()
 		.from(testimonies)
 		.where(and(eq(testimonies.id, id), eq(testimonies.userId, userId)));
-	return testimony ?? null;
+	return testimony ? toTestimonyDocument(testimony) : null;
 }
 
 export async function updateTestimony(
 	db: DbClient,
 	userId: string,
-	input: { content: string; id: number; title: string },
+	input: { content: RichTextDocument; id: number; title: string },
 ) {
 	const [testimony] = await db
 		.update(testimonies)
-		.set({ content: input.content, title: input.title, updatedAt: new Date() })
+		.set({
+			content: serializeRichTextDocument(input.content),
+			title: input.title,
+			updatedAt: new Date(),
+		})
 		.where(and(eq(testimonies.id, input.id), eq(testimonies.userId, userId)))
 		.returning();
-	return testimony ?? null;
+	return testimony ? toTestimonyDocument(testimony) : null;
 }
 
 export async function listTestimonies(db: DbClient, userId: string) {
@@ -117,12 +130,18 @@ export async function listTestimonies(db: DbClient, userId: string) {
 		shared.flatMap((post) => (post.testimonyId ? [post.testimonyId] : [])),
 	);
 	return rows.map((testimony) => ({
-		...testimony,
+		...toTestimonyDocument(testimony),
 		passages: passagesByTestimony.get(testimony.id) ?? [],
 		prayerCount: prayerCounts.get(testimony.id) ?? 0,
 		noteCount: noteCounts.get(testimony.id) ?? 0,
 		sharedToCommunity: sharedIds.has(testimony.id),
 	}));
+}
+
+function toTestimonyDocument<TestimonyRow extends { content: string }>(
+	testimony: TestimonyRow,
+) {
+	return { ...testimony, content: parseStoredRichText(testimony.content) };
 }
 
 function countByTestimony(rows: { testimonyId: number }[]) {

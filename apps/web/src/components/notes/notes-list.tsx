@@ -1,4 +1,7 @@
-import { getPersistedRichTextText } from "@berean-study/rich-text-editor";
+import {
+	getDocumentText,
+	type RichTextDocument,
+} from "@berean-study/rich-text-editor";
 import { Button } from "@berean-study/ui/components/button";
 import {
 	Empty,
@@ -140,6 +143,6 @@ export function passageLabel(note: Note) {
 	return note.passageTitle ?? note.bookName ?? "Unlinked note";
 }
 
-function notePreview(content: string) {
-	return getPersistedRichTextText(content);
+function notePreview(content: RichTextDocument) {
+	return getDocumentText(content);
 }

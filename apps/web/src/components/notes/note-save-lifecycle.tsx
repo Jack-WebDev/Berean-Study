@@ -7,6 +7,8 @@ import { Spinner } from "@berean-study/ui/components/spinner";
 import { CheckIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { saveNote } from "@/functions/notes";
+
 export type NoteFormValues = {
 	content: RichTextDocument;
 	passageId: string;
@@ -14,9 +16,45 @@ export type NoteFormValues = {
 	title: string;
 };
 
-type AutosaveStatus = "idle" | "saving" | "saved" | "failed";
+export type SavedNote = NonNullable<Awaited<ReturnType<typeof saveNote>>>;
+export type NoteSaveStatus = "idle" | "saving" | "saved" | "failed";
 
 const AUTOSAVE_DELAY_MS = 5000;
+
+/**
+ * Keeps every save for one note in order and turns a newly created note into
+ * subsequent updates. Pages only decide what to do after a save succeeds.
+ */
+export function useNoteSaveLifecycle(initialNoteId?: number) {
+	const noteId = useRef<number | undefined>(initialNoteId);
+	const saveQueue = useRef<Promise<void>>(Promise.resolve());
+
+	const save = useCallback((values: NoteFormValues): Promise<SavedNote> => {
+		const nextSave = saveQueue.current.then(async () => {
+			const savedNote = await saveNote({
+				data: {
+					content: values.content,
+					id: noteId.current,
+					passageId: values.passageId ? Number(values.passageId) : null,
+					tags: values.tags,
+					title: values.title.trim(),
+				},
+			});
+			if (!savedNote) throw new Error("Note not found.");
+
+			noteId.current = savedNote.id;
+			return savedNote;
+		});
+
+		saveQueue.current = nextSave.then(
+			() => undefined,
+			() => undefined,
+		);
+		return nextSave;
+	}, []);
+
+	return { save };
+}
 
 export function NoteAutosaveStatus({
 	initialValues,
@@ -27,11 +65,11 @@ export function NoteAutosaveStatus({
 }: {
 	initialValues: NoteFormValues;
 	isManualSaveInProgress: boolean;
-	onSave: (values: NoteFormValues) => Promise<void>;
-	onStatusChange?: (status: AutosaveStatus) => void;
+	onSave: (values: NoteFormValues) => Promise<unknown>;
+	onStatusChange?: (status: NoteSaveStatus) => void;
 	values: NoteFormValues;
 }) {
-	const [status, setStatus] = useState<AutosaveStatus>("saved");
+	const [status, setStatus] = useState<NoteSaveStatus>("saved");
 	const lastSavedValues = useRef(initialValues);
 	const latestValues = useRef(values);
 	const requestId = useRef(0);

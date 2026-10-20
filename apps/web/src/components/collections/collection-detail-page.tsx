@@ -1,6 +1,6 @@
 "use client";
 
-import { getPersistedRichTextText } from "@berean-study/rich-text-editor";
+import { getDocumentText } from "@berean-study/rich-text-editor";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -50,9 +50,7 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import {
 	deleteCollection,
-	getCollection,
-	listCollectionNotes,
-	listCollectionPassages,
+	getCollectionDetail,
 	removeNoteFromCollection,
 } from "@/functions/collections";
 import { deleteNote } from "@/functions/notes";
@@ -69,11 +67,10 @@ const collectionViews = [
 ] as const;
 
 type CollectionView = (typeof collectionViews)[number]["value"];
-type Collection = Awaited<ReturnType<typeof getCollection>>;
-type CollectionNote = Awaited<ReturnType<typeof listCollectionNotes>>[number];
-type CollectionPassage = Awaited<
-	ReturnType<typeof listCollectionPassages>
->[number];
+type CollectionDetail = Awaited<ReturnType<typeof getCollectionDetail>>;
+type LoadedCollectionDetail = NonNullable<CollectionDetail>;
+type CollectionNote = LoadedCollectionDetail["notes"][number];
+type CollectionPassage = LoadedCollectionDetail["passages"][number];
 
 export function CollectionDetailPage({
 	collectionId,
@@ -81,9 +78,7 @@ export function CollectionDetailPage({
 	collectionId: number;
 }) {
 	const [activeView, setActiveView] = useState<CollectionView>("all");
-	const [collection, setCollection] = useState<Collection | undefined>(
-		undefined,
-	);
+	const [detail, setDetail] = useState<CollectionDetail | undefined>(undefined);
 	const [hasLoadError, setHasLoadError] = useState(false);
 	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 	const [isDeletingCollection, setIsDeletingCollection] = useState(false);
@@ -91,26 +86,13 @@ export function CollectionDetailPage({
 		string | null
 	>(null);
 	const [isEditSheetOpen, setIsEditSheetOpen] = useState(false);
-	const [notes, setNotes] = useState<CollectionNote[] | undefined>(undefined);
-	const [passages, setPassages] = useState<CollectionPassage[] | undefined>(
-		undefined,
-	);
 	const navigate = useNavigate();
 
 	const loadCollection = useCallback(async () => {
 		setHasLoadError(false);
-		setCollection(undefined);
-		setNotes(undefined);
-		setPassages(undefined);
+		setDetail(undefined);
 		try {
-			const [nextCollection, nextNotes, nextPassages] = await Promise.all([
-				getCollection({ data: { id: collectionId } }),
-				listCollectionNotes({ data: { id: collectionId } }),
-				listCollectionPassages({ data: { id: collectionId } }),
-			]);
-			setCollection(nextCollection);
-			setNotes(nextNotes);
-			setPassages(nextPassages);
+			setDetail(await getCollectionDetail({ data: { id: collectionId } }));
 		} catch {
 			setHasLoadError(true);
 		}
@@ -130,15 +112,11 @@ export function CollectionDetailPage({
 		);
 	}
 
-	if (
-		collection === undefined ||
-		notes === undefined ||
-		passages === undefined
-	) {
+	if (detail === undefined) {
 		return <CollectionDetailSkeleton />;
 	}
 
-	if (collection === null) {
+	if (detail === null) {
 		return (
 			<CollectionDetailState
 				description="It may have been deleted or is no longer available."
@@ -147,6 +125,7 @@ export function CollectionDetailPage({
 		);
 	}
 
+	const { collection, notes, passages } = detail;
 	const summary = toCollectionSummary(collection);
 	const activeViewLabel = collectionViews.find(
 		(view) => view.value === activeView,
@@ -166,15 +145,25 @@ export function CollectionDetailPage({
 			data: { id: collectionId, noteId },
 		});
 		if (!removed) throw new Error("Note membership not found.");
-		setNotes((currentNotes) =>
-			currentNotes?.filter((note) => note.id !== noteId),
+		setDetail((currentDetail) =>
+			currentDetail
+				? {
+						...currentDetail,
+						notes: currentDetail.notes.filter((note) => note.id !== noteId),
+					}
+				: currentDetail,
 		);
 	};
 	const deleteCollectionNote = async (noteId: number) => {
 		const deleted = await deleteNote({ data: { id: noteId } });
 		if (!deleted) throw new Error("Note not found.");
-		setNotes((currentNotes) =>
-			currentNotes?.filter((note) => note.id !== noteId),
+		setDetail((currentDetail) =>
+			currentDetail
+				? {
+						...currentDetail,
+						notes: currentDetail.notes.filter((note) => note.id !== noteId),
+					}
+				: currentDetail,
 		);
 	};
 	const confirmDeleteCollection = async () => {
@@ -314,7 +303,7 @@ export function CollectionDetailPage({
 						>
 							{collectionViews.map((view) => (
 								<ToggleGroupItem
-									className="h-9 rounded-full px-4 data-[pressed]:bg-primary data-[pressed]:text-primary-foreground"
+									className="h-9 rounded-full px-4 data-pressed:bg-primary data-pressed:text-primary-foreground"
 									key={view.value}
 									value={view.value}
 								>
@@ -373,7 +362,11 @@ export function CollectionDetailPage({
 					collection={collection}
 					key={collection.id}
 					onUpdated={(updatedCollection) => {
-						setCollection(updatedCollection);
+						setDetail((currentDetail) =>
+							currentDetail
+								? { ...currentDetail, collection: updatedCollection }
+								: currentDetail,
+						);
 						setIsEditSheetOpen(false);
 					}}
 				/>
@@ -527,7 +520,7 @@ function CollectionNotes({
 								{note.passageTitle ?? note.bookName ?? "Unlinked note"}
 							</p>
 							<p className="mt-1 line-clamp-3 whitespace-pre-wrap text-muted-foreground text-sm leading-6">
-								{getPersistedRichTextText(note.content)}
+								{getDocumentText(note.content)}
 							</p>
 						</div>
 						<DropdownMenu>
@@ -604,7 +597,7 @@ function CollectionDetailState({
 }) {
 	return (
 		<div className="min-h-full bg-background px-5 py-8 text-foreground sm:px-8 sm:py-10 lg:px-10">
-			<main className="mx-auto w-full max-w-[77.5rem]">
+			<main className="mx-auto w-full max-w-310">
 				<Link
 					className="inline-flex items-center gap-2 font-medium text-primary text-xs hover:underline"
 					to="/library/collections"
@@ -645,7 +638,7 @@ function CollectionDetailSkeleton() {
 			<span className="sr-only">Loading collection</span>
 			<main
 				aria-hidden="true"
-				className="mx-auto flex w-full max-w-[77.5rem] flex-col gap-6"
+				className="mx-auto flex w-full max-w-310 flex-col gap-6"
 			>
 				<Skeleton className="h-4 w-24 rounded-md" />
 				<Skeleton className="h-64 w-full rounded-2xl sm:h-72 lg:h-80" />

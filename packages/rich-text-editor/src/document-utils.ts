@@ -1,5 +1,5 @@
 import type { JSONContent } from "@tiptap/core";
-import type { RichTextDocument } from "./types";
+import type { RichTextDocument } from "./document-types";
 
 export type DocumentHeading = { id: string; level: 2 | 3; text: string };
 

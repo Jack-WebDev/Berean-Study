@@ -50,7 +50,10 @@ import { getPassageOptions } from "@/functions/passages";
 import {
 	NoteAutosaveStatus,
 	type NoteFormValues,
-} from "./note-autosave-status";
+	type NoteSaveStatus,
+	type SavedNote,
+	useNoteSaveLifecycle,
+} from "./note-save-lifecycle";
 
 type PassageOption = Awaited<ReturnType<typeof getPassageOptions>>[number];
 type NoteEditorMode = "preview" | "write";
@@ -70,18 +73,18 @@ const noteFormSchema = z.object({
 });
 
 export function NoteForm({
+	initialNoteId,
 	initialValues,
 	onCancel,
-	onAutosave,
 	onSaveDraft,
 	onSubmit,
 	submitLabel,
 }: {
+	initialNoteId?: number;
 	initialValues: NoteFormValues;
 	onCancel: () => void;
-	onAutosave?: (values: NoteFormValues) => Promise<void>;
-	onSaveDraft: (values: NoteFormValues) => Promise<void>;
-	onSubmit: (values: NoteFormValues) => Promise<void>;
+	onSaveDraft: (note: SavedNote, values: NoteFormValues) => Promise<void>;
+	onSubmit: (note: SavedNote, values: NoteFormValues) => Promise<void>;
 	submitLabel: string;
 }) {
 	const [passages, setPassages] = useState<PassageOption[] | null>(null);
@@ -89,61 +92,23 @@ export function NoteForm({
 	const [submitError, setSubmitError] = useState<string | null>(null);
 	const [discardDialogOpen, setDiscardDialogOpen] = useState(false);
 	const [editorMode, setEditorMode] = useState<NoteEditorMode>("write");
-	const [autosaveStatus, setAutosaveStatus] = useState<
-		"idle" | "saving" | "saved" | "failed"
-	>("saved");
+	const [autosaveStatus, setAutosaveStatus] = useState<NoteSaveStatus>("saved");
 	const [bibleReferencePickerOpen, setBibleReferencePickerOpen] =
 		useState(false);
 	const bibleReferenceResolver = useRef<
 		((reference: { label: string; passageId: number } | null) => void) | null
 	>(null);
-	const onSubmitRef = useRef(onSubmit);
-	const onAutosaveRef = useRef(onAutosave);
-	const onSaveDraftRef = useRef(onSaveDraft);
-	const saveQueue = useRef(Promise.resolve());
-	useEffect(() => {
-		onSubmitRef.current = onSubmit;
-	}, [onSubmit]);
-	useEffect(() => {
-		onAutosaveRef.current = onAutosave;
-	}, [onAutosave]);
-	useEffect(() => {
-		onSaveDraftRef.current = onSaveDraft;
-	}, [onSaveDraft]);
-	const enqueueSave = useCallback(
-		(
-			save: (values: NoteFormValues) => Promise<void>,
-			values: NoteFormValues,
-		) => {
-			const nextSave = saveQueue.current
-				.catch(() => undefined)
-				.then(() => save(values));
-			saveQueue.current = nextSave;
-			return nextSave;
-		},
-		[],
-	);
-	const queueManualSave = useCallback(
-		(values: NoteFormValues) => enqueueSave(onSubmitRef.current, values),
-		[enqueueSave],
-	);
-	const queueAutosave = useCallback(
-		(values: NoteFormValues) => {
-			const autosave = onAutosaveRef.current;
-			return autosave ? enqueueSave(autosave, values) : Promise.resolve();
-		},
-		[enqueueSave],
-	);
-	const queueDraftSave = useCallback(
-		(values: NoteFormValues) => enqueueSave(onSaveDraftRef.current, values),
-		[enqueueSave],
+	const { save } = useNoteSaveLifecycle(initialNoteId);
+	const saveDraft = useCallback(
+		async (values: NoteFormValues) => onSaveDraft(await save(values), values),
+		[onSaveDraft, save],
 	);
 	const form = useForm({
 		defaultValues: initialValues,
 		onSubmit: async ({ value }) => {
 			setSubmitError(null);
 			try {
-				await queueManualSave(value);
+				await onSubmit(await save(value), value);
 			} catch {
 				setSubmitError("Unable to save your note. Please try again.");
 			}
@@ -384,15 +349,13 @@ export function NoteForm({
 					>
 						{({ canSubmit, isDirty, isSubmitting, values }) => (
 							<div className="note-save-actions">
-								{onAutosave ? (
-									<NoteAutosaveStatus
-										initialValues={initialValues}
-										isManualSaveInProgress={isSubmitting}
-										onSave={queueAutosave}
-										onStatusChange={setAutosaveStatus}
-										values={values}
-									/>
-								) : null}
+								<NoteAutosaveStatus
+									initialValues={initialValues}
+									isManualSaveInProgress={isSubmitting}
+									onSave={save}
+									onStatusChange={setAutosaveStatus}
+									values={values}
+								/>
 								<div className="note-save-buttons">
 									<Button
 										disabled={isSubmitting}
@@ -406,7 +369,7 @@ export function NoteForm({
 									</Button>
 									<Button
 										disabled={!canSubmit || isSubmitting}
-										onClick={() => void queueDraftSave(values)}
+										onClick={() => void saveDraft(values)}
 										type="button"
 										variant="outline"
 									>

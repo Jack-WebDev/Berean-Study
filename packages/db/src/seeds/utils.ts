@@ -1,7 +1,7 @@
-import { serializePersistedRichText } from "@berean-study/rich-text-editor/persistence";
 import { faker } from "@faker-js/faker";
 
 import { db } from "../index";
+import { serializeRichTextDocument } from "../rich-text-storage";
 
 export type SeedContext = {
 	ids: Record<string, Array<number | string>>;
@@ -54,7 +54,7 @@ export function sentence(): string {
 }
 
 export function richTextContent(text: string): string {
-	return serializePersistedRichText({
+	return serializeRichTextDocument({
 		content: [
 			{
 				content: [{ text, type: "text" }],

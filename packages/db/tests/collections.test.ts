@@ -5,8 +5,10 @@ import { afterAll, describe, expect, it } from "vitest";
 
 import { db, pool } from "../src";
 import {
+	getCollectionDetail,
 	setCollectionsForNote,
 	setCollectionsForPassage,
+	updateCollection,
 } from "../src/collections";
 import { listNotes } from "../src/notes";
 import { user } from "../src/schema/auth";
@@ -199,6 +201,92 @@ describeWithDatabase("note collection memberships", () => {
 			expect(
 				notesInSecondCollection.map((storedNote) => storedNote.id),
 			).toContain(note.id);
+		} finally {
+			await db.delete(user).where(eq(user.id, userId));
+		}
+	});
+});
+
+describeWithDatabase("collection details and content policy", () => {
+	it("returns a collection detail with its supported content", async () => {
+		const suffix = randomUUID();
+		const userId = `collection-detail-test-${suffix}`;
+
+		try {
+			await db.insert(user).values({
+				email: `collection-detail-test-${suffix}@example.test`,
+				id: userId,
+				name: "Collection detail test user",
+			});
+			const [collection] = await db
+				.insert(collections)
+				.values({
+					allowedContent: ["notes"],
+					coverId: "open-bible",
+					name: "Collection detail",
+					normalizedName: "collection detail",
+					userId,
+				})
+				.returning({ id: collections.id });
+			const [note] = await db
+				.insert(notes)
+				.values({ content: "A detail note", userId })
+				.returning({ id: notes.id });
+			if (!collection || !note) throw new Error("Unable to create test data.");
+
+			await setCollectionsForNote(db, userId, note.id, [collection.id]);
+
+			const detail = await getCollectionDetail(db, userId, collection.id);
+
+			expect(detail?.collection.id).toBe(collection.id);
+			expect(detail?.notes.map((storedNote) => storedNote.id)).toEqual([
+				note.id,
+			]);
+			expect(detail?.passages).toEqual([]);
+		} finally {
+			await db.delete(user).where(eq(user.id, userId));
+		}
+	});
+
+	it("rejects disabling a content type that still has memberships", async () => {
+		const suffix = randomUUID();
+		const userId = `collection-policy-test-${suffix}`;
+
+		try {
+			await db.insert(user).values({
+				email: `collection-policy-test-${suffix}@example.test`,
+				id: userId,
+				name: "Collection policy test user",
+			});
+			const [collection] = await db
+				.insert(collections)
+				.values({
+					allowedContent: ["notes", "passages"],
+					coverId: "open-bible",
+					name: "Collection policy",
+					normalizedName: "collection policy",
+					userId,
+				})
+				.returning({ id: collections.id });
+			const [note] = await db
+				.insert(notes)
+				.values({ content: "A policy note", userId })
+				.returning({ id: notes.id });
+			if (!collection || !note) throw new Error("Unable to create test data.");
+
+			await setCollectionsForNote(db, userId, note.id, [collection.id]);
+
+			await expect(
+				updateCollection(db, userId, collection.id, {
+					allowedContent: ["passages"],
+					coverId: "open-bible",
+					description: "",
+					name: "Collection policy",
+					tags: [],
+				}),
+			).rejects.toThrow(
+				"Remove the collection's notes before disabling notes.",
+			);
 		} finally {
 			await db.delete(user).where(eq(user.id, userId));
 		}

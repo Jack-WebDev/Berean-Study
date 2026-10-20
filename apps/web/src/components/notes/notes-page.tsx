@@ -1,4 +1,4 @@
-import { getPersistedRichTextText } from "@berean-study/rich-text-editor";
+import { getDocumentText } from "@berean-study/rich-text-editor";
 import { Button } from "@berean-study/ui/components/button";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
@@ -186,7 +186,7 @@ export function NotesPage({
 
 	return (
 		<div className="min-h-full bg-background px-4 py-5 text-foreground sm:px-6 lg:px-8">
-			<div className="mx-auto flex w-full max-w-[90rem] flex-col gap-4">
+			<div className="mx-auto flex w-full max-w-360 flex-col gap-4">
 				<header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
 					<div>
 						<h1 className="font-serif text-3xl tracking-[-0.03em] sm:text-[2.45rem]">
@@ -329,7 +329,7 @@ function NotesInsightsRail({
 						</dt>
 						<dd>
 							{note
-								? `${getPersistedRichTextText(note.content).split(/\s+/).filter(Boolean).length} words`
+								? `${getDocumentText(note.content).split(/\s+/).filter(Boolean).length} words`
 								: "—"}
 						</dd>
 					</div>

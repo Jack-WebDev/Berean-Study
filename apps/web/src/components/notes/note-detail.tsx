@@ -1,7 +1,4 @@
-import {
-	parsePersistedRichText,
-	RichTextRenderer,
-} from "@berean-study/rich-text-editor";
+import { RichTextRenderer } from "@berean-study/rich-text-editor";
 import {
 	Alert,
 	AlertDescription,
@@ -147,7 +144,7 @@ export function NoteDetail({
 			<div className="notes-note-content">
 				<RichTextRenderer
 					ariaLabel="Note content"
-					document={parsePersistedRichText(note.content)}
+					document={note.content}
 					preset="member"
 				/>
 			</div>

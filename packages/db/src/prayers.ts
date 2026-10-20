@@ -1,6 +1,11 @@
+import type { RichTextDocument } from "@berean-study/rich-text-editor/document";
 import { and, asc, count, desc, eq, ilike, inArray, or } from "drizzle-orm";
 
 import type { db } from "./index";
+import {
+	parseStoredRichText,
+	serializeRichTextDocument,
+} from "./rich-text-storage";
 import { prayerPassages } from "./schema/prayer_passages";
 import { prayerReflections } from "./schema/prayer_reflections";
 import { prayers } from "./schema/prayers";
@@ -11,7 +16,7 @@ export type PrayerVisibility = "private" | "public";
 
 export type CreatePrayerInput = {
 	category?: string | null;
-	content: string;
+	content: RichTextDocument;
 	passageId?: number | null;
 	title: string;
 };
@@ -19,7 +24,7 @@ export type UpdatePrayerInput = CreatePrayerInput & { id: number };
 
 export type PrayerSummary = {
 	category: string | null;
-	content: string;
+	content: RichTextDocument;
 	createdAt: Date;
 	id: number;
 	passageId: number | null;
@@ -29,7 +34,7 @@ export type PrayerSummary = {
 };
 
 export type PrayerReflection = {
-	content: string;
+	content: RichTextDocument;
 	createdAt: Date;
 	id: number;
 	prayerId: number;
@@ -38,7 +43,7 @@ export type PrayerReflection = {
 export type LibraryReflection = PrayerReflection & {
 	prayer: {
 		category: string | null;
-		content: string;
+		content: RichTextDocument;
 		createdAt: Date;
 		id: number;
 		title: string;
@@ -78,7 +83,7 @@ export async function listPrayers(db: DbClient, userId: string) {
 	);
 
 	return rows.map((prayer) => ({
-		...prayer,
+		...toPrayerDocument(prayer),
 		passageId: passageIds.get(prayer.id) ?? null,
 		reflectionCount: reflectionCounts.get(prayer.id) ?? 0,
 	}));
@@ -114,7 +119,7 @@ export async function getPrayer(db: DbClient, userId: string, id: number) {
 	]);
 
 	return {
-		...prayer,
+		...toPrayerDocument(prayer),
 		passageId: passage?.passageId ?? null,
 		reflectionCount: reflections.length,
 		reflections,
@@ -131,7 +136,7 @@ export async function updatePrayer(
 			.update(prayers)
 			.set({
 				category: input.category,
-				content: input.content,
+				content: serializeRichTextDocument(input.content),
 				title: input.title,
 			})
 			.where(and(eq(prayers.id, input.id), eq(prayers.userId, userId)))
@@ -165,7 +170,7 @@ export async function createPrayer(
 			.insert(prayers)
 			.values({
 				category: input.category,
-				content: input.content,
+				content: serializeRichTextDocument(input.content),
 				title: input.title,
 				userId,
 			})
@@ -180,7 +185,11 @@ export async function createPrayer(
 
 		return createdPrayer;
 	});
-	return { ...prayer, passageId: input.passageId ?? null, reflectionCount: 0 };
+	return {
+		...toPrayerDocument(prayer),
+		passageId: input.passageId ?? null,
+		reflectionCount: 0,
+	};
 }
 
 export async function listPrayerReflections(
@@ -188,7 +197,7 @@ export async function listPrayerReflections(
 	userId: string,
 	prayerId: number,
 ): Promise<PrayerReflection[]> {
-	return db
+	const reflections = await db
 		.select({
 			content: prayerReflections.content,
 			createdAt: prayerReflections.createdAt,
@@ -201,6 +210,7 @@ export async function listPrayerReflections(
 			and(eq(prayerReflections.prayerId, prayerId), eq(prayers.userId, userId)),
 		)
 		.orderBy(desc(prayerReflections.createdAt), desc(prayerReflections.id));
+	return reflections.map(toPrayerReflectionDocument);
 }
 
 /** Returns a page of reflections with their parent-prayer context. */
@@ -259,13 +269,13 @@ export async function listLibraryReflections(
 	]);
 	return {
 		reflections: rows.map((row) => ({
-			content: row.content,
+			content: parseStoredRichText(row.content),
 			createdAt: row.createdAt,
 			id: row.id,
 			prayerId: row.prayerId,
 			prayer: {
 				category: row.prayerCategory,
-				content: row.prayerContent,
+				content: parseStoredRichText(row.prayerContent),
 				createdAt: row.prayerCreatedAt,
 				id: row.prayerId,
 				title: row.prayerTitle,
@@ -298,13 +308,13 @@ export async function getPrayerReflection(
 				eq(prayers.userId, userId),
 			),
 		);
-	return reflection ?? null;
+	return reflection ? toPrayerReflectionDocument(reflection) : null;
 }
 
 export async function createPrayerReflection(
 	db: DbClient,
 	userId: string,
-	input: { content: string; prayerId: number },
+	input: { content: RichTextDocument; prayerId: number },
 ): Promise<PrayerReflection | null> {
 	const [prayer] = await db
 		.select({ id: prayers.id })
@@ -313,15 +323,18 @@ export async function createPrayerReflection(
 	if (!prayer) return null;
 	const [reflection] = await db
 		.insert(prayerReflections)
-		.values({ content: input.content, prayerId: prayer.id })
+		.values({
+			content: serializeRichTextDocument(input.content),
+			prayerId: prayer.id,
+		})
 		.returning();
-	return reflection ?? null;
+	return reflection ? toPrayerReflectionDocument(reflection) : null;
 }
 
 export async function updatePrayerReflection(
 	db: DbClient,
 	userId: string,
-	input: { content: string; prayerId: number; reflectionId: number },
+	input: { content: RichTextDocument; prayerId: number; reflectionId: number },
 ): Promise<PrayerReflection | null> {
 	const reflection = await getPrayerReflection(
 		db,
@@ -332,10 +345,10 @@ export async function updatePrayerReflection(
 	if (!reflection) return null;
 	const [updated] = await db
 		.update(prayerReflections)
-		.set({ content: input.content })
+		.set({ content: serializeRichTextDocument(input.content) })
 		.where(eq(prayerReflections.id, input.reflectionId))
 		.returning();
-	return updated ?? null;
+	return updated ? toPrayerReflectionDocument(updated) : null;
 }
 
 export async function deletePrayerReflection(
@@ -382,4 +395,14 @@ async function getPassageIds(db: DbClient, prayerIds: number[]) {
 
 function escapeLikePattern(value: string) {
 	return value.replace(/[\\%_]/g, "\\$&");
+}
+
+function toPrayerDocument<Prayer extends { content: string }>(prayer: Prayer) {
+	return { ...prayer, content: parseStoredRichText(prayer.content) };
+}
+
+function toPrayerReflectionDocument<Reflection extends { content: string }>(
+	reflection: Reflection,
+) {
+	return { ...reflection, content: parseStoredRichText(reflection.content) };
 }

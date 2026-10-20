@@ -1,4 +1,4 @@
-import type { EditorSession } from "./editor-session";
+import type { EditorCommandTarget } from "./editor-session";
 import type {
 	BibleReferenceAttributes,
 	CitationAttributes,
@@ -39,7 +39,7 @@ export type EditorCommandGroup = "block" | "structure" | "insert";
 /** A command ready for a UI adapter to present and invoke. */
 export type EditorCommand = {
 	description: string;
-	execute: (session: EditorSession) => Promise<boolean>;
+	execute: (target: EditorCommandTarget) => Promise<boolean>;
 	group: EditorCommandGroup;
 	id: EditorCommandId;
 	keywords: readonly string[];
@@ -54,7 +54,7 @@ export type EditorCommandCatalog = {
 
 type EditorCommandDefinition = Omit<EditorCommand, "execute"> & {
 	execute: (
-		session: EditorSession,
+		target: EditorCommandTarget,
 		context: EditorCommandContext,
 	) => boolean | Promise<boolean>;
 	isAvailable?: (context: EditorCommandContext) => boolean;
@@ -63,7 +63,7 @@ type EditorCommandDefinition = Omit<EditorCommand, "execute"> & {
 const commandDefinitions: readonly EditorCommandDefinition[] = [
 	{
 		description: "Start a standard paragraph.",
-		execute: (session) => session.applyCommand("paragraph"),
+		execute: (target) => target.applyCommand("paragraph"),
 		group: "block",
 		id: "paragraph",
 		keywords: ["text"],
@@ -71,7 +71,7 @@ const commandDefinitions: readonly EditorCommandDefinition[] = [
 	},
 	{
 		description: "Add a section heading.",
-		execute: (session) => session.applyCommand("heading2"),
+		execute: (target) => target.applyCommand("heading2"),
 		group: "block",
 		id: "heading2",
 		keywords: ["heading", "h2"],
@@ -79,7 +79,7 @@ const commandDefinitions: readonly EditorCommandDefinition[] = [
 	},
 	{
 		description: "Add a subsection heading.",
-		execute: (session) => session.applyCommand("heading3"),
+		execute: (target) => target.applyCommand("heading3"),
 		group: "block",
 		id: "heading3",
 		keywords: ["heading", "h3"],
@@ -87,7 +87,7 @@ const commandDefinitions: readonly EditorCommandDefinition[] = [
 	},
 	{
 		description: "Create an unordered list.",
-		execute: (session) => session.applyCommand("bullet"),
+		execute: (target) => target.applyCommand("bullet"),
 		group: "structure",
 		id: "bullet",
 		keywords: ["list", "unordered"],
@@ -95,7 +95,7 @@ const commandDefinitions: readonly EditorCommandDefinition[] = [
 	},
 	{
 		description: "Create an ordered list.",
-		execute: (session) => session.applyCommand("numbered"),
+		execute: (target) => target.applyCommand("numbered"),
 		group: "structure",
 		id: "numbered",
 		keywords: ["list", "ordered"],
@@ -103,7 +103,7 @@ const commandDefinitions: readonly EditorCommandDefinition[] = [
 	},
 	{
 		description: "Set the selected text apart as a quotation.",
-		execute: (session) => session.applyCommand("quote"),
+		execute: (target) => target.applyCommand("quote"),
 		group: "structure",
 		id: "quote",
 		keywords: ["blockquote"],
@@ -111,7 +111,7 @@ const commandDefinitions: readonly EditorCommandDefinition[] = [
 	},
 	{
 		description: "Add a visual section divider.",
-		execute: (session) => session.applyCommand("divider"),
+		execute: (target) => target.applyCommand("divider"),
 		group: "insert",
 		id: "divider",
 		keywords: ["horizontal", "rule"],
@@ -119,7 +119,7 @@ const commandDefinitions: readonly EditorCommandDefinition[] = [
 	},
 	{
 		description: "Insert a table into your document.",
-		execute: (session) => session.applyCommand("table"),
+		execute: (target) => target.applyCommand("table"),
 		group: "insert",
 		id: "table",
 		keywords: ["grid"],
@@ -127,9 +127,9 @@ const commandDefinitions: readonly EditorCommandDefinition[] = [
 	},
 	{
 		description: "Insert a Scripture reference.",
-		execute: async (session, context) => {
+		execute: async (target, context) => {
 			const reference = await context.onRequestBibleReference?.();
-			return reference ? session.insertBibleReference(reference) : false;
+			return reference ? target.insertBibleReference(reference) : false;
 		},
 		group: "insert",
 		id: "bible",
@@ -139,9 +139,9 @@ const commandDefinitions: readonly EditorCommandDefinition[] = [
 	},
 	{
 		description: "Add a citation or source.",
-		execute: async (session, context) => {
+		execute: async (target, context) => {
 			const citation = await context.onRequestCitation?.();
-			return citation ? session.insertCitation(citation) : false;
+			return citation ? target.insertCitation(citation) : false;
 		},
 		group: "insert",
 		id: "citation",
@@ -164,7 +164,7 @@ export function createEditorCommandCatalog(
 		.map<EditorCommand>(
 			({ execute, isAvailable: _isAvailable, ...command }) => ({
 				...command,
-				execute: async (editor) => execute(editor, context),
+				execute: async (target) => execute(target, context),
 			}),
 		);
 
@@ -204,10 +204,10 @@ export function filterEditorActions<T extends EditorCommand>(
 
 /** @deprecated Prefer catalog.find(actionId)?.execute(session). */
 export async function executeEditorAction(
-	session: EditorSession,
+	target: EditorCommandTarget,
 	actionId: EditorCommandId,
 	context: EditorCommandContext,
 ) {
 	const command = createEditorCommandCatalog(context).find(actionId);
-	return command ? command.execute(session) : false;
+	return command ? command.execute(target) : false;
 }

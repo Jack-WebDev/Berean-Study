@@ -47,8 +47,8 @@ import {
 	type ReferenceRequest,
 } from "./editor-actions";
 import {
-	type EditorSession,
 	type EditorSessionState,
+	type EditorToolbarSession,
 	useEditorSessionState,
 } from "./editor-session";
 import type { RichTextEditorPreset } from "./types";
@@ -59,7 +59,7 @@ export function EditorToolbar({
 	onRequestCitation,
 	preset,
 }: {
-	session: EditorSession;
+	session: EditorToolbarSession;
 	onRequestBibleReference?: ReferenceRequest;
 	onRequestCitation?: CitationRequest;
 	preset: RichTextEditorPreset;
@@ -181,7 +181,7 @@ function InsertMenu({
 	isCitation,
 }: {
 	commands: readonly EditorCommand[];
-	session: EditorSession;
+	session: EditorToolbarSession;
 	isBibleReference: boolean;
 	isCitation: boolean;
 }) {
@@ -226,7 +226,7 @@ function MoreMenu({
 	session,
 	isTable,
 }: {
-	session: EditorSession;
+	session: EditorToolbarSession;
 	isTable: boolean;
 }) {
 	return (
@@ -262,7 +262,7 @@ function MoreMenu({
 	);
 }
 
-function TableMenu({ session }: { session: EditorSession }) {
+function TableMenu({ session }: { session: EditorToolbarSession }) {
 	return (
 		<>
 			<DropdownMenuSeparator className="my-1" />
@@ -349,7 +349,7 @@ function LinkControl({
 	session,
 }: {
 	active: boolean;
-	session: EditorSession;
+	session: EditorToolbarSession;
 }) {
 	const [open, setOpen] = useState(false);
 	const [href, setHref] = useState("");

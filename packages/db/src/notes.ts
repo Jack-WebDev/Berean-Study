@@ -1,6 +1,11 @@
+import type { RichTextDocument } from "@berean-study/rich-text-editor/document";
 import { and, asc, count, desc, eq, ilike, inArray, or } from "drizzle-orm";
 
 import type { db } from "./index";
+import {
+	parseStoredRichText,
+	serializeRichTextDocument,
+} from "./rich-text-storage";
 import { books } from "./schema/books";
 import { collectionNotes } from "./schema/collection_notes";
 import { collections } from "./schema/collections";
@@ -11,7 +16,7 @@ import { passages } from "./schema/passages";
 type DbClient = typeof db;
 
 export type CreateNoteInput = {
-	content: string;
+	content: RichTextDocument;
 	passageId?: number | null;
 	title: string;
 };
@@ -107,7 +112,7 @@ export async function listNotes(
 		.where(and(...conditions))
 		.orderBy(desc(notes.updatedAt), desc(notes.id));
 
-	return addTagsToNotes(db, userId, matchingNotes);
+	return addTagsToNotes(db, userId, matchingNotes.map(toNoteDocument));
 }
 
 /** Returns Scripture books that have at least one note owned by the user. */
@@ -160,7 +165,9 @@ export async function getNote(db: DbClient, userId: string, noteId: number) {
 
 	if (!note) return null;
 
-	const [noteWithTags] = await addTagsToNotes(db, userId, [note]);
+	const [noteWithTags] = await addTagsToNotes(db, userId, [
+		toNoteDocument(note),
+	]);
 	return noteWithTags;
 }
 
@@ -250,10 +257,14 @@ export async function createNote(
 
 	const [note] = await db
 		.insert(notes)
-		.values({ ...input, userId })
+		.values({
+			...input,
+			content: serializeRichTextDocument(input.content),
+			userId,
+		})
 		.returning();
-
-	return note;
+	if (!note) throw new Error("Unable to create note.");
+	return toNoteDocument(note);
 }
 
 /** Returns null when a note does not exist or belongs to a different user. */
@@ -269,11 +280,11 @@ export async function updateNote(
 
 	const [note] = await db
 		.update(notes)
-		.set(input)
+		.set({ ...input, content: serializeRichTextDocument(input.content) })
 		.where(and(eq(notes.id, noteId), eq(notes.userId, userId)))
 		.returning();
 
-	return note ?? null;
+	return note ? toNoteDocument(note) : null;
 }
 
 /** Creates or updates a note and replaces its tags as one atomic save. */
@@ -287,6 +298,10 @@ export async function saveNote(
 	}
 
 	const { id, tags: inputTags, ...noteInput } = input;
+	const storedNoteInput = {
+		...noteInput,
+		content: serializeRichTextDocument(noteInput.content),
+	};
 	const tags = normalizeTags(inputTags);
 
 	return db.transaction(async (tx) => {
@@ -294,19 +309,23 @@ export async function saveNote(
 			id === undefined
 				? await tx
 						.insert(notes)
-						.values({ ...noteInput, userId })
+						.values({ ...storedNoteInput, userId })
 						.returning()
 				: await tx
 						.update(notes)
-						.set(noteInput)
+						.set(storedNoteInput)
 						.where(and(eq(notes.id, id), eq(notes.userId, userId)))
 						.returning();
 
 		if (!note) return null;
 
 		await replaceNoteTags(tx, userId, note.id, tags);
-		return note;
+		return toNoteDocument(note);
 	});
+}
+
+function toNoteDocument<Note extends { content: string }>(note: Note) {
+	return { ...note, content: parseStoredRichText(note.content) };
 }
 
 /** Returns false when a note does not exist or belongs to a different user. */

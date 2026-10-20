@@ -1,7 +1,6 @@
 import type { LibraryReflection } from "@berean-study/db/prayers";
 import {
-	getPersistedRichTextExcerpt,
-	parsePersistedRichText,
+	getDocumentText,
 	RichTextRenderer,
 } from "@berean-study/rich-text-editor";
 import {
@@ -435,7 +434,7 @@ function ReflectionRow({
 				</div>
 				<div className="min-w-0 flex-1">
 					<p className="line-clamp-2 font-serif text-sm leading-5">
-						{getPersistedRichTextExcerpt(reflection.content) || "Reflection"}
+						{getDocumentText(reflection.content) || "Reflection"}
 					</p>
 					<p className="mt-1 text-[11px] text-muted-foreground">
 						Linked to:{" "}
@@ -537,10 +536,7 @@ function ReflectionDetail({
 						</div>
 					</div>
 					<div className="mt-5">
-						<RichTextRenderer
-							document={parsePersistedRichText(reflection.content)}
-							preset="member"
-						/>
+						<RichTextRenderer document={reflection.content} preset="member" />
 					</div>
 					<Separator className="my-5" />
 					<section>
@@ -558,7 +554,7 @@ function ReflectionDetail({
 								</Badge>
 							) : null}
 							<p className="mt-2 line-clamp-3 text-muted-foreground text-xs leading-4">
-								{getPersistedRichTextExcerpt(reflection.prayer.content, 180)}
+								{getDocumentText(reflection.prayer.content).slice(0, 180)}
 							</p>
 							<Link
 								className="mt-3 inline-flex font-medium text-primary text-xs hover:underline"

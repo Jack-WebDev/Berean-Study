@@ -34,7 +34,7 @@ import {
 	type EditorCommandCatalog,
 	type EditorCommandContext,
 } from "./editor-actions";
-import type { EditorSession } from "./editor-session";
+import type { EditorSession, WorkspaceEditorSession } from "./editor-session";
 import { RichTextEditor } from "./rich-text-editor";
 import type { RichTextDocument, RichTextEditorWorkspaceProps } from "./types";
 
@@ -59,7 +59,7 @@ export function RichTextEditorWorkspace({
 	value,
 	...editorProps
 }: RichTextEditorWorkspaceProps) {
-	const [session, setSession] = useState<EditorSession | null>(null);
+	const [session, setSession] = useState<WorkspaceEditorSession | null>(null);
 	const [document, setDocument] = useState(value);
 	const [inspectorTab, setInspectorTab] = useState<InspectorTab>("insert");
 	const [isFocused, setIsFocused] = useState(false);
@@ -371,7 +371,7 @@ function WorkspaceInspector({
 }: {
 	commandContext: EditorCommandContext;
 	document: RichTextDocument;
-	session: EditorSession | null;
+	session: WorkspaceEditorSession | null;
 	onTabChange: (tab: InspectorTab) => void;
 	slots?: InspectorSlots;
 	tab: InspectorTab;
@@ -430,7 +430,7 @@ function InsertPanel({
 	session,
 }: {
 	commands: readonly EditorCommand[];
-	session: EditorSession | null;
+	session: WorkspaceEditorSession | null;
 }) {
 	return (
 		<div className="grid gap-1.5">
@@ -485,7 +485,7 @@ function DocumentPanel({
 	slots,
 }: {
 	document: RichTextDocument;
-	session: EditorSession | null;
+	session: WorkspaceEditorSession | null;
 	headings: ReturnType<typeof extractDocumentHeadings>;
 	slots?: InspectorSlots;
 }) {
@@ -541,7 +541,7 @@ function ReferencesPanel({
 	references,
 }: {
 	catalog: EditorCommandCatalog;
-	session: EditorSession | null;
+	session: WorkspaceEditorSession | null;
 	references: ReturnType<typeof getDocumentReferences>;
 }) {
 	const bibleCommand = catalog.find("bible");
@@ -614,7 +614,7 @@ function ActionButton({
 	session,
 }: {
 	command: EditorCommand;
-	session: EditorSession | null;
+	session: WorkspaceEditorSession | null;
 }) {
 	return (
 		<button
@@ -633,7 +633,7 @@ function ReferenceRow({
 	label,
 	type,
 }: {
-	session: EditorSession | null;
+	session: WorkspaceEditorSession | null;
 	index: number;
 	label: string;
 	type: "bibleReference" | "citation";

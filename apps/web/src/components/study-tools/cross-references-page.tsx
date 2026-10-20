@@ -14,7 +14,7 @@ import {
 	StarIcon,
 	TypeIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { useCatalogueBrowsing } from "./use-catalogue-browsing";
 
 type ConnectionFilter =
 	| "all"
@@ -161,27 +161,24 @@ const accentClasses: Record<Accent, string> = {
 };
 
 export function CrossReferencesPage() {
-	const [filter, setFilter] = useState<ConnectionFilter>("all");
-	const [query, setQuery] = useState("");
-
-	const normalizedQuery = query.trim().toLowerCase();
-	const visibleConnections = connections.filter((connection) => {
-		const matchesFilter = filter === "all" || connection.category === filter;
-		const searchableText = [
-			connection.title,
-			connection.description,
-			...connection.passages,
-		]
-			.join(" ")
-			.toLowerCase();
-
-		return matchesFilter && searchableText.includes(normalizedQuery);
+	const {
+		filter,
+		query,
+		reset: resetFilters,
+		setFilter,
+		setQuery,
+		visibleRecords: visibleConnections,
+	} = useCatalogueBrowsing<Connection, ConnectionFilter>({
+		initialFilter: "all",
+		matchesFilter: (connection, activeFilter) =>
+			activeFilter === "all" || connection.category === activeFilter,
+		matchesQuery: (connection, normalizedQuery) =>
+			[connection.title, connection.description, ...connection.passages]
+				.join(" ")
+				.toLowerCase()
+				.includes(normalizedQuery),
+		records: connections,
 	});
-
-	function resetFilters() {
-		setFilter("all");
-		setQuery("");
-	}
 
 	return (
 		<main className="min-h-full bg-[#fbfaf7] dark:bg-background">

@@ -14,7 +14,7 @@ import {
 	StarIcon,
 	UsersRoundIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { useCatalogueBrowsing } from "./use-catalogue-browsing";
 
 type QuestionFilter =
 	| "all"
@@ -170,31 +170,33 @@ const toneClasses: Record<QuestionTone, string> = {
 };
 
 export function InterpretiveQuestionsPage() {
-	const [filter, setFilter] = useState<QuestionFilter>("all");
-	const [query, setQuery] = useState("");
-	const normalizedQuery = query.trim().toLowerCase();
-	const visibleQuestions = questions.filter((question) => {
-		const matchesFilter = filter === "all" || question.category === filter;
-		const searchableText = [
-			question.title,
-			question.description,
-			question.passage,
-			question.category.replaceAll("-", " "),
-		]
-			.join(" ")
-			.toLowerCase();
-
-		return matchesFilter && searchableText.includes(normalizedQuery);
+	const {
+		filter,
+		query,
+		reset: resetFilters,
+		setFilter,
+		setQuery,
+		visibleRecords: visibleQuestions,
+	} = useCatalogueBrowsing<InterpretiveQuestion, QuestionFilter>({
+		initialFilter: "all",
+		matchesFilter: (question, activeFilter) =>
+			activeFilter === "all" || question.category === activeFilter,
+		matchesQuery: (question, normalizedQuery) =>
+			[
+				question.title,
+				question.description,
+				question.passage,
+				question.category.replaceAll("-", " "),
+			]
+				.join(" ")
+				.toLowerCase()
+				.includes(normalizedQuery),
+		records: questions,
 	});
-
-	function resetFilters() {
-		setFilter("all");
-		setQuery("");
-	}
 
 	return (
 		<main className="min-h-full bg-[#fbfaf7] dark:bg-background">
-			<div className="mx-auto w-full max-w-[1440px] px-6 py-8 lg:px-10 lg:py-10">
+			<div className="mx-auto w-full max-w-360 px-6 py-8 lg:px-10 lg:py-10">
 				<div className="grid items-start gap-8 xl:grid-cols-[minmax(0,1fr)_300px]">
 					<div className="min-w-0">
 						<QuestionsHeader

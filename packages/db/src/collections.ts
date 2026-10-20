@@ -1,6 +1,7 @@
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 
 import type { db } from "./index";
+import { parseStoredRichText } from "./rich-text-storage";
 import { books } from "./schema/books";
 import { collectionNotes } from "./schema/collection_notes";
 import { collectionPassages } from "./schema/collection_passages";
@@ -85,6 +86,23 @@ export async function getCollection(
 	return collection ?? null;
 }
 
+/** Returns a collection and its current supported content for the detail view. */
+export async function getCollectionDetail(
+	db: DbClient,
+	userId: string,
+	collectionId: number,
+) {
+	const collection = await getCollection(db, userId, collectionId);
+	if (!collection) return null;
+
+	const [notes, passages] = await Promise.all([
+		listNotesForCollection(db, userId, collectionId),
+		listPassagesForCollection(db, collectionId),
+	]);
+
+	return { collection, notes, passages };
+}
+
 /** Creates one private collection without creating or duplicating any study material. */
 export async function createCollection(
 	db: DbClient,
@@ -139,6 +157,11 @@ export async function updateCollection(
 	const name = normalizeName(input.name);
 	const tags = normalizeTags(input.tags);
 	await assertCollectionOwned(db, userId, collectionId);
+	await assertExistingMembershipsAreAllowed(
+		db,
+		collectionId,
+		input.allowedContent,
+	);
 
 	const [existingCollection] = await db
 		.select({ id: collections.id })
@@ -340,19 +363,7 @@ export async function listCollectionNotes(
 	collectionId: number,
 ) {
 	await assertCollectionOwned(db, userId, collectionId);
-	return db
-		.select(collectionNoteSelection)
-		.from(collectionNotes)
-		.innerJoin(notes, eq(notes.id, collectionNotes.noteId))
-		.leftJoin(passages, eq(passages.id, notes.passageId))
-		.leftJoin(books, eq(books.id, passages.bookId))
-		.where(
-			and(
-				eq(collectionNotes.collectionId, collectionId),
-				eq(notes.userId, userId),
-			),
-		)
-		.orderBy(desc(notes.updatedAt), desc(notes.id));
+	return listNotesForCollection(db, userId, collectionId);
 }
 
 /** Lists the existing Scripture passages referenced by a collection. */
@@ -362,12 +373,7 @@ export async function listCollectionPassages(
 	collectionId: number,
 ) {
 	await assertCollectionOwned(db, userId, collectionId);
-	return db
-		.select({ id: passages.id, title: passages.title })
-		.from(collectionPassages)
-		.innerJoin(passages, eq(passages.id, collectionPassages.passageId))
-		.where(eq(collectionPassages.collectionId, collectionId))
-		.orderBy(passages.id);
+	return listPassagesForCollection(db, collectionId);
 }
 
 /** Removes a collection membership while preserving the underlying note. */
@@ -391,6 +397,39 @@ export async function removeNoteFromCollection(
 	return Boolean(removed);
 }
 
+async function listNotesForCollection(
+	db: DbClient,
+	userId: string,
+	collectionId: number,
+) {
+	const matchingNotes = await db
+		.select(collectionNoteSelection)
+		.from(collectionNotes)
+		.innerJoin(notes, eq(notes.id, collectionNotes.noteId))
+		.leftJoin(passages, eq(passages.id, notes.passageId))
+		.leftJoin(books, eq(books.id, passages.bookId))
+		.where(
+			and(
+				eq(collectionNotes.collectionId, collectionId),
+				eq(notes.userId, userId),
+			),
+		)
+		.orderBy(desc(notes.updatedAt), desc(notes.id));
+	return matchingNotes.map((note) => ({
+		...note,
+		content: parseStoredRichText(note.content),
+	}));
+}
+
+async function listPassagesForCollection(db: DbClient, collectionId: number) {
+	return db
+		.select({ id: passages.id, title: passages.title })
+		.from(collectionPassages)
+		.innerJoin(passages, eq(passages.id, collectionPassages.passageId))
+		.where(eq(collectionPassages.collectionId, collectionId))
+		.orderBy(passages.id);
+}
+
 async function assertNoteOwned(db: DbClient, userId: string, noteId: number) {
 	const [note] = await db
 		.select({ id: notes.id })
@@ -398,6 +437,38 @@ async function assertNoteOwned(db: DbClient, userId: string, noteId: number) {
 		.where(and(eq(notes.id, noteId), eq(notes.userId, userId)))
 		.limit(1);
 	if (!note) throw new Error("Note not found.");
+}
+
+async function assertExistingMembershipsAreAllowed(
+	db: DbClient,
+	collectionId: number,
+	allowedContent: CollectionContentType[],
+) {
+	const [noteMembership, passageMembership] = await Promise.all([
+		allowedContent.includes("notes")
+			? undefined
+			: db
+					.select({ noteId: collectionNotes.noteId })
+					.from(collectionNotes)
+					.where(eq(collectionNotes.collectionId, collectionId))
+					.limit(1),
+		allowedContent.includes("passages")
+			? undefined
+			: db
+					.select({ passageId: collectionPassages.passageId })
+					.from(collectionPassages)
+					.where(eq(collectionPassages.collectionId, collectionId))
+					.limit(1),
+	]);
+
+	if (noteMembership?.[0]) {
+		throw new Error("Remove the collection's notes before disabling notes.");
+	}
+	if (passageMembership?.[0]) {
+		throw new Error(
+			"Remove the collection's passages before disabling passages.",
+		);
+	}
 }
 
 async function assertPassageExists(db: DbClient, passageId: number) {

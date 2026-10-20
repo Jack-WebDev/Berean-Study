@@ -3,7 +3,6 @@ import {
 	hasRichTextContent,
 	type RichTextDocument,
 	RichTextEditorWorkspace,
-	serializePersistedRichText,
 } from "@berean-study/rich-text-editor";
 import { Button } from "@berean-study/ui/components/button";
 import { Input } from "@berean-study/ui/components/input";
@@ -29,7 +28,7 @@ export function NewTestimonyPage() {
 		try {
 			await createTestimony({
 				data: {
-					content: serializePersistedRichText(content),
+					content,
 					title: title.trim(),
 				},
 			});

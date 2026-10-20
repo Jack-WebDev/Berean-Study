@@ -8,6 +8,7 @@ import {
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { authMiddleware } from "@/middleware/auth";
+import { richTextDocumentSchema } from "./rich-text";
 
 export const listTestimonies = createServerFn({ method: "GET" })
 	.middleware([authMiddleware])
@@ -20,7 +21,7 @@ export const createTestimony = createServerFn({ method: "POST" })
 	.middleware([authMiddleware])
 	.validator(
 		z.object({
-			content: z.string().trim().min(1).max(100_000),
+			content: richTextDocumentSchema,
 			title: z.string().trim().min(1).max(200),
 		}),
 	)
@@ -30,7 +31,7 @@ export const createTestimony = createServerFn({ method: "POST" })
 	});
 
 const testimonyInput = z.object({
-	content: z.string().trim().min(1).max(100_000),
+	content: richTextDocumentSchema,
 	title: z.string().trim().min(1).max(200),
 });
 const testimonyId = z.object({ id: z.number().int().positive() });
