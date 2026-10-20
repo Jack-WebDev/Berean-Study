@@ -2,6 +2,7 @@ import { db } from "@berean-study/db";
 import {
 	createCollection as createCollectionInDb,
 	deleteCollection as deleteCollectionInDb,
+	getCollectionDetail as getCollectionDetailFromDb,
 	getCollection as getCollectionFromDb,
 	listCollectionNotes as listCollectionNotesFromDb,
 	listCollectionPassages as listCollectionPassagesFromDb,
@@ -56,6 +57,13 @@ export const getCollection = createServerFn({ method: "GET" })
 	.validator(z.object({ id: z.number().int().positive() }))
 	.handler(({ context, data }) =>
 		getCollectionFromDb(db, requireUserId(context.session), data.id),
+	);
+
+export const getCollectionDetail = createServerFn({ method: "GET" })
+	.middleware([authMiddleware])
+	.validator(z.object({ id: z.number().int().positive() }))
+	.handler(({ context, data }) =>
+		getCollectionDetailFromDb(db, requireUserId(context.session), data.id),
 	);
 
 export const createCollection = createServerFn({ method: "POST" })
