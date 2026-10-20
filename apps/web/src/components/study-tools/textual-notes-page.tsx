@@ -11,7 +11,7 @@ import {
 	StarIcon,
 	TextIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { useCatalogueBrowsing } from "./use-catalogue-browsing";
 
 type NoteFilter =
 	| "added-passages"
@@ -175,30 +175,31 @@ const guideIconClasses: Record<NoteTone, string> = {
 };
 
 export function TextualNotesPage() {
-	const [filter, setFilter] = useState<NoteFilter>("all");
-	const [query, setQuery] = useState("");
-	const normalizedQuery = query.trim().toLowerCase();
-	const visibleNotes = notes.filter((note) => {
-		const matchesFilter =
-			filter === "all" ||
-			note.categories.some((category) => category === filter);
-		const searchableText = [
-			note.title,
-			note.subtitle,
-			note.description,
-			note.passage,
-			...note.categories.map((category) => category.replaceAll("-", " ")),
-		]
-			.join(" ")
-			.toLowerCase();
-
-		return matchesFilter && searchableText.includes(normalizedQuery);
+	const {
+		filter,
+		query,
+		reset: resetFilters,
+		setFilter,
+		setQuery,
+		visibleRecords: visibleNotes,
+	} = useCatalogueBrowsing<TextualNote, NoteFilter>({
+		initialFilter: "all",
+		matchesFilter: (note, activeFilter) =>
+			activeFilter === "all" ||
+			note.categories.some((category) => category === activeFilter),
+		matchesQuery: (note, normalizedQuery) =>
+			[
+				note.title,
+				note.subtitle,
+				note.description,
+				note.passage,
+				...note.categories.map((category) => category.replaceAll("-", " ")),
+			]
+				.join(" ")
+				.toLowerCase()
+				.includes(normalizedQuery),
+		records: notes,
 	});
-
-	function resetFilters() {
-		setFilter("all");
-		setQuery("");
-	}
 
 	return (
 		<main className="min-h-full bg-[#fbfaf7] dark:bg-background">

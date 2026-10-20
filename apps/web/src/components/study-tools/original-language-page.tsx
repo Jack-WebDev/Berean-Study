@@ -13,7 +13,7 @@ import {
 	StarIcon,
 	TextIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { useCatalogueBrowsing } from "./use-catalogue-browsing";
 
 type LanguageFilter =
 	| "all"
@@ -185,35 +185,36 @@ const wordStudyBackgrounds: Record<StudyTone, string> = {
 };
 
 export function OriginalLanguagePage() {
-	const [filter, setFilter] = useState<LanguageFilter>("all");
-	const [query, setQuery] = useState("");
-	const normalizedQuery = query.trim().toLowerCase();
-	const visibleStudies = wordStudies.filter((study) => {
-		const matchesFilter =
-			filter === "all" ||
-			study.category === filter ||
-			(filter === "greek" && study.language === "Greek") ||
-			(filter === "hebrew" && study.language === "Hebrew") ||
-			filter === "word-studies" ||
-			(filter === "important-passages" && study.passage.length > 0);
-		const searchableText = [
-			study.originalWord,
-			study.transliteration,
-			study.term,
-			study.description,
-			study.passage,
-			study.language,
-		]
-			.join(" ")
-			.toLowerCase();
-
-		return matchesFilter && searchableText.includes(normalizedQuery);
+	const {
+		filter,
+		query,
+		reset: resetFilters,
+		setFilter,
+		setQuery,
+		visibleRecords: visibleStudies,
+	} = useCatalogueBrowsing<WordStudy, LanguageFilter>({
+		initialFilter: "all",
+		matchesFilter: (study, activeFilter) =>
+			activeFilter === "all" ||
+			study.category === activeFilter ||
+			(activeFilter === "greek" && study.language === "Greek") ||
+			(activeFilter === "hebrew" && study.language === "Hebrew") ||
+			activeFilter === "word-studies" ||
+			(activeFilter === "important-passages" && study.passage.length > 0),
+		matchesQuery: (study, normalizedQuery) =>
+			[
+				study.originalWord,
+				study.transliteration,
+				study.term,
+				study.description,
+				study.passage,
+				study.language,
+			]
+				.join(" ")
+				.toLowerCase()
+				.includes(normalizedQuery),
+		records: wordStudies,
 	});
-
-	function resetFilters() {
-		setFilter("all");
-		setQuery("");
-	}
 
 	return (
 		<main className="min-h-full bg-[#fbfaf7] dark:bg-background">

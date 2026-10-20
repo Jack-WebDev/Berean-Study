@@ -19,7 +19,7 @@ import {
 	SparklesIcon,
 	UsersRoundIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { useCatalogueBrowsing } from "./use-catalogue-browsing";
 
 type ThemeFilter =
 	| "all"
@@ -174,30 +174,29 @@ const toneClasses: Record<ThemeTone, string> = {
 };
 
 export function ThemesPage() {
-	const [filter, setFilter] = useState<ThemeFilter>("all");
-	const [query, setQuery] = useState("");
-
-	const normalizedQuery = query.trim().toLowerCase();
-
-	const visibleThemes = themes.filter((theme) => {
-		const matchesFilter = filter === "all" || theme.category === filter;
-
-		const searchableText = [
-			theme.name,
-			theme.description,
-			theme.category.replaceAll("-", " "),
-			...theme.references,
-		]
-			.join(" ")
-			.toLowerCase();
-
-		return matchesFilter && searchableText.includes(normalizedQuery);
+	const {
+		filter,
+		query,
+		reset: resetFilters,
+		setFilter,
+		setQuery,
+		visibleRecords: visibleThemes,
+	} = useCatalogueBrowsing<Theme, ThemeFilter>({
+		initialFilter: "all",
+		matchesFilter: (theme, activeFilter) =>
+			activeFilter === "all" || theme.category === activeFilter,
+		matchesQuery: (theme, normalizedQuery) =>
+			[
+				theme.name,
+				theme.description,
+				theme.category.replaceAll("-", " "),
+				...theme.references,
+			]
+				.join(" ")
+				.toLowerCase()
+				.includes(normalizedQuery),
+		records: themes,
 	});
-
-	function resetFilters() {
-		setFilter("all");
-		setQuery("");
-	}
 
 	function selectFilter(nextFilter: ThemeFilter) {
 		if (nextFilter === "all") {
