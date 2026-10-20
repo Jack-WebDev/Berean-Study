@@ -33,7 +33,13 @@ export {
 	filterEditorCommands,
 	getAvailableEditorActions,
 } from "./editor-actions";
-export type { EditorSession } from "./editor-session";
+export type {
+	EditorCommandTarget,
+	EditorSession,
+	EditorToolbarSession,
+	SlashCommandSession,
+	WorkspaceEditorSession,
+} from "./editor-session";
 export { sanitizePastedHtml } from "./paste-sanitization";
 export { RichTextEditor } from "./rich-text-editor";
 export { RichTextEditorWorkspace } from "./rich-text-editor-workspace";

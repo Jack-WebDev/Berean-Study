@@ -37,30 +37,17 @@ export type EditorSessionState = {
 	isUnderline: boolean;
 };
 
-export type EditorSession = {
+/** Operations required to carry out a writing command. */
+export type EditorCommandTarget = {
 	applyCommand: (command: EditorSessionCommand) => boolean;
-	applyLink: (href: string) => boolean;
-	clearSlashCommand: (from: number) => boolean;
-	deleteStructuredNode: (
-		type: "bibleReference" | "citation",
-		index: number,
-	) => boolean;
-	focusHeading: (index: number) => boolean;
-	focusStructuredNode: (
-		type: "bibleReference" | "citation",
-		index: number,
-	) => boolean;
-	getDocument: () => RichTextDocument;
-	getLinkHref: () => string;
-	isSelectionInNode: (
-		type: "bibleReference" | "citation" | "heading",
-	) => boolean;
-	getSlashMenuPosition: (from: number) => { left: number; top: number };
 	insertBibleReference: (reference: BibleReferenceAttributes) => boolean;
 	insertCitation: (citation: CitationAttributes) => boolean;
-	registerKeyDownListener: (
-		listener: (event: KeyboardEvent) => void,
-	) => () => void;
+};
+
+/** Operations used by the toolbar outside the shared command catalog. */
+export type EditorToolbarSession = EditorCommandTarget & {
+	applyLink: (href: string) => boolean;
+	getLinkHref: () => string;
 	removeLink: () => boolean;
 	setTextAlignment: (alignment: "center" | "left" | "right") => boolean;
 	toggleMark: (mark: "bold" | "italic" | "strike" | "underline") => boolean;
@@ -78,7 +65,42 @@ export type EditorSession = {
 	redo: () => boolean;
 };
 
-const editors = new WeakMap<EditorSession, Editor>();
+/** Operations used by the slash-command menu to manage its interaction. */
+export type SlashCommandSession = EditorCommandTarget & {
+	clearSlashCommand: (from: number) => boolean;
+	getSlashMenuPosition: (from: number) => { left: number; top: number };
+	registerKeyDownListener: (
+		listener: (event: KeyboardEvent) => void,
+	) => () => void;
+};
+
+/** Operations used by the workspace inspector to navigate the document. */
+export type WorkspaceEditorSession = EditorCommandTarget & {
+	deleteStructuredNode: (
+		type: "bibleReference" | "citation",
+		index: number,
+	) => boolean;
+	focusHeading: (index: number) => boolean;
+	focusStructuredNode: (
+		type: "bibleReference" | "citation",
+		index: number,
+	) => boolean;
+};
+
+/**
+ * Full editor contract retained for host composition. Built-in UI adapters use
+ * narrower contracts so they cannot depend on unrelated editor details.
+ */
+export type EditorSession = EditorToolbarSession &
+	SlashCommandSession &
+	WorkspaceEditorSession & {
+		getDocument: () => RichTextDocument;
+		isSelectionInNode: (
+			type: "bibleReference" | "citation" | "heading",
+		) => boolean;
+	};
+
+const editors = new WeakMap<object, Editor>();
 
 /**
  * Creates the editing boundary used by all UI adapters. Tiptap remains an
@@ -241,7 +263,7 @@ export function createEditorSession(editor: Editor): EditorSession {
 
 /** Reads current editing state without exposing the underlying Tiptap editor. */
 export function useEditorSessionState(
-	session: EditorSession,
+	session: EditorToolbarSession,
 ): EditorSessionState {
 	const editor = getEditor(session);
 	return useEditorState({
@@ -265,7 +287,7 @@ export function useEditorSessionState(
 
 /** Reads slash-command state without exposing the editor selection or plugin. */
 export function useSlashCommandState(
-	session: EditorSession,
+	session: SlashCommandSession,
 ): SlashCommandState {
 	const editor = getEditor(session);
 	return useEditorState({
@@ -275,7 +297,7 @@ export function useSlashCommandState(
 	});
 }
 
-function getEditor(session: EditorSession) {
+function getEditor(session: object) {
 	const editor = editors.get(session);
 	if (!editor) throw new Error("Unknown editor session.");
 	return editor;

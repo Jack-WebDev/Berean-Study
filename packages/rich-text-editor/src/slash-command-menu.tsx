@@ -6,7 +6,10 @@ import {
 	type EditorCommandContext,
 	filterEditorCommands,
 } from "./editor-actions";
-import { type EditorSession, useSlashCommandState } from "./editor-session";
+import {
+	type SlashCommandSession,
+	useSlashCommandState,
+} from "./editor-session";
 import { getNextCommandIndex } from "./slash-commands";
 
 export function SlashCommandMenu({
@@ -14,7 +17,7 @@ export function SlashCommandMenu({
 	onRequestBibleReference,
 	onRequestCitation,
 	preset,
-}: { session: EditorSession } & EditorCommandContext) {
+}: { session: SlashCommandSession } & EditorCommandContext) {
 	const context = useMemo(
 		() => ({ onRequestBibleReference, onRequestCitation, preset }),
 		[onRequestBibleReference, onRequestCitation, preset],
@@ -100,7 +103,7 @@ export function SlashCommandMenu({
 }
 
 async function executeSlashAction(
-	session: EditorSession,
+	session: SlashCommandSession,
 	command: EditorCommand,
 	from: number,
 ) {

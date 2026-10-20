@@ -11,7 +11,10 @@ import {
 	type EditorCommandCatalog,
 } from "../src/editor-actions";
 import { createRichTextExtensions } from "../src/editor-extensions";
-import { createEditorSession } from "../src/editor-session";
+import {
+	createEditorSession,
+	type EditorCommandTarget,
+} from "../src/editor-session";
 import { sanitizePastedHtml } from "../src/paste-sanitization";
 import type { RichTextEditorPreset } from "../src/types";
 
@@ -121,6 +124,23 @@ describe("Berean rich-text schema", () => {
 		await command(catalog, "numbered").execute(session);
 		await command(catalog, "quote").execute(session);
 		expect(editor.isActive("blockquote")).toBe(true);
+	});
+
+	it("runs shared commands through the narrow writing target", async () => {
+		const applied: string[] = [];
+		const target: EditorCommandTarget = {
+			applyCommand: (commandId) => {
+				applied.push(commandId);
+				return true;
+			},
+			insertBibleReference: () => true,
+			insertCitation: () => true,
+		};
+
+		const catalog = createEditorCommandCatalog({ preset: "member" });
+		await command(catalog, "bullet").execute(target);
+
+		expect(applied).toEqual(["bullet"]);
 	});
 
 	it("round-trips the structured JSON document", () => {
