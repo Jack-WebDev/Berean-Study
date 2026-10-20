@@ -1,7 +1,3 @@
-import {
-	parsePersistedRichText,
-	serializePersistedRichText,
-} from "@berean-study/rich-text-editor";
 import { Button } from "@berean-study/ui/components/button";
 import {
 	Empty,
@@ -43,7 +39,7 @@ export function EditNotePage({ noteId }: { noteId: number }) {
 	const persistNote = async (values: NoteFormValues) => {
 		const updatedNote = await saveNote({
 			data: {
-				content: serializePersistedRichText(values.content),
+				content: values.content,
 				id: noteId,
 				passageId: values.passageId ? Number(values.passageId) : null,
 				tags: values.tags,
@@ -87,7 +83,7 @@ export function EditNotePage({ noteId }: { noteId: number }) {
 						</header>
 						<NoteForm
 							initialValues={{
-								content: parsePersistedRichText(note.content),
+								content: note.content,
 								passageId: note.passageId?.toString() ?? "",
 								tags: note.tags.map((tag) => tag.name),
 								title: note.title || "Untitled note",

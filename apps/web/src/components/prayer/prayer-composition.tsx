@@ -1,11 +1,9 @@
 import {
 	emptyRichTextDocument,
 	getWordCount,
-	parsePersistedRichText,
 	type RichTextDocument,
 	RichTextEditorWorkspace,
 	RichTextRenderer,
-	serializePersistedRichText,
 } from "@berean-study/rich-text-editor";
 import { Button } from "@berean-study/ui/components/button";
 import {
@@ -57,7 +55,7 @@ type PrayerDraft = {
 
 type PrayerInput = {
 	category: string | null;
-	content: string;
+	content: RichTextDocument;
 	passageId: number | null;
 	title: string;
 };
@@ -74,7 +72,7 @@ const emptyPrayerDraft: PrayerDraft = {
 function preparePrayerInput(draft: PrayerDraft): PrayerInput {
 	return {
 		category: draft.category.trim() || null,
-		content: serializePersistedRichText(draft.content),
+		content: draft.content,
 		passageId: draft.passageId,
 		title: draft.title.trim(),
 	};
@@ -315,7 +313,7 @@ export function EditPrayerPage({ prayerId }: { prayerId: number }) {
 			}
 			setLoadedPrayer({
 				category: prayer.category ?? "",
-				content: parsePersistedRichText(prayer.content),
+				content: prayer.content,
 				passageId: prayer.passageId,
 				title: prayer.title,
 			});

@@ -1,10 +1,8 @@
 import {
 	emptyRichTextDocument,
 	hasRichTextContent,
-	parsePersistedRichText,
 	type RichTextDocument,
 	RichTextEditorWorkspace,
-	serializePersistedRichText,
 } from "@berean-study/rich-text-editor";
 import { Button } from "@berean-study/ui/components/button";
 import { Input } from "@berean-study/ui/components/input";
@@ -27,7 +25,7 @@ export function EditTestimonyPage({ testimonyId }: { testimonyId: number }) {
 			.then((testimony) => {
 				if (testimony) {
 					setTitle(testimony.title);
-					setContent(parsePersistedRichText(testimony.content));
+					setContent(testimony.content);
 				}
 				setLoaded(true);
 			})
@@ -41,7 +39,7 @@ export function EditTestimonyPage({ testimonyId }: { testimonyId: number }) {
 				data: {
 					id: testimonyId,
 					title: title.trim(),
-					content: serializePersistedRichText(content),
+					content,
 				},
 			});
 			if (!testimony) throw new Error();

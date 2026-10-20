@@ -1,5 +1,5 @@
 import type { PrayerReflection } from "@berean-study/db/prayers";
-import { getPersistedRichTextText } from "@berean-study/rich-text-editor";
+import { getDocumentText } from "@berean-study/rich-text-editor";
 import { Badge } from "@berean-study/ui/components/badge";
 import { Button } from "@berean-study/ui/components/button";
 import {
@@ -181,7 +181,7 @@ function PrayerRow({
 				<div className="min-w-0 flex-1">
 					<h3 className="font-serif text-sm leading-4">{prayer.title}</h3>
 					<p className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground leading-4">
-						{getPersistedRichTextText(prayer.content)}
+						{getDocumentText(prayer.content)}
 					</p>
 					{prayer.category ? (
 						<Badge
@@ -251,7 +251,7 @@ function PrayerDetail({ prayer }: { prayer: Prayer | null }) {
 							</Badge>
 						) : null}
 						<p className="mt-3 whitespace-pre-line text-sm leading-5">
-							{getPersistedRichTextText(prayer.content)}
+							{getDocumentText(prayer.content)}
 						</p>
 						<Separator className="my-3" />
 						<section>
@@ -360,7 +360,7 @@ function PrayerReflections({
 						</Button>
 					</div>
 					<p className="mt-1 line-clamp-3 text-xs leading-4">
-						{getPersistedRichTextText(reflection.content)}
+						{getDocumentText(reflection.content)}
 					</p>
 				</article>
 			))}

@@ -1,7 +1,6 @@
 import type { Testimony } from "@berean-study/db/testimonies";
 import {
-	getPersistedRichTextExcerpt,
-	parsePersistedRichText,
+	getDocumentText,
 	RichTextRenderer,
 } from "@berean-study/rich-text-editor";
 import { Badge } from "@berean-study/ui/components/badge";
@@ -74,7 +73,7 @@ export function TestimoniesPage() {
 						(!query.trim() ||
 							[
 								item.title,
-								getPersistedRichTextExcerpt(item.content),
+								getDocumentText(item.content),
 								...item.passages.map((passage) => passage.title ?? ""),
 							]
 								.join(" ")
@@ -245,7 +244,7 @@ function TestimonyList({
 							<div className="min-w-0 flex-1">
 								<p className="truncate font-serif text-sm">{item.title}</p>
 								<p className="mt-1 line-clamp-2 text-muted-foreground text-xs">
-									{getPersistedRichTextExcerpt(item.content)}
+									{getDocumentText(item.content)}
 								</p>
 								<div className="mt-2 flex gap-1">
 									{item.passages.slice(0, 2).map((passage) => (
@@ -330,10 +329,7 @@ function TestimonyDetail({
 						</div>
 					</div>
 					<div className="mt-5">
-						<RichTextRenderer
-							document={parsePersistedRichText(testimony.content)}
-							preset="member"
-						/>
+						<RichTextRenderer document={testimony.content} preset="member" />
 					</div>
 					{testimony.passages.length > 0 ? (
 						<section className="mt-7 rounded-lg bg-muted/60 p-4">

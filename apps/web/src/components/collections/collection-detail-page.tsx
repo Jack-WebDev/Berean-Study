@@ -1,6 +1,6 @@
 "use client";
 
-import { getPersistedRichTextText } from "@berean-study/rich-text-editor";
+import { getDocumentText } from "@berean-study/rich-text-editor";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -314,7 +314,7 @@ export function CollectionDetailPage({
 						>
 							{collectionViews.map((view) => (
 								<ToggleGroupItem
-									className="h-9 rounded-full px-4 data-[pressed]:bg-primary data-[pressed]:text-primary-foreground"
+									className="h-9 rounded-full px-4 data-pressed:bg-primary data-pressed:text-primary-foreground"
 									key={view.value}
 									value={view.value}
 								>
@@ -527,7 +527,7 @@ function CollectionNotes({
 								{note.passageTitle ?? note.bookName ?? "Unlinked note"}
 							</p>
 							<p className="mt-1 line-clamp-3 whitespace-pre-wrap text-muted-foreground text-sm leading-6">
-								{getPersistedRichTextText(note.content)}
+								{getDocumentText(note.content)}
 							</p>
 						</div>
 						<DropdownMenu>
@@ -604,7 +604,7 @@ function CollectionDetailState({
 }) {
 	return (
 		<div className="min-h-full bg-background px-5 py-8 text-foreground sm:px-8 sm:py-10 lg:px-10">
-			<main className="mx-auto w-full max-w-[77.5rem]">
+			<main className="mx-auto w-full max-w-310">
 				<Link
 					className="inline-flex items-center gap-2 font-medium text-primary text-xs hover:underline"
 					to="/library/collections"
@@ -645,7 +645,7 @@ function CollectionDetailSkeleton() {
 			<span className="sr-only">Loading collection</span>
 			<main
 				aria-hidden="true"
-				className="mx-auto flex w-full max-w-[77.5rem] flex-col gap-6"
+				className="mx-auto flex w-full max-w-310 flex-col gap-6"
 			>
 				<Skeleton className="h-4 w-24 rounded-md" />
 				<Skeleton className="h-64 w-full rounded-2xl sm:h-72 lg:h-80" />

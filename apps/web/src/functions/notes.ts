@@ -15,13 +15,14 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { authMiddleware } from "@/middleware/auth";
+import { richTextDocumentSchema } from "./rich-text";
 
 const noteIdSchema = z.object({
 	id: z.number().int().positive(),
 });
 
 const noteInputSchema = z.object({
-	content: z.string().trim().min(1),
+	content: richTextDocumentSchema,
 	passageId: z.number().int().positive().nullable().optional(),
 	title: z.string().trim().min(1).max(200),
 });

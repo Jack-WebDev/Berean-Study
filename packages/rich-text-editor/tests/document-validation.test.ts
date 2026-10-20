@@ -16,6 +16,12 @@ describe("rich-text document validation", () => {
 			content: [],
 			type: "doc",
 		});
+		expect(
+			normalizeRichTextDocument({
+				content: [{ text: 1, type: "text" }],
+				type: "doc",
+			}),
+		).toEqual(emptyRichTextDocument);
 	});
 
 	it("distinguishes an empty document from meaningful structured content", () => {

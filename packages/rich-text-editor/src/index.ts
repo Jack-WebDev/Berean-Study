@@ -35,12 +35,6 @@ export {
 } from "./editor-actions";
 export type { EditorSession } from "./editor-session";
 export { sanitizePastedHtml } from "./paste-sanitization";
-export {
-	getPersistedRichTextExcerpt,
-	getPersistedRichTextText,
-	parsePersistedRichText,
-	serializePersistedRichText,
-} from "./persisted-rich-text";
 export { RichTextEditor } from "./rich-text-editor";
 export { RichTextEditorWorkspace } from "./rich-text-editor-workspace";
 export { RichTextRenderer } from "./rich-text-renderer";

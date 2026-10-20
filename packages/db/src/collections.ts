@@ -1,6 +1,7 @@
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 
 import type { db } from "./index";
+import { parseStoredRichText } from "./rich-text-storage";
 import { books } from "./schema/books";
 import { collectionNotes } from "./schema/collection_notes";
 import { collectionPassages } from "./schema/collection_passages";
@@ -340,7 +341,7 @@ export async function listCollectionNotes(
 	collectionId: number,
 ) {
 	await assertCollectionOwned(db, userId, collectionId);
-	return db
+	const matchingNotes = await db
 		.select(collectionNoteSelection)
 		.from(collectionNotes)
 		.innerJoin(notes, eq(notes.id, collectionNotes.noteId))
@@ -353,6 +354,10 @@ export async function listCollectionNotes(
 			),
 		)
 		.orderBy(desc(notes.updatedAt), desc(notes.id));
+	return matchingNotes.map((note) => ({
+		...note,
+		content: parseStoredRichText(note.content),
+	}));
 }
 
 /** Lists the existing Scripture passages referenced by a collection. */

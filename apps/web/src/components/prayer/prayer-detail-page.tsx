@@ -1,7 +1,4 @@
-import {
-	parsePersistedRichText,
-	RichTextRenderer,
-} from "@berean-study/rich-text-editor";
+import { RichTextRenderer } from "@berean-study/rich-text-editor";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -119,10 +116,7 @@ export function PrayerDetailPage({ prayerId }: { prayerId: number }) {
 					) : null}
 				</header>
 				<div className="mt-8">
-					<RichTextRenderer
-						document={parsePersistedRichText(prayer.content)}
-						preset="member"
-					/>
+					<RichTextRenderer document={prayer.content} preset="member" />
 				</div>
 				<section className="mt-12 border-border border-t pt-8">
 					<div className="flex flex-wrap items-center justify-between gap-3">
@@ -177,7 +171,7 @@ export function PrayerDetailPage({ prayerId }: { prayerId: number }) {
 										</div>
 									</div>
 									<RichTextRenderer
-										document={parsePersistedRichText(reflection.content)}
+										document={reflection.content}
 										preset="member"
 									/>
 								</article>

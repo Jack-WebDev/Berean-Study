@@ -7,6 +7,22 @@ import { db, pool } from "../src";
 import { getNote, saveNote } from "../src/notes";
 import { user } from "../src/schema/auth";
 
+const originalContent = {
+	content: [
+		{
+			content: [{ text: "Original content", type: "text" }],
+			type: "paragraph",
+		},
+	],
+	type: "doc" as const,
+};
+const updatedContent = {
+	content: [
+		{ content: [{ text: "Updated content", type: "text" }], type: "paragraph" },
+	],
+	type: "doc" as const,
+};
+
 const describeWithDatabase = process.env.DATABASE_URL
 	? describe
 	: describe.skip;
@@ -26,7 +42,7 @@ describeWithDatabase("note saves", () => {
 			});
 
 			const note = await saveNote(db, userId, {
-				content: "Original content",
+				content: originalContent,
 				tags: ["Original tag"],
 				title: "Original title",
 			});
@@ -41,7 +57,7 @@ describeWithDatabase("note saves", () => {
 
 			await expect(
 				saveNote(db, userId, {
-					content: "Updated content",
+					content: updatedContent,
 					id: note.id,
 					tags: ["Updated tag"],
 					title: "Updated title",
@@ -50,7 +66,7 @@ describeWithDatabase("note saves", () => {
 
 			const savedNote = await getNote(db, userId, note.id);
 			expect(savedNote).toMatchObject({
-				content: "Original content",
+				content: originalContent,
 				tags: [{ name: "Original tag" }],
 				title: "Original title",
 			});

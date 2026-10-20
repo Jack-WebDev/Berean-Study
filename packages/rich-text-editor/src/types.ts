@@ -1,16 +1,9 @@
-import type { JSONContent } from "@tiptap/core";
 import type { ReactNode } from "react";
 
+import type { RichTextDocument } from "./document-types";
 import type { EditorSession } from "./editor-session";
 
-/**
- * The persisted document contract. Its shape intentionally matches the JSON
- * representation produced by the editor foundation selected in Phase 2.
- */
-export type RichTextDocument = JSONContent & { type: "doc" };
-
-/** A serializable node or text mark in a rich-text document. */
-export type RichTextNode = JSONContent;
+export type { RichTextDocument, RichTextNode } from "./document-types";
 
 export type BibleReferenceAttributes = {
 	label: string;

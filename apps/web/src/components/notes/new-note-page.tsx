@@ -1,7 +1,4 @@
-import {
-	emptyRichTextDocument,
-	serializePersistedRichText,
-} from "@berean-study/rich-text-editor";
+import { emptyRichTextDocument } from "@berean-study/rich-text-editor";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeftIcon } from "lucide-react";
 import { useRef } from "react";
@@ -23,7 +20,7 @@ export function NewNotePage({
 	const persistNote = async (values: NoteFormValues) => {
 		const passageId = values.passageId ? Number(values.passageId) : null;
 		const data = {
-			content: serializePersistedRichText(values.content),
+			content: values.content,
 			passageId,
 			title: values.title.trim(),
 		};
