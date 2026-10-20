@@ -1,11 +1,8 @@
 import { emptyRichTextDocument } from "@berean-study/rich-text-editor";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeftIcon } from "lucide-react";
-import { useRef } from "react";
 import { toast } from "sonner";
 
-import { saveNote } from "@/functions/notes";
-import type { NoteFormValues } from "./note-autosave-status";
 import { NoteForm } from "./note-form";
 
 export function NewNotePage({
@@ -16,25 +13,6 @@ export function NewNotePage({
 	returnPassageId?: number;
 }) {
 	const navigate = useNavigate({ from: "/library/notes/new" });
-	const createdNoteId = useRef<number | null>(null);
-	const persistNote = async (values: NoteFormValues) => {
-		const passageId = values.passageId ? Number(values.passageId) : null;
-		const data = {
-			content: values.content,
-			passageId,
-			title: values.title.trim(),
-		};
-		const note = await saveNote({
-			data: {
-				...data,
-				id: createdNoteId.current ?? undefined,
-				tags: values.tags,
-			},
-		});
-		if (!note) throw new Error("Note not found.");
-		createdNoteId.current = note.id;
-		return note;
-	};
 
 	return (
 		<div className="min-h-full bg-background px-4 py-6 text-foreground sm:px-6 lg:px-8">
@@ -70,8 +48,7 @@ export function NewNotePage({
 								})
 							: navigate({ to: "/library/notes" })
 					}
-					onSubmit={async (values) => {
-						const note = await persistNote(values);
+					onSubmit={async (note, values) => {
 						toast.success("Note saved.");
 						navigate({
 							to: "/library/notes",
@@ -85,11 +62,7 @@ export function NewNotePage({
 							},
 						});
 					}}
-					onAutosave={async (values) => {
-						await persistNote(values);
-					}}
-					onSaveDraft={async (values) => {
-						await persistNote(values);
+					onSaveDraft={async () => {
 						toast.success("Draft saved.");
 					}}
 					submitLabel="Save note"
