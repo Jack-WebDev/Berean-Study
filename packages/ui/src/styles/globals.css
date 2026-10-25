@@ -39,6 +39,13 @@
 	--input: oklch(0.9 0.014 85);
 	--ring: oklch(0.48 0.075 255);
 
+	/* Dividers inside cards, and the firmer edge of buttons and inputs */
+	--border-subtle: oklch(0.938 0.014 85);
+	--border-strong: oklch(0.893 0.023 87);
+
+	/* Long-form reading text, such as a note's body */
+	--body-foreground: oklch(0.29 0.025 268);
+
 	--chart-1: oklch(0.39 0.075 255);
 	--chart-2: oklch(0.67 0.095 85);
 	--chart-3: oklch(0.55 0.055 220);
@@ -68,6 +75,7 @@
 	--scripture-foreground: oklch(0.45 0.082 78);
 	--scripture-border: oklch(0.89 0.052 86);
 	--scripture-accent: oklch(0.67 0.11 78);
+	--scripture-number: oklch(0.518 0.096 77);
 
 	--highlight: oklch(0.916 0.053 88);
 	--success: oklch(0.487 0.07 153);
@@ -109,6 +117,11 @@
 	--input: oklch(0.32 0.025 255);
 	--ring: oklch(0.68 0.06 245);
 
+	--border-subtle: oklch(0.27 0.025 255);
+	--border-strong: oklch(0.37 0.025 255);
+
+	--body-foreground: oklch(0.9 0.012 85);
+
 	--chart-1: oklch(0.72 0.055 245);
 	--chart-2: oklch(0.72 0.095 85);
 	--chart-3: oklch(0.67 0.06 210);
@@ -134,6 +147,7 @@
 	--scripture-foreground: oklch(0.82 0.09 82);
 	--scripture-border: oklch(0.4 0.05 80);
 	--scripture-accent: oklch(0.72 0.095 85);
+	--scripture-number: oklch(0.78 0.09 82);
 
 	--highlight: oklch(0.42 0.07 85);
 	--success: oklch(0.76 0.09 153);
@@ -157,6 +171,10 @@
 	--color-scripture-foreground: var(--scripture-foreground);
 	--color-scripture-border: var(--scripture-border);
 	--color-scripture-accent: var(--scripture-accent);
+	--color-scripture-number: var(--scripture-number);
+	--color-border-subtle: var(--border-subtle);
+	--color-border-strong: var(--border-strong);
+	--color-body-foreground: var(--body-foreground);
 	--color-highlight: var(--highlight);
 	--color-success: var(--success);
 	--color-section-observe: var(--section-observe);

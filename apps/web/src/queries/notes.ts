@@ -2,25 +2,40 @@ import { type QueryClient, queryOptions } from "@tanstack/react-query";
 
 import {
 	countNotesForPassage,
+	countNoteViews,
 	getNote,
 	listNoteBooks,
 	listNotes,
 	listNoteTags,
+	listNoteVersions,
 } from "@/functions/notes";
 
 import {
 	collectionKeys,
 	libraryKeys,
+	type NoteCountFilters,
 	type NoteListFilters,
 	noteKeys,
 } from "./keys";
 
-export type { NoteListFilters } from "./keys";
+export type { NoteCountFilters, NoteListFilters } from "./keys";
 
 export const notesQueryOptions = (filters: NoteListFilters = {}) =>
 	queryOptions({
 		queryKey: noteKeys.list(filters),
 		queryFn: () => listNotes({ data: filters }),
+	});
+
+export const noteViewCountsQueryOptions = (filters: NoteCountFilters = {}) =>
+	queryOptions({
+		queryKey: noteKeys.viewCounts(filters),
+		queryFn: () => countNoteViews({ data: filters }),
+	});
+
+export const noteVersionsQueryOptions = (id: number) =>
+	queryOptions({
+		queryKey: noteKeys.versions(id),
+		queryFn: () => listNoteVersions({ data: { id } }),
 	});
 
 export const noteQueryOptions = (id: number) =>

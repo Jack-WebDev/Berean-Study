@@ -120,6 +120,13 @@
 			"when": 1792911668168,
 			"tag": "0016_note_passages_and_status",
 			"breakpoints": true
+		},
+		{
+			"idx": 17,
+			"version": "7",
+			"when": 1792932487853,
+			"tag": "0017_note_purpose_pin_search_versions",
+			"breakpoints": true
 		}
 	]
 }

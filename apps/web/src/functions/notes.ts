@@ -2,13 +2,18 @@ import { db } from "@berean-study/db";
 import {
 	addTagToNote as addTagToNoteInDb,
 	countNotesForPassage as countNotesForPassageInDb,
+	countNoteViews as countNoteViewsInDb,
 	deleteNote as deleteNoteInDb,
 	getNote as getNoteFromDb,
 	listNoteBooks as listNoteBooksFromDb,
 	listNotes as listNotesFromDb,
 	listNoteTags as listNoteTagsFromDb,
+	listNoteVersions as listNoteVersionsFromDb,
+	notePurposes,
 	removeTagFromNote as removeTagFromNoteInDb,
+	restoreNoteVersion as restoreNoteVersionInDb,
 	saveNote as saveNoteInDb,
+	setNotePinned as setNotePinnedInDb,
 	setNoteTags as setNoteTagsInDb,
 } from "@berean-study/db/notes";
 import { createServerFn } from "@tanstack/react-start";
@@ -27,6 +32,7 @@ const saveNoteSchema = z
 		content: richTextDocumentSchema,
 		id: z.number().int().positive().optional(),
 		passageIds: z.array(z.number().int().positive()).max(20),
+		purpose: z.enum(notePurposes).nullable().optional(),
 		status: z.enum(["draft", "saved"]).optional(),
 		tags: z.array(z.string().trim().min(1).max(50)).max(20),
 		title: z.string().trim().max(200),
@@ -36,13 +42,23 @@ const saveNoteSchema = z
 		path: ["title"],
 	});
 
-const listNotesSchema = z.object({
-	bookId: z.number().int().positive().optional(),
-	collectionId: z.number().int().positive().optional(),
+const filterIdsSchema = z.array(z.number().int().positive()).max(50).optional();
+
+const noteFiltersSchema = z.object({
+	bookIds: filterIdsSchema,
+	collectionIds: filterIdsSchema,
 	passageId: z.number().int().positive().optional(),
 	query: z.string().trim().max(200).optional(),
-	sort: z.literal("updated-desc").default("updated-desc"),
-	tagId: z.number().int().positive().optional(),
+	tagIds: filterIdsSchema,
+});
+
+const listNotesSchema = noteFiltersSchema.extend({
+	sort: z.enum(["created", "title", "updated"]).optional(),
+	view: z.enum(["all", "drafts", "linked"]).optional(),
+});
+
+const noteVersionSchema = noteIdSchema.extend({
+	versionId: z.number().int().positive(),
 });
 
 const noteTagSchema = z.object({
@@ -68,6 +84,13 @@ export const listNotes = createServerFn({ method: "GET" })
 	.validator(listNotesSchema)
 	.handler(({ context, data }) =>
 		listNotesFromDb(db, requireUserId(context.session), data),
+	);
+
+export const countNoteViews = createServerFn({ method: "GET" })
+	.middleware([authMiddleware])
+	.validator(noteFiltersSchema)
+	.handler(({ context, data }) =>
+		countNoteViewsInDb(db, requireUserId(context.session), data),
 	);
 
 export const listNoteBooks = createServerFn({ method: "GET" })
@@ -112,6 +135,32 @@ export const deleteNote = createServerFn({ method: "POST" })
 	.validator(noteIdSchema)
 	.handler(({ context, data }) =>
 		deleteNoteInDb(db, requireUserId(context.session), data.id),
+	);
+
+export const setNotePinned = createServerFn({ method: "POST" })
+	.middleware([authMiddleware])
+	.validator(noteIdSchema.extend({ pinned: z.boolean() }))
+	.handler(({ context, data }) =>
+		setNotePinnedInDb(db, requireUserId(context.session), data.id, data.pinned),
+	);
+
+export const listNoteVersions = createServerFn({ method: "GET" })
+	.middleware([authMiddleware])
+	.validator(noteIdSchema)
+	.handler(({ context, data }) =>
+		listNoteVersionsFromDb(db, requireUserId(context.session), data.id),
+	);
+
+export const restoreNoteVersion = createServerFn({ method: "POST" })
+	.middleware([authMiddleware])
+	.validator(noteVersionSchema)
+	.handler(({ context, data }) =>
+		restoreNoteVersionInDb(
+			db,
+			requireUserId(context.session),
+			data.id,
+			data.versionId,
+		),
 	);
 
 export const addTagToNote = createServerFn({ method: "POST" })

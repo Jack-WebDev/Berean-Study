@@ -14,8 +14,15 @@ import { toast } from "sonner";
 import { noteQueryOptions } from "@/queries/notes";
 
 import { NoteForm } from "./note-form";
+import type { NoteEditorFocus } from "./types";
 
-export function EditNotePage({ noteId }: { noteId: number }) {
+export function EditNotePage({
+	focus,
+	noteId,
+}: {
+	focus?: NoteEditorFocus;
+	noteId: number;
+}) {
 	const navigate = useNavigate({ from: "/library/notes/$noteId/edit" });
 	const noteQuery = useQuery(noteQueryOptions(noteId));
 	const note = noteQuery.data;
@@ -44,10 +51,12 @@ export function EditNotePage({ noteId }: { noteId: number }) {
 				/>
 			) : (
 				<NoteForm
+					initialFocus={focus}
 					initialNote={note}
 					initialValues={{
 						content: note.content,
 						passageIds: note.passages.map((passage) => passage.id),
+						purpose: note.purpose,
 						tags: note.tags.map((tag) => tag.name),
 						title: note.title,
 					}}

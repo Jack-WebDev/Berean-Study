@@ -10,6 +10,7 @@ import {
 } from "./editor-extensions";
 import { createEditorSession, getActiveSectionIndex } from "./editor-session";
 import { EditorToolbar } from "./editor-toolbar";
+import { PassageMentionMenu } from "./passage-mention-menu";
 import { richTextContentClassName } from "./rich-text-content-styles";
 import { SlashCommandMenu } from "./slash-command-menu";
 import type { RichTextDocument, RichTextEditorProps } from "./types";
@@ -28,6 +29,7 @@ export function RichTextEditor({
 	onRequestBibleReference,
 	onRequestCitation,
 	onRequestVerse,
+	passageMentions,
 	placeholder = "Start writing…",
 	preset = "member",
 	value,
@@ -123,6 +125,9 @@ export function RichTextEditor({
 					onRequestVerse={onRequestVerse}
 					preset={preset}
 				/>
+			) : null}
+			{editable && passageMentions ? (
+				<PassageMentionMenu session={session} source={passageMentions} />
 			) : null}
 		</section>
 	);

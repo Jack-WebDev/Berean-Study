@@ -1,20 +1,30 @@
 import { randomUUID } from "node:crypto";
 
+import {
+	getDocumentText,
+	type RichTextDocument,
+} from "@berean-study/rich-text-editor/document";
 import { eq, sql } from "drizzle-orm";
 import { afterAll, describe, expect, it } from "vitest";
 
 import { db, pool } from "../src";
 import {
 	countNotesForPassage,
+	countNoteViews,
 	getNote,
 	listNoteBooks,
 	listNotes,
+	listNoteTags,
+	listNoteVersions,
+	restoreNoteVersion,
 	saveNote,
+	setNotePinned,
 } from "../src/notes";
 import { getPassageText, getVerseRangeText } from "../src/passages";
 import { user } from "../src/schema/auth";
 import { books } from "../src/schema/books";
 import { chapters } from "../src/schema/chapters";
+import { noteVersions } from "../src/schema/note_versions";
 import { notes } from "../src/schema/notes";
 import { passageRanges } from "../src/schema/passage_ranges";
 import { passages } from "../src/schema/passages";
@@ -123,7 +133,7 @@ describeWithDatabase("note passages and status", () => {
 				(
 					await listNotes(db, userId, {
 						passageId: first,
-						sort: "updated-desc",
+						sort: "updated",
 					})
 				).map((listed) => listed.id),
 			).toEqual([note.id]);
@@ -232,6 +242,270 @@ describeWithDatabase("note passages and status", () => {
 		);
 	});
 });
+
+describeWithDatabase("notes library", () => {
+	it("searches note words rather than the stored document structure", async () => {
+		await withScripture(async ({ userId }) => {
+			const note = await saveNote(db, userId, {
+				content: paragraphs("Faith comes by hearing"),
+				passageIds: [],
+				tags: [],
+				title: "",
+			});
+
+			const search = (query: string) =>
+				listNotes(db, userId, { query }).then((found) =>
+					found.map((listed) => listed.id),
+				);
+			expect(await search("hearing")).toEqual([note?.id]);
+			expect(await search("paragraph")).toEqual([]);
+		});
+	});
+
+	it("splits notes into drafts and linked notes and counts each tab", async () => {
+		await withScripture(async ({ bookId, passageIds, userId }) => {
+			const linkedDraft = await saveNote(db, userId, {
+				content: paragraphs("Linked draft"),
+				passageIds: [passageIds[1]],
+				tags: [],
+				title: "",
+			});
+			await saveNote(db, userId, {
+				content: paragraphs("Saved"),
+				passageIds: [],
+				status: "saved",
+				tags: ["Grace"],
+				title: "Saved",
+			});
+			const ids = (found: Array<{ id: number }>) =>
+				found.map((listed) => listed.id).sort();
+
+			expect(ids(await listNotes(db, userId, { view: "drafts" }))).toEqual([
+				linkedDraft?.id,
+			]);
+			expect(ids(await listNotes(db, userId, { view: "linked" }))).toEqual([
+				linkedDraft?.id,
+			]);
+			expect(await countNoteViews(db, userId, {})).toEqual({
+				all: 2,
+				drafts: 1,
+				linked: 1,
+			});
+			expect(ids(await listNotes(db, userId, { bookIds: [bookId] }))).toEqual([
+				linkedDraft?.id,
+			]);
+			const tagIds = (await listNoteTags(db, userId)).map((tag) => tag.id);
+			expect(await countNoteViews(db, userId, { tagIds })).toEqual({
+				all: 1,
+				drafts: 0,
+				linked: 0,
+			});
+		});
+	});
+
+	it("sorts untitled notes by their first words", async () => {
+		await withScripture(async ({ userId }) => {
+			for (const [title, body] of [
+				["Mercy", "Body"],
+				["", "Beginnings"],
+				["Covenant", "Body"],
+			] as const) {
+				await saveNote(db, userId, {
+					content: paragraphs(body),
+					passageIds: [],
+					tags: [],
+					title,
+				});
+			}
+
+			const listed = await listNotes(db, userId, { sort: "title" });
+			expect(
+				listed.map((note) => note.title || getDocumentText(note.content)),
+			).toEqual(["Beginnings", "Covenant", "Mercy"]);
+		});
+	});
+
+	it("pins a note without changing when it was last edited", async () => {
+		await withScripture(async ({ userId }) => {
+			const note = await saveNote(db, userId, {
+				content: paragraphs("Pinned"),
+				passageIds: [],
+				tags: [],
+				title: "Pinned",
+			});
+			if (!note) throw new Error("Unable to create test note.");
+
+			expect(await setNotePinned(db, userId, note.id, true)).toBe(true);
+			const pinned = await getNote(db, userId, note.id);
+			expect(pinned?.pinnedAt).toBeInstanceOf(Date);
+			expect(pinned?.updatedAt).toEqual(note.updatedAt);
+
+			await setNotePinned(db, userId, note.id, false);
+			expect((await getNote(db, userId, note.id))?.pinnedAt).toBeNull();
+			expect(await setNotePinned(db, "someone-else", note.id, true)).toBe(
+				false,
+			);
+		});
+	});
+
+	it("keeps the purpose unless a save changes or clears it", async () => {
+		await withScripture(async ({ userId }) => {
+			const note = await saveNote(db, userId, {
+				content: paragraphs("Purpose"),
+				passageIds: [],
+				purpose: "prayer",
+				tags: [],
+				title: "",
+			});
+			if (!note) throw new Error("Unable to create test note.");
+			expect(note.purpose).toBe("prayer");
+
+			const kept = await saveNote(db, userId, {
+				content: paragraphs("Purpose kept"),
+				id: note.id,
+				passageIds: [],
+				tags: [],
+				title: "",
+			});
+			expect(kept?.purpose).toBe("prayer");
+
+			const cleared = await saveNote(db, userId, {
+				content: paragraphs("Purpose cleared"),
+				id: note.id,
+				passageIds: [],
+				purpose: null,
+				tags: [],
+				title: "",
+			});
+			expect(cleared?.purpose).toBeNull();
+		});
+	});
+
+	it("writes versions when they're due and restores without losing history", async () => {
+		await withScripture(async ({ userId }) => {
+			const save = (content: RichTextDocument, id?: number) =>
+				saveNote(db, userId, {
+					content,
+					id,
+					passageIds: [],
+					tags: [],
+					title: "",
+				});
+			const summaries = async (noteId: number) =>
+				(await listNoteVersions(db, userId, noteId))?.map(
+					(version) => version.summary,
+				);
+
+			const note = await save(paragraphs("Observe the text"));
+			if (!note) throw new Error("Unable to create test note.");
+			expect(await summaries(note.id)).toEqual(["Note created"]);
+
+			// Typing more within five minutes doesn't add a version...
+			await save(paragraphs("Observe the text closely"), note.id);
+			expect(await summaries(note.id)).toEqual(["Note created"]);
+
+			// ...but adding a section does.
+			await save(
+				{
+					content: [
+						...(paragraphs("Observe the text closely").content ?? []),
+						{
+							attrs: { level: 2, variant: "interpret" },
+							content: [{ text: "Interpret", type: "text" }],
+							type: "heading",
+						},
+					],
+					type: "doc",
+				},
+				note.id,
+			);
+			expect(await summaries(note.id)).toEqual([
+				"Added Interpret",
+				"Note created",
+			]);
+
+			// Five minutes after the last version, any change is kept.
+			await db
+				.update(noteVersions)
+				.set({ createdAt: new Date(Date.now() - 6 * 60 * 1000) })
+				.where(eq(noteVersions.noteId, note.id));
+			await save(paragraphs("A later thought"), note.id);
+			const versions = await listNoteVersions(db, userId, note.id);
+			expect(versions?.[0]).toMatchObject({ isCurrent: true, summary: null });
+
+			const firstVersion = versions?.at(-1);
+			if (!firstVersion) throw new Error("Expected the first version.");
+			const restored = await restoreNoteVersion(
+				db,
+				userId,
+				note.id,
+				firstVersion.id,
+			);
+			expect(getDocumentText(restored?.content ?? paragraphs(""))).toBe(
+				"Observe the text",
+			);
+			expect(await summaries(note.id)).toEqual([
+				"Restored an earlier version",
+				null,
+				"Added Interpret",
+				"Note created",
+			]);
+			// The restored text matches "Note created" too, but only the newest
+			// version counts as current.
+			expect(
+				(await listNoteVersions(db, userId, note.id))?.map(
+					(version) => version.isCurrent,
+				),
+			).toEqual([true, false, false, false]);
+			expect(
+				await restoreNoteVersion(db, "someone-else", note.id, firstVersion.id),
+			).toBeNull();
+		});
+	});
+
+	it("keeps a saved note's title when restoring an untitled draft", async () => {
+		await withScripture(async ({ userId }) => {
+			const draft = await saveNote(db, userId, {
+				content: paragraphs("Draft body"),
+				passageIds: [],
+				tags: [],
+				title: "",
+			});
+			if (!draft) throw new Error("Unable to create test note.");
+			await saveNote(db, userId, {
+				content: paragraphs("Saved body"),
+				id: draft.id,
+				passageIds: [],
+				status: "saved",
+				tags: [],
+				title: "Kept title",
+			});
+
+			const [, untitled] = (await listNoteVersions(db, userId, draft.id)) ?? [];
+			if (!untitled) throw new Error("Expected the draft version.");
+			const restored = await restoreNoteVersion(
+				db,
+				userId,
+				draft.id,
+				untitled.id,
+			);
+			expect(restored?.title).toBe("Kept title");
+			expect(getDocumentText(restored?.content ?? paragraphs(""))).toBe(
+				"Draft body",
+			);
+		});
+	});
+});
+
+function paragraphs(...texts: string[]): RichTextDocument {
+	return {
+		content: texts.map((text) => ({
+			content: text ? [{ text, type: "text" }] : [],
+			type: "paragraph",
+		})),
+		type: "doc",
+	};
+}
 
 /** Creates a member, a book with one chapter of text, and two passages over it. */
 async function withScripture(

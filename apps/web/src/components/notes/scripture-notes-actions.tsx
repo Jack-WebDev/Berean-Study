@@ -39,11 +39,7 @@ export function ScriptureNotesActions({ passageId }: { passageId: number }) {
 				<Button
 					render={
 						<Link
-							search={{
-								passage: passageId,
-								return: passageId,
-								sort: "updated-desc",
-							}}
+							search={{ passage: passageId, return: passageId }}
 							to="/library/notes"
 						/>
 					}

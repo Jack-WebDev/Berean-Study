@@ -5,6 +5,7 @@ import {
 	getLinkedVerseCount,
 	getWordCount,
 	hasRichTextContent,
+	type PassageMentionSource,
 	type RichTextDocument,
 	RichTextEditor,
 	type VerseBlockAttributes,
@@ -29,11 +30,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
-import { deleteNote, saveNote } from "@/functions/notes";
+import { deleteNote, restoreNoteVersion } from "@/functions/notes";
 import { noteKeys } from "@/queries/keys";
 import { invalidateNoteQueries } from "@/queries/notes";
-import { verseRangeTextQueryOptions } from "@/queries/passages";
 
+import { duplicateNote } from "./note-actions";
 import { NoteDetailsTab } from "./note-details-tab";
 import { NoteEmptyState } from "./note-empty-state";
 import { downloadTextFile, noteToPlainText, toFileName } from "./note-export";
@@ -43,7 +44,9 @@ import { LinkPassageDialog, VersePickerDialog } from "./note-passage-pickers";
 import { type FocusedVerse, NotePassageTab } from "./note-passage-tab";
 import {
 	NoteProperties,
+	notePropertyIds,
 	PassageProperty,
+	PurposeProperty,
 	TagsProperty,
 } from "./note-properties";
 import {
@@ -55,12 +58,15 @@ import {
 	useNoteSaveLifecycle,
 } from "./note-save-lifecycle";
 import {
+	filterPassageOptions,
+	useLoadVerses,
 	useNoteTagSuggestions,
 	usePassageOptions,
 	usePreferredTranslation,
 } from "./note-study-data";
 import { NoteStudyPanel, useStudyTab } from "./note-study-panel";
 import { NoteTitleInput } from "./note-title-input";
+import type { NoteEditorFocus } from "./types";
 
 const noteFormSchema = z.object({
 	title: z.string().trim().min(1, "Enter a title for your note.").max(200),
@@ -74,6 +80,9 @@ const noteFormSchema = z.object({
 		)
 		.refine(hasRichTextContent, "Write a note before saving."),
 	passageIds: z.array(z.number().int().positive()).max(20),
+	purpose: z
+		.enum(["observation", "reflection", "application", "prayer"])
+		.nullable(),
 	tags: z.array(z.string().trim().min(1).max(50)).max(20),
 });
 
@@ -84,6 +93,7 @@ type PendingVerseRequest = (verse: VerseBlockAttributes | null) => void;
  * Pages decide where to go after saving, leaving, deleting or duplicating.
  */
 export function NoteForm({
+	initialFocus,
 	initialNote,
 	initialValues,
 	isNew,
@@ -93,6 +103,8 @@ export function NoteForm({
 	onSaved,
 	submitLabel,
 }: {
+	/** The field to focus first, when a library prompt opened the editor. */
+	initialFocus?: NoteEditorFocus;
 	initialNote?: StoredNote;
 	initialValues: NoteFormValues;
 	isNew: boolean;
@@ -107,7 +119,8 @@ export function NoteForm({
 	const preferredTranslation = usePreferredTranslation();
 	const translation = preferredTranslation.data?.abbreviation ?? null;
 	const tagSuggestions = useNoteTagSuggestions();
-	const { save, storedNote, whenIdle } = useNoteSaveLifecycle(initialNote);
+	const { markStored, save, storedNote, whenIdle } =
+		useNoteSaveLifecycle(initialNote);
 	const [submitError, setSubmitError] = useState<string | null>(null);
 	const [isLeaving, setIsLeaving] = useState(false);
 	const [session, setSession] = useState<EditorSession | null>(null);
@@ -146,10 +159,41 @@ export function NoteForm({
 	});
 	const values = useStore(form.store, (state) => state.values);
 	const isSubmitting = useStore(form.store, (state) => state.isSubmitting);
+	const queryClient = useQueryClient();
+
+	// Autosave pauses while a version is restored, so a save of the old text
+	// can't land after it.
+	const restoreMutation = useMutation({
+		mutationFn: async (versionId: number) => {
+			const noteId = await whenIdle();
+			if (noteId === undefined) throw new Error("Note not saved yet.");
+			const restored = await restoreNoteVersion({
+				data: { id: noteId, versionId },
+			});
+			if (!restored) throw new Error("Version not found.");
+			return restored;
+		},
+		onSuccess: (restored) => {
+			const restoredValues = {
+				...form.state.values,
+				content: restored.content,
+				title: restored.title,
+			};
+			form.setFieldValue("content", restored.content);
+			form.setFieldValue("title", restored.title);
+			markSavedRef.current(restoredValues);
+			markStored(restored);
+			toast.success("Earlier version restored.");
+			return invalidateNoteQueries(queryClient);
+		},
+		onError: () =>
+			toast.error("Unable to restore that version. Please try again."),
+	});
 
 	const autosave = useNoteAutosave({
 		initialValues,
-		isManualSaveInProgress: isSubmitting || isLeaving,
+		isManualSaveInProgress:
+			isSubmitting || isLeaving || restoreMutation.isPending,
 		noteStatus: storedNote?.status ?? null,
 		onSave: save,
 		values,
@@ -213,19 +257,10 @@ export function NoteForm({
 	};
 	useEffect(() => () => pendingVerseRequest.current?.(null), []);
 
-	const queryClient = useQueryClient();
+	const loadVerses = useLoadVerses();
 	const verseSource = useMemo<VerseBlockSource>(
 		() => ({
-			loadVerses: (verse) =>
-				queryClient.query(
-					verseRangeTextQueryOptions({
-						bookId: verse.bookId,
-						chapter: verse.chapter,
-						translation: verse.translation,
-						verseEnd: verse.verseEnd,
-						verseStart: verse.verseStart,
-					}),
-				),
+			loadVerses,
 			onOpen: (verse) => {
 				setIsFocusMode(false);
 				linkPassage(verse.passageId);
@@ -238,7 +273,7 @@ export function NoteForm({
 				setTab("passage");
 			},
 		}),
-		[linkPassage, queryClient, setIsFocusMode, setTab],
+		[linkPassage, loadVerses, setIsFocusMode, setTab],
 	);
 
 	const deleteNoteMutation = useMutation({
@@ -248,19 +283,20 @@ export function NoteForm({
 			return invalidateNoteQueries(queryClient);
 		},
 	});
+	const passageMentions = useMemo<PassageMentionSource>(
+		() => ({
+			onLink: (reference) => linkPassage(reference.passageId),
+			search: (query) =>
+				filterPassageOptions(passages ?? [], query, 6).map((passage) => ({
+					label: passage.label,
+					passageId: passage.id,
+				})),
+		}),
+		[linkPassage, passages],
+	);
+
 	const duplicateNoteMutation = useMutation({
-		mutationFn: async () => {
-			const copy = await saveNote({
-				data: {
-					content: values.content,
-					passageIds: values.passageIds,
-					tags: values.tags,
-					title: values.title.trim() ? `${values.title.trim()} (copy)` : "",
-				},
-			});
-			if (!copy) throw new Error("Note not found.");
-			return copy;
-		},
+		mutationFn: () => duplicateNote(values),
 		onSuccess: (copy) => {
 			void invalidateNoteQueries(queryClient);
 			toast.success("Note duplicated.");
@@ -307,6 +343,19 @@ export function NoteForm({
 		}
 	};
 
+	// A library prompt ("Add a title", "Set purpose"…) lands on its field.
+	useEffect(() => {
+		if (initialFocus === "passage") setLinkDialogOpen(true);
+		else if (initialFocus === "title")
+			window.document.getElementById("note-title")?.focus();
+		else if (initialFocus === "purpose")
+			window.document
+				.querySelector<HTMLElement>(`#${notePropertyIds.purpose} button`)
+				?.focus();
+		else if (initialFocus === "tags")
+			window.document.getElementById(notePropertyIds.tags)?.focus();
+	}, [initialFocus]);
+
 	useEffect(() => {
 		const handleKeyDown = (event: KeyboardEvent) => {
 			const isModifier = event.metaKey || event.ctrlKey;
@@ -349,6 +398,7 @@ export function NoteForm({
 					}
 					isFocusMode={isFocusMode}
 					isSubmitting={isSubmitting || isLeaving}
+					noteId={storedNote?.id}
 					onDiscard={discard}
 					onToggleFocusMode={() => setIsFocusMode((current) => !current)}
 					saveStatus={
@@ -391,6 +441,10 @@ export function NoteForm({
 									onRemove={unlinkPassage}
 									translation={translation}
 								/>
+								<PurposeProperty
+									onChange={(purpose) => form.setFieldValue("purpose", purpose)}
+									purpose={values.purpose}
+								/>
 								<TagsProperty
 									onChange={(tags) => form.setFieldValue("tags", tags)}
 									suggestions={
@@ -425,6 +479,7 @@ export function NoteForm({
 											onChange={field.handleChange}
 											onRequestVerse={requestVerse}
 											onSessionReady={setSession}
+											passageMentions={passageMentions}
 											placeholder={
 												isNew
 													? "Start writing, or pick a structure to guide your study."
@@ -451,6 +506,7 @@ export function NoteForm({
 								details={
 									<NoteDetailsTab
 										document={values.content}
+										isRestoring={restoreMutation.isPending}
 										mainPassage={linkedPassages[0] ?? null}
 										onDelete={() => setConfirmDeleteOpen(true)}
 										onDuplicate={duplicate}
@@ -459,6 +515,9 @@ export function NoteForm({
 												toFileName(values.title),
 												noteToPlainText(values.title, values.content),
 											)
+										}
+										onRestoreVersion={(versionId) =>
+											restoreMutation.mutate(versionId)
 										}
 										storedNote={storedNote}
 									/>
@@ -587,7 +646,7 @@ function NoteEditorFooter({ document }: { document: RichTextDocument }) {
 /** Reading-sized note body; shorter while the empty state sits beneath it. */
 function noteBodyClassName(isShowingEmptyState: boolean) {
 	return [
-		"text-[19px]! text-foreground/90 leading-[1.65]!",
+		"text-[19px]! text-body-foreground leading-[1.65]!",
 		"[&_.ProseMirror]:max-w-190! [&_.ProseMirror]:px-5! [&_.ProseMirror]:pt-8! sm:[&_.ProseMirror]:px-10!",
 		isShowingEmptyState
 			? "[&_.ProseMirror]:min-h-0! [&_.ProseMirror]:pb-2!"

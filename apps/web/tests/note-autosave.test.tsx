@@ -19,6 +19,7 @@ import {
 const emptyValues: NoteFormValues = {
 	content: { content: [{ type: "paragraph" }], type: "doc" },
 	passageIds: [],
+	purpose: null,
 	tags: [],
 	title: "",
 };

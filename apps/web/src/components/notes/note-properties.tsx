@@ -1,7 +1,22 @@
-import { BookOpenIcon, PlusIcon, TagIcon, XIcon } from "lucide-react";
-import { type ReactNode, useId, useState } from "react";
+import { cn } from "@berean-study/ui/lib/utils";
+import {
+	BookOpenIcon,
+	CompassIcon,
+	PlusIcon,
+	TagIcon,
+	XIcon,
+} from "lucide-react";
+import { type ReactNode, useState } from "react";
 
+import { notePurposes } from "./note-library";
 import type { PassageOption } from "./note-study-data";
+import type { NotePurpose } from "./types";
+
+/** Ids the library's prompts use to open the editor on a field. */
+export const notePropertyIds = {
+	purpose: "note-purpose",
+	tags: "note-tags",
+} as const;
 
 /** Label-and-value rows shown under the note title. */
 export function NoteProperties({ children }: { children: ReactNode }) {
@@ -100,6 +115,53 @@ export function PassageProperty({
 	);
 }
 
+/** Four toggle chips; pressing the selected one again clears the purpose. */
+export function PurposeProperty({
+	onChange,
+	purpose,
+}: {
+	onChange: (purpose: NotePurpose | null) => void;
+	purpose: NotePurpose | null;
+}) {
+	const labelId = `${notePropertyIds.purpose}-label`;
+	return (
+		<>
+			<span
+				className="flex items-center gap-2 text-muted-foreground"
+				id={labelId}
+			>
+				<CompassIcon aria-hidden="true" className="size-4" />
+				Purpose
+			</span>
+			<fieldset
+				aria-labelledby={labelId}
+				className="flex min-w-0 flex-wrap gap-2"
+				id={notePropertyIds.purpose}
+			>
+				{notePurposes.map((option) => {
+					const isSelected = option.value === purpose;
+					return (
+						<button
+							aria-pressed={isSelected}
+							className={cn(
+								"flex h-9 items-center rounded-full border px-3.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+								isSelected
+									? "border-primary bg-primary font-medium text-primary-foreground"
+									: "border-border-strong bg-card text-secondary-foreground hover:bg-secondary",
+							)}
+							key={option.value}
+							onClick={() => onChange(isSelected ? null : option.value)}
+							type="button"
+						>
+							{option.label}
+						</button>
+					);
+				})}
+			</fieldset>
+		</>
+	);
+}
+
 /**
  * Inline tag chips with a bare input: Enter or comma adds a tag, Backspace on
  * an empty input removes the last one, and existing tags are suggested.
@@ -113,7 +175,7 @@ export function TagsProperty({
 	suggestions: readonly string[];
 	tags: readonly string[];
 }) {
-	const id = useId();
+	const id = notePropertyIds.tags;
 	const [value, setValue] = useState("");
 	const hasTag = (name: string) =>
 		tags.some(

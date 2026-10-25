@@ -9,8 +9,10 @@ import type { RichTextRendererProps } from "./types";
 /** Renders a persisted editor document using the same schema as the editor. */
 export function RichTextRenderer({
 	ariaLabel = "Rich text content",
+	contentClassName,
 	document,
 	preset = "member",
+	variant = "card",
 }: RichTextRendererProps) {
 	const normalizedDocument = normalizeRichTextDocument(document);
 	const extensions = useMemo(
@@ -39,9 +41,17 @@ export function RichTextRenderer({
 	if (!editor) return null;
 
 	return (
-		<section className="overflow-hidden rounded-lg border border-border bg-card text-card-foreground shadow-sm">
+		<section
+			className={
+				variant === "card"
+					? "overflow-hidden rounded-lg border border-border bg-card text-card-foreground shadow-sm"
+					: undefined
+			}
+		>
 			<EditorContent
-				className={richTextReaderContentClassName}
+				className={[richTextReaderContentClassName, contentClassName]
+					.filter(Boolean)
+					.join(" ")}
 				editor={editor}
 			/>
 		</section>

@@ -20,6 +20,7 @@ export function NewNotePage({
 				initialValues={{
 					content: emptyRichTextDocument,
 					passageIds: initialPassageId ? [initialPassageId] : [],
+					purpose: null,
 					tags: [],
 					title: "",
 				}}
@@ -33,15 +34,10 @@ export function NewNotePage({
 						? navigate({ search: { passage: returnPassageId }, to: "/bible" })
 						: navigate({ to: "/library/notes" })
 				}
-				onSaved={(note, values) => {
+				onSaved={(note) => {
 					toast.success("Note saved.");
 					navigate({
-						search: {
-							addToCollection: true,
-							note: note.id,
-							passage: values.passageIds[0],
-							return: returnPassageId,
-						},
+						search: { note: note.id, return: returnPassageId },
 						to: "/library/notes",
 					});
 				}}

@@ -13,6 +13,7 @@ import StarterKit from "@tiptap/starter-kit";
 
 import { BibleReference } from "./bible-reference";
 import { Citation } from "./citation";
+import { PassageMentions } from "./passage-mentions";
 import { sanitizePastedHtml } from "./paste-sanitization";
 import { SlashCommands } from "./slash-commands";
 import type { RichTextEditorPreset } from "./types";
@@ -86,7 +87,7 @@ export function createRichTextExtensions(
 		VerseBlock,
 		...(preset === "contributor" ? [Citation] : []),
 		...(interactive
-			? [SlashCommands, Placeholder.configure({ placeholder })]
+			? [SlashCommands, PassageMentions, Placeholder.configure({ placeholder })]
 			: []),
 	];
 }
