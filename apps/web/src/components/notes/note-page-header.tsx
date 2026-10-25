@@ -14,6 +14,7 @@ export function NotePageHeader({
 	breadcrumb,
 	isFocusMode,
 	isSubmitting,
+	noteId,
 	onDiscard,
 	onToggleFocusMode,
 	saveStatus,
@@ -22,6 +23,8 @@ export function NotePageHeader({
 	breadcrumb: string;
 	isFocusMode: boolean;
 	isSubmitting: boolean;
+	/** Set once saved, so "Notes" returns with this note selected. */
+	noteId?: number;
 	onDiscard: () => void;
 	onToggleFocusMode: () => void;
 	saveStatus: ReactNode;
@@ -35,6 +38,7 @@ export function NotePageHeader({
 			>
 				<Link
 					className="flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg pr-2 pl-1 text-secondary-foreground hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+					search={noteId ? { note: noteId } : {}}
 					to="/library/notes"
 				>
 					<ArrowLeftIcon aria-hidden="true" className="size-4" />

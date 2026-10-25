@@ -187,12 +187,12 @@ describeWithDatabase("note collection memberships", () => {
 			);
 
 			const notesInFirstCollection = await listNotes(db, userId, {
-				collectionId: firstCollection.id,
-				sort: "updated-desc",
+				collectionIds: [firstCollection.id],
+				sort: "updated",
 			});
 			const notesInSecondCollection = await listNotes(db, userId, {
-				collectionId: secondCollection.id,
-				sort: "updated-desc",
+				collectionIds: [secondCollection.id],
+				sort: "updated",
 			});
 
 			expect(

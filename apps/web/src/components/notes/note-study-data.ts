@@ -1,4 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
+import type { VerseBlockAttributes } from "@berean-study/rich-text-editor";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback } from "react";
 
 import type {
 	getPassageOptions,
@@ -13,6 +15,7 @@ import {
 	preferredTranslationQueryOptions,
 	recentPassagesQueryOptions,
 	translationsQueryOptions,
+	verseRangeTextQueryOptions,
 } from "@/queries/passages";
 
 export type PassageOption = Awaited<
@@ -22,6 +25,24 @@ export type PassageText = NonNullable<
 	Awaited<ReturnType<typeof getPassageText>>
 >;
 export type Translation = Awaited<ReturnType<typeof listTranslations>>[number];
+
+/** Loads a Verse block's text through the query cache. */
+export function useLoadVerses() {
+	const queryClient = useQueryClient();
+	return useCallback(
+		(verse: VerseBlockAttributes) =>
+			queryClient.query(
+				verseRangeTextQueryOptions({
+					bookId: verse.bookId,
+					chapter: verse.chapter,
+					translation: verse.translation,
+					verseEnd: verse.verseEnd,
+					verseStart: verse.verseStart,
+				}),
+			),
+		[queryClient],
+	);
+}
 
 export function usePassageOptions() {
 	return useQuery(passageOptionsQueryOptions());

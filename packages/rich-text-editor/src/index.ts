@@ -48,6 +48,7 @@ export type {
 	EditorSession,
 	EditorToolbarSession,
 	OutlineEditorSession,
+	PassageMentionSession,
 	SlashCommandSession,
 	WorkspaceEditorSession,
 } from "./editor-session";
@@ -60,6 +61,7 @@ export type {
 	BibleReferenceAttributes,
 	CitationAttributes,
 	DocumentReferences,
+	PassageMentionSource,
 	RichTextDocument,
 	RichTextEditorPreset,
 	RichTextEditorProps,

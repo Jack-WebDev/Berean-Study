@@ -9,15 +9,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { saveNote } from "@/functions/notes";
 import { invalidateNoteQueries } from "@/queries/notes";
 
+export type SavedNote = NonNullable<Awaited<ReturnType<typeof saveNote>>>;
+
 export type NoteFormValues = {
 	content: RichTextDocument;
 	/** Linked passages in display order; the first is the main passage. */
 	passageIds: number[];
+	purpose: SavedNote["purpose"];
 	tags: string[];
 	title: string;
 };
-
-export type SavedNote = NonNullable<Awaited<ReturnType<typeof saveNote>>>;
 export type NoteStatus = SavedNote["status"];
 export type StoredNote = Pick<
 	SavedNote,
@@ -55,6 +56,7 @@ export function useNoteSaveLifecycle(initialNote?: StoredNote) {
 						content: values.content,
 						id: noteId.current,
 						passageIds: values.passageIds,
+						purpose: values.purpose,
 						status: options.status,
 						tags: values.tags,
 						title: values.title.trim(),
@@ -85,7 +87,7 @@ export function useNoteSaveLifecycle(initialNote?: StoredNote) {
 		return noteId.current;
 	}, []);
 
-	return { save, storedNote, whenIdle };
+	return { markStored: setStoredNote, save, storedNote, whenIdle };
 }
 
 /**
@@ -250,6 +252,7 @@ export function areValuesEqual(left: NoteFormValues, right: NoteFormValues) {
 	return (
 		JSON.stringify(left.content) === JSON.stringify(right.content) &&
 		left.title === right.title &&
+		left.purpose === right.purpose &&
 		haveSameItems(left.passageIds, right.passageIds) &&
 		haveSameItems(left.tags, right.tags)
 	);

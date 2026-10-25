@@ -18,7 +18,7 @@ import {
 	FolderIcon,
 	HeartIcon,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import {
@@ -73,7 +73,13 @@ const sourceKeys = {
 	testimony: testimonyKeys.all,
 } satisfies Record<PostType, readonly unknown[]>;
 
-export function CommunitySharePage() {
+export function CommunitySharePage({
+	initialSourceId,
+	initialType,
+}: {
+	initialSourceId?: number;
+	initialType?: PostType;
+} = {}) {
 	const navigate = useNavigate({ from: "/community/share" });
 	const queryClient = useQueryClient();
 	const resourcesQuery = useQuery(communityPublishingResourcesQueryOptions());
@@ -129,6 +135,22 @@ export function CommunitySharePage() {
 		setExcerpt(resource.excerpt);
 		setIsPreviewing(false);
 	};
+	// Start on the item the member came to share, once their items load.
+	const hasPreselected = useRef(false);
+	useEffect(() => {
+		if (hasPreselected.current || !resources || !initialType) return;
+		hasPreselected.current = true;
+		setType(initialType);
+		const resource = resources.find(
+			(item) => item.type === initialType && item.id === initialSourceId,
+		);
+		if (resource) {
+			setSourceId(resource.id);
+			setTitle(resource.title);
+			setExcerpt(resource.excerpt);
+		}
+	}, [initialSourceId, initialType, resources]);
+
 	const publish = () => {
 		if (!type || !selected || !title.trim() || !excerpt.trim()) return;
 		publishMutation.mutate({

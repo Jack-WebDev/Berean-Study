@@ -4,6 +4,10 @@ import { NodeSelection } from "@tiptap/pm/state";
 import { useEditorState } from "@tiptap/react";
 import { hasRichTextContent } from "./document-validation";
 import {
+	type PassageMentionState,
+	passageMentionPluginKey,
+} from "./passage-mentions";
+import {
 	type SlashCommandState,
 	slashCommandPluginKey,
 } from "./slash-commands";
@@ -100,6 +104,19 @@ export type SlashCommandSession = EditorCommandTarget & {
 	) => () => void;
 };
 
+/** Operations used by the "@" menu that links a passage while writing. */
+export type PassageMentionSession = {
+	/** Replaces the typed "@reference" with a structured passage reference. */
+	completePassageMention: (
+		from: number,
+		reference: BibleReferenceAttributes,
+	) => boolean;
+	/** Closes the menu for this mention and leaves the typed text alone. */
+	dismissPassageMention: () => void;
+	getSlashMenuPosition: SlashCommandSession["getSlashMenuPosition"];
+	registerKeyDownListener: SlashCommandSession["registerKeyDownListener"];
+};
+
 /** Operations used by the workspace inspector to navigate the document. */
 export type WorkspaceEditorSession = EditorCommandTarget & {
 	deleteStructuredNode: (
@@ -119,6 +136,7 @@ export type WorkspaceEditorSession = EditorCommandTarget & {
  */
 export type EditorSession = EditorToolbarSession &
 	SlashCommandSession &
+	PassageMentionSession &
 	WorkspaceEditorSession &
 	OutlineEditorSession & {
 		getDocument: () => RichTextDocument;
@@ -215,6 +233,19 @@ export function createEditorSession(editor: Editor): EditorSession {
 		},
 		clearSlashCommand: (from) =>
 			editor.commands.deleteRange({ from, to: editor.state.selection.from }),
+		completePassageMention: (from, reference) =>
+			editor
+				.chain()
+				.focus()
+				.deleteRange({ from, to: editor.state.selection.from })
+				.insertBibleReference(reference)
+				.insertContent(" ")
+				.run(),
+		dismissPassageMention: () => {
+			editor.view.dispatch(
+				editor.state.tr.setMeta(passageMentionPluginKey, { dismiss: true }),
+			);
+		},
 		deleteStructuredNode: (type, index) => {
 			const position = findNodePosition(editor, type, index);
 			return position === null
@@ -392,6 +423,18 @@ export function useSlashCommandState(
 		editor,
 		selector: ({ editor: currentEditor }) =>
 			slashCommandPluginKey.getState(currentEditor.state) as SlashCommandState,
+	});
+}
+
+/** Reads the "@reference" being typed, or null when there isn't one. */
+export function usePassageMentionState(
+	session: PassageMentionSession,
+): PassageMentionState {
+	const editor = getEditor(session);
+	return useEditorState({
+		editor,
+		selector: ({ editor: currentEditor }) =>
+			passageMentionPluginKey.getState(currentEditor.state)?.mention ?? null,
 	});
 }
 

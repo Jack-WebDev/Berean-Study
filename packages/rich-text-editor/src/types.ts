@@ -15,6 +15,12 @@ export type BibleReferenceAttributes = {
 	passageId: number;
 };
 
+/** Lets "@" link a passage: the host finds passages and records the link. */
+export type PassageMentionSource = {
+	onLink: (passage: BibleReferenceAttributes) => void;
+	search: (query: string) => readonly BibleReferenceAttributes[];
+};
+
 export type CitationAttributes = {
 	citationId: number;
 	label: string;
@@ -40,6 +46,8 @@ export type RichTextSelectionResult =
  */
 export type RichTextEditorProps = {
 	ariaLabel?: string;
+	/** Turns on "@" passage links; without it "@" is plain text. */
+	passageMentions?: PassageMentionSource;
 	className?: string;
 	contentClassName?: string;
 	editable?: boolean;
@@ -77,9 +85,12 @@ export type RichTextEditorProps = {
 
 export type RichTextRendererProps = {
 	ariaLabel?: string;
+	contentClassName?: string;
 	/** A malformed value is rendered as an empty document. */
 	document: RichTextDocument | null | undefined;
 	preset?: RichTextEditorPreset;
+	/** `card` frames the content; `plain` leaves it on the page's own surface. */
+	variant?: "card" | "plain";
 };
 
 export type RichTextEditorWorkspaceSlots = {

@@ -47,6 +47,7 @@ export * from "./literary_units";
 export * from "./manuscripts";
 export * from "./note_passages";
 export * from "./note_tags";
+export * from "./note_versions";
 export * from "./notes";
 export * from "./notifications";
 export * from "./original_language_notes";

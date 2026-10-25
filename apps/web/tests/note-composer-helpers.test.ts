@@ -23,6 +23,7 @@ import { filterPassageOptions } from "../src/components/notes/note-study-data";
 const values: NoteFormValues = {
 	content: { content: [{ type: "paragraph" }], type: "doc" },
 	passageIds: [1, 2],
+	purpose: "observation",
 	tags: ["Acts"],
 	title: "Bereans",
 };
@@ -48,6 +49,7 @@ describe("note composer helpers", () => {
 		);
 		expect(areValuesEqual(values, { ...values, tags: [] })).toBe(false);
 		expect(areValuesEqual(values, { ...values, title: "Other" })).toBe(false);
+		expect(areValuesEqual(values, { ...values, purpose: null })).toBe(false);
 	});
 
 	it("matches passages on every word of the query", () => {

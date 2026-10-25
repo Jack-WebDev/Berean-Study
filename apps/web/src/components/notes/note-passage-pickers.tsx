@@ -365,7 +365,7 @@ export function PassageVerseList({
 							}
 							type="button"
 						>
-							<sup className="mr-1 font-sans font-semibold text-[11px] text-scripture-foreground">
+							<sup className="mr-1 font-sans font-semibold text-[11px] text-scripture-number">
 								{showChapter ? `${verse.chapter}:` : ""}
 								{verse.number}
 							</sup>

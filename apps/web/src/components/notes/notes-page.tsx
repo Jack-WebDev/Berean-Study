@@ -1,325 +1,216 @@
-import { getDocumentText } from "@berean-study/rich-text-editor";
 import { Button } from "@berean-study/ui/components/button";
-import {
-	keepPreviousData,
-	useMutation,
-	useQuery,
-	useQueryClient,
-} from "@tanstack/react-query";
-import { Link, useNavigate } from "@tanstack/react-router";
-import {
-	BarChart3Icon,
-	CalendarIcon,
-	Clock3Icon,
-	CopyIcon,
-	FileTextIcon,
-	FolderPlusIcon,
-	LinkIcon,
-	PlusIcon,
-	Trash2Icon,
-} from "lucide-react";
-import { addTagToNote, deleteNote, removeTagFromNote } from "@/functions/notes";
+import { Tabs, TabsContent } from "@berean-study/ui/components/tabs";
+import { useIsMobile } from "@berean-study/ui/hooks/use-mobile";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
+import { PlusIcon } from "lucide-react";
+
 import { collectionsForNotesQueryOptions } from "@/queries/collections";
-import { collectionKeys, libraryKeys, noteKeys } from "@/queries/keys";
 import {
 	noteBooksQueryOptions,
+	noteQueryOptions,
 	notesQueryOptions,
 	noteTagsQueryOptions,
+	noteViewCountsQueryOptions,
 } from "@/queries/notes";
-import { NoteDetail } from "./note-detail";
-import { NotesControls } from "./notes-controls";
-import { NotesList } from "./notes-list";
-import type { Note, NoteFilters } from "./types";
 
+import { groupNotes } from "./note-library";
+import { NoteReadingPane } from "./note-reading-pane";
+import { usePassageOptions } from "./note-study-data";
+import {
+	NotesList,
+	NotesListSkeleton,
+	NotesListState,
+	RetryButton,
+} from "./notes-list";
+import { NotesListHeader } from "./notes-list-header";
+import type { Note, NotesSearch, NoteView } from "./types";
+
+/**
+ * The notes library: a list of notes beside a reading view of the selected
+ * one. Narrow screens show only the list; a note opens on its own page.
+ */
 export function NotesPage({
-	filters,
-	onFiltersChange,
-	openCollectionPicker,
-	onSelectNote,
-	returnPassageId,
-	selectedNoteId,
+	onSearchChange,
+	search,
 }: {
-	filters: NoteFilters;
-	onFiltersChange: (filters: NoteFilters) => void;
-	openCollectionPicker?: boolean;
-	onSelectNote: (noteId?: number) => void;
-	returnPassageId?: number;
-	selectedNoteId?: number;
+	onSearchChange: (next: NotesSearch, options?: { replace?: boolean }) => void;
+	search: NotesSearch;
 }) {
-	const navigate = useNavigate();
-	const queryClient = useQueryClient();
-	const { bookId, collectionId, passageId, query, sort, tagId } = filters;
+	const isNarrow = useIsMobile();
+	const sort = search.sort ?? "updated";
+	const view = search.view ?? "all";
+	const filters = {
+		bookIds: search.books,
+		collectionIds: search.collections,
+		passageId: search.passage,
+		query: search.q,
+		tagIds: search.tags,
+	};
+
+	// Keep the current list on screen while a new search or filter loads.
 	const notesQuery = useQuery({
-		...notesQueryOptions({
-			bookId,
-			collectionId,
-			passageId,
-			query,
-			sort,
-			tagId,
-		}),
-		// Keep the current list on screen while a new filter loads.
+		...notesQueryOptions({ ...filters, sort, view }),
 		placeholderData: keepPreviousData,
 	});
+	const viewCountsQuery = useQuery({
+		...noteViewCountsQueryOptions(filters),
+		placeholderData: keepPreviousData,
+	});
+	// Unfiltered, so "No notes yet" isn't confused with "nothing matches".
+	const totalQuery = useQuery(noteViewCountsQueryOptions());
 	const booksQuery = useQuery(noteBooksQueryOptions());
 	const tagsQuery = useQuery(noteTagsQueryOptions());
 	const collectionsQuery = useQuery(collectionsForNotesQueryOptions());
-	const notes = notesQuery.data ?? null;
+	const passageOptions = usePassageOptions();
 
-	const selectedNote =
-		notes?.find((note) => note.id === selectedNoteId) ?? notes?.[0] ?? null;
-
-	const deleteNoteMutation = useMutation({
-		mutationFn: async (noteId: number) => {
-			const deleted = await deleteNote({ data: { id: noteId } });
-			if (!deleted) throw new Error("Note not found.");
-		},
-		onSuccess: async (_result, noteId) => {
-			if (notes) onSelectNote(nextNoteAfterDelete(notes, noteId)?.id);
-			queryClient.removeQueries({ queryKey: noteKeys.detail(noteId) });
-			await Promise.all([
-				queryClient.invalidateQueries({ queryKey: noteKeys.all }),
-				queryClient.invalidateQueries({ queryKey: collectionKeys.all }),
-				queryClient.invalidateQueries({ queryKey: libraryKeys.all }),
-			]);
-		},
+	const notes = notesQuery.data ?? [];
+	// The order rows appear in, with pinned notes first.
+	const shownNotes = groupNotes(notes, sort).flatMap((group) => group.notes);
+	const listedNote = search.note
+		? notes.find((note) => note.id === search.note)
+		: undefined;
+	// A link can select a note the current filters hide; fetch it directly.
+	const selectedNoteQuery = useQuery({
+		...noteQueryOptions(search.note ?? 0),
+		enabled: Boolean(search.note) && notesQuery.isSuccess && !listedNote,
 	});
+	const selectedNote: Note | null =
+		listedNote ??
+		(search.note ? selectedNoteQuery.data : undefined) ??
+		shownNotes[0] ??
+		null;
 
-	const addTagMutation = useMutation({
-		mutationFn: ({ name, noteId }: { name: string; noteId: number }) =>
-			addTagToNote({ data: { id: noteId, name } }),
-		onSuccess: () => queryClient.invalidateQueries({ queryKey: noteKeys.all }),
-	});
-
-	const removeTagMutation = useMutation({
-		mutationFn: async ({
-			noteId,
-			tagId,
-		}: {
-			noteId: number;
-			tagId: number;
-		}) => {
-			const removed = await removeTagFromNote({ data: { id: noteId, tagId } });
-			if (!removed) throw new Error("Tag not found.");
-		},
-		onSuccess: () => queryClient.invalidateQueries({ queryKey: noteKeys.all }),
-	});
+	const update = (next: Partial<NotesSearch>) =>
+		onSearchChange({ ...search, ...next });
+	const hasFilters = Boolean(
+		search.q ||
+			search.books?.length ||
+			search.collections?.length ||
+			search.tags?.length ||
+			search.passage ||
+			view !== "all",
+	);
+	const clearFilters = () =>
+		onSearchChange({ note: search.note, return: search.return, sort });
+	const selectAfterDelete = (deletedId: number) => {
+		const index = shownNotes.findIndex((note) => note.id === deletedId);
+		const remaining = shownNotes.filter((note) => note.id !== deletedId);
+		const next = remaining[index] ?? remaining[index - 1];
+		onSearchChange({ ...search, note: next?.id }, { replace: true });
+	};
 
 	return (
-		<div className="min-h-full bg-background px-4 py-5 text-foreground sm:px-6 lg:px-8">
-			<div className="mx-auto flex w-full max-w-360 flex-col gap-4">
-				<header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-					<div>
-						<h1 className="font-serif text-3xl tracking-[-0.03em] sm:text-[2.45rem]">
-							Notes
-						</h1>
-						<p className="mt-1 max-w-2xl font-serif text-muted-foreground text-sm leading-6">
-							Capture your insights from Scripture. Grow deeper in God’s Word,
-							one note at a time.
-						</p>
-					</div>
-					<Button
-						className="self-start"
-						render={<Link to="/library/notes/new" />}
-					>
-						<PlusIcon aria-hidden="true" data-icon="inline-start" />
-						New note
-					</Button>
-				</header>
-
-				<section aria-label="Notes workspace" className="notes-library-surface">
-					<NotesControls
+		// Inline-size containment stops one-line titles from widening the page
+		// on phones; they truncate inside the list instead.
+		<div className="contain-[inline-size] flex md:h-[calc(100svh-3.25rem)]">
+			<Tabs
+				className="flex min-w-0 flex-[1_1_22.5rem] flex-col gap-0 md:max-w-110 md:border-border md:border-r"
+				onValueChange={(value) =>
+					onSearchChange({
+						...search,
+						note: undefined,
+						view: value === "all" ? undefined : (value as NoteView),
+					})
+				}
+				value={view}
+			>
+				<section
+					aria-label="Your notes"
+					className="flex min-h-0 flex-1 flex-col"
+				>
+					<NotesListHeader
 						books={booksQuery.data ?? []}
 						collections={collectionsQuery.data ?? []}
-						filters={filters}
-						hasBookLoadError={booksQuery.isError}
-						hasCollectionLoadError={collectionsQuery.isError}
-						hasTagLoadError={tagsQuery.isError}
-						isLoadingBooks={booksQuery.isPending}
-						isLoadingCollections={collectionsQuery.isPending}
-						isLoadingTags={tagsQuery.isPending}
-						onFiltersChange={onFiltersChange}
+						counts={viewCountsQuery.data}
+						onSearchChange={update}
+						passageLabel={
+							passageOptions.data?.find(
+								(passage) => passage.id === search.passage,
+							)?.label ?? null
+						}
+						search={search}
 						tags={tagsQuery.data ?? []}
+						total={totalQuery.data?.all}
 					/>
-					<div className="notes-library-grid">
-						<aside className="notes-list-pane">
+					<TabsContent
+						className="min-h-0 flex-1 overflow-y-auto text-base"
+						value={view}
+					>
+						{notesQuery.isError ? (
+							<NotesListState
+								action={
+									<RetryButton onRetry={() => void notesQuery.refetch()} />
+								}
+								description="Unable to load your notes. Please try again."
+								title="Notes unavailable"
+							/>
+						) : notesQuery.isPending ? (
+							<NotesListSkeleton />
+						) : totalQuery.data?.all === 0 ? (
+							<NotesListState
+								action={
+									<Button
+										className="h-10 rounded-[10px] px-4 font-semibold"
+										nativeButton={false}
+										render={<Link to="/library/notes/new" />}
+									>
+										<PlusIcon aria-hidden="true" data-icon="inline-start" />
+										New note
+									</Button>
+								}
+								description="Write down what you notice as you read, and it will gather here."
+								title="Welcome to your notes"
+							/>
+						) : notes.length === 0 ? (
+							<NotesListState
+								action={
+									hasFilters ? (
+										<Button
+											className="h-9"
+											onClick={clearFilters}
+											type="button"
+											variant="link"
+										>
+											Clear filters
+										</Button>
+									) : undefined
+								}
+								description={
+									search.q
+										? `Nothing matches “${search.q}”.`
+										: "No notes match these filters."
+								}
+								title="No matching notes"
+							/>
+						) : (
 							<NotesList
-								hasActiveFilters={Boolean(
-									filters.bookId ||
-										filters.collectionId ||
-										filters.passageId ||
-										filters.query ||
-										filters.tagId,
-								)}
-								hasLoadError={notesQuery.isError}
-								isLoading={notesQuery.isPending}
-								notes={notes ?? []}
-								onRetry={() => void notesQuery.refetch()}
-								onSelect={onSelectNote}
+								isNarrow={isNarrow}
+								notes={notes}
+								search={search}
 								selectedNoteId={selectedNote?.id ?? null}
+								sort={sort}
 							/>
-						</aside>
-
-						<main aria-label="Selected note" className="notes-detail-pane">
-							<NoteDetail
-								note={selectedNote}
-								onAddTag={async (noteId, name) => {
-									await addTagMutation.mutateAsync({ name, noteId });
-								}}
-								openCollectionPicker={openCollectionPicker}
-								onDelete={deleteNoteMutation.mutateAsync}
-								onEdit={(noteId) =>
-									navigate({
-										to: "/library/notes/$noteId/edit",
-										params: { noteId },
-									})
-								}
-								onRemoveTag={(noteId, tagId) =>
-									removeTagMutation.mutateAsync({ noteId, tagId })
-								}
-								onReturnToScripture={
-									returnPassageId
-										? () =>
-												navigate({
-													to: "/bible",
-													search: { passage: returnPassageId },
-												})
-										: undefined
-								}
-							/>
-						</main>
-						<NotesInsightsRail note={selectedNote} notes={notes ?? []} />
-					</div>
+						)}
+					</TabsContent>
 				</section>
-			</div>
-		</div>
-	);
-}
+			</Tabs>
 
-function NotesInsightsRail({
-	note,
-	notes,
-}: {
-	note: Note | null;
-	notes: Note[];
-}) {
-	return (
-		<aside className="notes-insights-rail" aria-label="Note information">
-			<section className="notes-rail-card">
-				<h2>Note Details</h2>
-				<dl>
-					<div>
-						<dt>
-							<CalendarIcon aria-hidden="true" />
-							Created
-						</dt>
-						<dd>
-							{note
-								? new Intl.DateTimeFormat(undefined, {
-										dateStyle: "medium",
-									}).format(new Date(note.createdAt))
-								: "—"}
-						</dd>
-					</div>
-					<div>
-						<dt>
-							<Clock3Icon aria-hidden="true" />
-							Last updated
-						</dt>
-						<dd>
-							{note
-								? new Intl.DateTimeFormat(undefined, {
-										dateStyle: "medium",
-									}).format(new Date(note.updatedAt))
-								: "—"}
-						</dd>
-					</div>
-					<div>
-						<dt>
-							<LinkIcon aria-hidden="true" />
-							Related to
-						</dt>
-						<dd className="text-primary">
-							{note
-								? (note.passageTitle ?? note.bookName ?? "Unlinked note")
-								: "—"}
-						</dd>
-					</div>
-					<div>
-						<dt>
-							<FileTextIcon aria-hidden="true" />
-							Word count
-						</dt>
-						<dd>
-							{note
-								? `${getDocumentText(note.content).split(/\s+/).filter(Boolean).length} words`
-								: "—"}
-						</dd>
-					</div>
-				</dl>
-			</section>
-			<section className="notes-rail-card">
-				<h2>Quick Actions</h2>
-				<div className="notes-quick-actions">
-					<button type="button">
-						<FolderPlusIcon aria-hidden="true" />
-						Add to collection
-					</button>
-					<button type="button">
-						<CopyIcon aria-hidden="true" />
-						Copy as text
-					</button>
-					<button type="button">
-						<FileTextIcon aria-hidden="true" />
-						Print note
-					</button>
-					<button className="text-destructive" type="button">
-						<Trash2Icon aria-hidden="true" />
-						Delete note
-					</button>
-				</div>
-			</section>
-			<section className="notes-rail-card">
-				<h2>
-					<BarChart3Icon aria-hidden="true" />
-					Study Insights
-				</h2>
-				<dl>
-					<div>
-						<dt>Total Notes</dt>
-						<dd>{notes.length}</dd>
-					</div>
-					<div>
-						<dt>This Month</dt>
-						<dd>
-							{
-								notes.filter(
-									(item) =>
-										new Date(item.createdAt).getMonth() ===
-										new Date().getMonth(),
-								).length
-							}
-						</dd>
-					</div>
-				</dl>
-				{note?.tags.length ? (
-					<div className="notes-favorite-tags">
-						{note.tags.map((tag) => (
-							<span key={tag.id}>{tag.name}</span>
-						))}
-					</div>
+			<section
+				aria-label="Note"
+				className="hidden min-w-0 flex-1 overflow-y-auto bg-card md:block"
+			>
+				{selectedNote ? (
+					<NoteReadingPane
+						key={selectedNote.id}
+						note={selectedNote}
+						onDeleted={() => selectAfterDelete(selectedNote.id)}
+						onDuplicated={(copyId) =>
+							onSearchChange({ ...search, note: copyId }, { replace: true })
+						}
+					/>
 				) : null}
 			</section>
-			<div className="notes-scripture-reminder">
-				“Your word is a lamp to my feet and a light to my path.”
-				<span>PSALM 119:105</span>
-			</div>
-		</aside>
+		</div>
 	);
-}
-
-function nextNoteAfterDelete(notes: readonly Note[], noteId: number) {
-	const deletedIndex = notes.findIndex((note) => note.id === noteId);
-	const remainingNotes = notes.filter((note) => note.id !== noteId);
-	return remainingNotes[deletedIndex] ?? remainingNotes[deletedIndex - 1];
 }

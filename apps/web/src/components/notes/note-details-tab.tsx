@@ -5,19 +5,32 @@ import {
 	type RichTextDocument,
 } from "@berean-study/rich-text-editor";
 import { Button } from "@berean-study/ui/components/button";
-import { Link } from "@tanstack/react-router";
 import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@berean-study/ui/components/dropdown-menu";
+import { useQuery } from "@tanstack/react-query";
+import { Link, useNavigate } from "@tanstack/react-router";
+import {
+	CheckIcon,
+	ChevronDownIcon,
 	CopyIcon,
 	DownloadIcon,
 	FolderIcon,
 	LockIcon,
 	Trash2Icon,
+	UsersRoundIcon,
 } from "lucide-react";
 import { type ReactNode, useState } from "react";
 
 import { AddNoteToCollectionDialog } from "@/components/collections/add-note-to-collection-dialog";
 import { formatDate } from "@/lib/format";
+import { communityPublishingResourcesQueryOptions } from "@/queries/community";
+import { noteVersionsQueryOptions } from "@/queries/notes";
 
+import { dateGroupLabel, formatListTime } from "./note-library";
 import type { StoredNote } from "./note-save-lifecycle";
 import { type PassageOption, useNotesForPassage } from "./note-study-data";
 
@@ -26,17 +39,21 @@ const eyebrowClassName =
 
 export function NoteDetailsTab({
 	document,
+	isRestoring,
 	mainPassage,
 	onDelete,
 	onDuplicate,
 	onExport,
+	onRestoreVersion,
 	storedNote,
 }: {
 	document: RichTextDocument;
+	isRestoring: boolean;
 	mainPassage: PassageOption | null;
 	onDelete: () => void;
 	onDuplicate: () => void;
 	onExport: () => void;
+	onRestoreVersion: (versionId: number) => void;
 	storedNote: StoredNote | null;
 }) {
 	const [collectionsOpen, setCollectionsOpen] = useState(false);
@@ -65,20 +82,7 @@ export function NoteDetailsTab({
 						Add to collection
 					</Button>
 				</div>
-				<div className="flex flex-col gap-1.5">
-					<div className="flex items-center justify-between gap-3 text-sm">
-						<span className="text-secondary-foreground">Visibility</span>
-						<span className="flex h-9 items-center gap-1.5 text-[13px] text-secondary-foreground">
-							<LockIcon aria-hidden="true" className="size-3.5" />
-							Private
-						</span>
-					</div>
-					<p className="text-right text-muted-foreground text-xs">
-						{storedNote
-							? "Only you can see this note."
-							: "Only you can see this note. It saves as you write."}
-					</p>
-				</div>
+				<VisibilityControl storedNote={storedNote} />
 			</section>
 
 			<section
@@ -106,6 +110,15 @@ export function NoteDetailsTab({
 					</DetailRow>
 				</dl>
 			</section>
+
+			{storedNote ? (
+				<VersionHistory
+					isRestoring={isRestoring}
+					noteId={storedNote.id}
+					onRestore={onRestoreVersion}
+					updatedAt={storedNote.updatedAt}
+				/>
+			) : null}
 
 			{mainPassage ? (
 				<OtherNotesOnPassage
@@ -158,6 +171,202 @@ export function NoteDetailsTab({
 			) : null}
 		</div>
 	);
+}
+
+/**
+ * Notes are always private. Sharing publishes a copy to Community, so this
+ * shows whether a copy exists and offers to share one.
+ */
+function VisibilityControl({ storedNote }: { storedNote: StoredNote | null }) {
+	const navigate = useNavigate();
+	const resources = useQuery({
+		...communityPublishingResourcesQueryOptions(),
+		enabled: Boolean(storedNote),
+	});
+	const isShared = Boolean(
+		storedNote &&
+			resources.data?.some(
+				(resource) =>
+					resource.type === "note" &&
+					resource.id === storedNote.id &&
+					resource.isPublished,
+			),
+	);
+
+	return (
+		<div className="flex flex-col gap-1.5">
+			<div className="flex items-center justify-between gap-3 text-sm">
+				<span className="text-secondary-foreground">Visibility</span>
+				<DropdownMenu>
+					<DropdownMenuTrigger
+						disabled={!storedNote}
+						render={
+							<Button
+								className="h-9 rounded-lg text-[13px]"
+								type="button"
+								variant="outline"
+							/>
+						}
+					>
+						{isShared ? (
+							<UsersRoundIcon aria-hidden="true" data-icon="inline-start" />
+						) : (
+							<LockIcon aria-hidden="true" data-icon="inline-start" />
+						)}
+						{isShared ? "Shared copy" : "Private"}
+						<ChevronDownIcon aria-hidden="true" data-icon="inline-end" />
+					</DropdownMenuTrigger>
+					<DropdownMenuContent align="end" className="min-w-56">
+						<DropdownMenuItem disabled>
+							<CheckIcon aria-hidden="true" />
+							Private — only you can edit it
+						</DropdownMenuItem>
+						{isShared ? (
+							<DropdownMenuItem
+								onClick={() => void navigate({ to: "/community" })}
+							>
+								<UsersRoundIcon aria-hidden="true" />
+								View in Community
+							</DropdownMenuItem>
+						) : (
+							<DropdownMenuItem
+								onClick={() =>
+									storedNote &&
+									void navigate({
+										search: { source: storedNote.id, type: "note" },
+										to: "/community/share",
+									})
+								}
+							>
+								<UsersRoundIcon aria-hidden="true" />
+								Share to Community…
+							</DropdownMenuItem>
+						)}
+					</DropdownMenuContent>
+				</DropdownMenu>
+			</div>
+			<p className="text-right text-muted-foreground text-xs">
+				{!storedNote
+					? "Only you can see this note. It saves as you write."
+					: isShared
+						? "A copy is shared in Community. This note stays yours."
+						: "Only you can see this note. Share it to Community any time."}
+			</p>
+		</div>
+	);
+}
+
+const VISIBLE_VERSIONS = 6;
+
+/** Autosaved versions, newest first; restoring one keeps the rest. */
+function VersionHistory({
+	isRestoring,
+	noteId,
+	onRestore,
+	updatedAt,
+}: {
+	isRestoring: boolean;
+	noteId: number;
+	onRestore: (versionId: number) => void;
+	updatedAt: Date | string;
+}) {
+	const versions = useQuery(noteVersionsQueryOptions(noteId));
+	const [showAll, setShowAll] = useState(false);
+	const list = versions.data ?? [];
+	// Edits since the last version are the current state, shown on top.
+	const rows = [
+		...(list.some((version) => version.isCurrent)
+			? []
+			: [{ createdAt: updatedAt, id: 0, isCurrent: true, summary: null }]),
+		...list,
+	];
+	const shownRows = showAll ? rows : rows.slice(0, VISIBLE_VERSIONS);
+
+	return (
+		<section
+			aria-labelledby="note-details-history"
+			className="flex flex-col gap-2 border-border border-t pt-4"
+		>
+			<h3 className={eyebrowClassName} id="note-details-history">
+				Version history
+			</h3>
+			{versions.isPending ? (
+				<p className="text-muted-foreground text-sm">Loading versions…</p>
+			) : versions.isError ? (
+				<p className="text-muted-foreground text-sm">
+					Version history couldn’t be loaded.
+				</p>
+			) : (
+				<ol className="flex flex-col">
+					{shownRows.map((version, index) => (
+						<li
+							className="relative flex min-h-11 items-center gap-3 pl-5"
+							key={version.id}
+						>
+							<span
+								aria-hidden="true"
+								className={`absolute top-1/2 left-0.5 size-2 -translate-y-1/2 rounded-full ${version.isCurrent ? "bg-primary" : "bg-border-strong"}`}
+							/>
+							{index < shownRows.length - 1 ? (
+								<span
+									aria-hidden="true"
+									className="absolute top-1/2 bottom-[-50%] left-[5px] w-px bg-border"
+								/>
+							) : null}
+							<span className="flex min-w-0 flex-1 flex-col">
+								<span className="text-sm">
+									{formatVersionTime(version.createdAt)}
+								</span>
+								<span className="truncate text-muted-foreground text-xs">
+									{version.isCurrent
+										? "Current version"
+										: describeVersion(version.summary)}
+								</span>
+							</span>
+							{version.isCurrent ? null : (
+								<Button
+									aria-label={`Restore the version from ${formatVersionTime(version.createdAt)}`}
+									className="h-9 rounded-lg"
+									disabled={isRestoring}
+									onClick={() => onRestore(version.id)}
+									type="button"
+									variant="outline"
+								>
+									Restore
+								</Button>
+							)}
+						</li>
+					))}
+				</ol>
+			)}
+			{rows.length > VISIBLE_VERSIONS && !showAll ? (
+				<Button
+					className="h-9 self-start rounded-lg"
+					onClick={() => setShowAll(true)}
+					type="button"
+					variant="ghost"
+				>
+					Show {rows.length - VISIBLE_VERSIONS} older
+				</Button>
+			) : null}
+		</section>
+	);
+}
+
+function formatVersionTime(value: Date | string) {
+	const date = new Date(value);
+	if (Date.now() - date.getTime() < 60_000) return "Just now";
+	return dateGroupLabel(date) === "Today"
+		? formatListTime(date)
+		: formatTimestamp(date);
+}
+
+/** Labels stored summaries the way the timeline reads: "Autosave · added Apply". */
+function describeVersion(summary: string | null) {
+	if (!summary) return "Autosave";
+	if (summary.startsWith("Added "))
+		return `Autosave · added ${summary.slice("Added ".length)}`;
+	return summary;
 }
 
 function OtherNotesOnPassage({

@@ -128,7 +128,7 @@ function VerseBlockView({ node, selected }: NodeViewProps) {
 				{current.status === "ready" && current.verses.length ? (
 					current.verses.map((verse) => (
 						<span key={verse.number}>
-							<sup className="mr-1 font-sans font-semibold text-[11px] text-scripture-foreground not-italic">
+							<sup className="mr-1 font-sans font-semibold text-[11px] text-scripture-number not-italic">
 								{verse.number}
 							</sup>
 							{verse.text}{" "}

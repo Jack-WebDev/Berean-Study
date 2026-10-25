@@ -10,8 +10,17 @@ export const Route = createFileRoute("/_auth/library/notes/$noteId/edit")({
 			z.object({ noteId: z.coerce.number().int().positive() }).parse(params),
 		stringify: (params) => ({ noteId: params.noteId.toString() }),
 	},
+	validateSearch: z.object({
+		/** The field to focus first, when a library prompt opened the editor. */
+		focus: z.enum(["passage", "purpose", "tags", "title"]).optional(),
+	}),
 });
 
 function EditNoteRoute() {
-	return <EditNotePage noteId={Route.useParams().noteId} />;
+	return (
+		<EditNotePage
+			focus={Route.useSearch().focus}
+			noteId={Route.useParams().noteId}
+		/>
+	);
 }

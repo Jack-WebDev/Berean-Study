@@ -1,5 +1,5 @@
 import type { getCommunityFeed } from "@/functions/community";
-import type { listNotes } from "@/functions/notes";
+import type { countNoteViews, listNotes } from "@/functions/notes";
 import type { getNotificationPage } from "@/functions/notifications";
 import type { getVerseRangeText } from "@/functions/passages";
 import type { listLibraryReflections } from "@/functions/prayers";
@@ -13,6 +13,7 @@ type ServerFnData<TFn extends (...args: never[]) => unknown> =
 	NonNullable<Parameters<TFn>[0]> extends { data: infer TData } ? TData : never;
 
 export type NoteListFilters = ServerFnData<typeof listNotes>;
+export type NoteCountFilters = ServerFnData<typeof countNoteViews>;
 export type VerseRange = ServerFnData<typeof getVerseRangeText>;
 export type LibraryReflectionFilters = ServerFnData<
 	typeof listLibraryReflections
@@ -24,7 +25,10 @@ export const noteKeys = {
 	all: ["notes"] as const,
 	lists: () => [...noteKeys.all, "list"] as const,
 	list: (filters: NoteListFilters) => [...noteKeys.lists(), filters] as const,
+	viewCounts: (filters: NoteCountFilters) =>
+		[...noteKeys.all, "view-counts", filters] as const,
 	detail: (id: number) => [...noteKeys.all, "detail", id] as const,
+	versions: (id: number) => [...noteKeys.detail(id), "versions"] as const,
 	books: () => [...noteKeys.all, "books"] as const,
 	tags: () => [...noteKeys.all, "tags"] as const,
 	passageCount: (passageId: number) =>
