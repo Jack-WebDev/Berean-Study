@@ -1,11 +1,14 @@
 import { EditorContent, useEditor } from "@tiptap/react";
 import { useEffect, useMemo, useRef } from "react";
-import { normalizeRichTextDocument } from "./document-validation";
+import {
+	hasRichTextContent,
+	normalizeRichTextDocument,
+} from "./document-validation";
 import {
 	createRichTextExtensions,
 	transformPastedHtml,
 } from "./editor-extensions";
-import { createEditorSession } from "./editor-session";
+import { createEditorSession, getActiveSectionIndex } from "./editor-session";
 import { EditorToolbar } from "./editor-toolbar";
 import { richTextContentClassName } from "./rich-text-content-styles";
 import { SlashCommandMenu } from "./slash-command-menu";
@@ -16,18 +19,23 @@ export function RichTextEditor({
 	className,
 	contentClassName,
 	editable = true,
+	emptyState,
 	footer,
 	id,
+	onActiveSectionChange,
 	onChange,
 	onSessionReady,
 	onRequestBibleReference,
 	onRequestCitation,
+	onRequestVerse,
 	placeholder = "Start writing…",
 	preset = "member",
 	value,
 }: RichTextEditorProps) {
 	const onChangeRef = useRef(onChange);
 	onChangeRef.current = onChange;
+	const onActiveSectionChangeRef = useRef(onActiveSectionChange);
+	onActiveSectionChangeRef.current = onActiveSectionChange;
 	const extensions = useMemo(
 		() => createRichTextExtensions(placeholder, preset),
 		[placeholder, preset],
@@ -37,6 +45,8 @@ export function RichTextEditor({
 		editable,
 		extensions,
 		immediatelyRender: false,
+		onSelectionUpdate: ({ editor: currentEditor }) =>
+			onActiveSectionChangeRef.current?.(getActiveSectionIndex(currentEditor)),
 		onUpdate: ({ editor: currentEditor }) =>
 			onChangeRef.current(currentEditor.getJSON() as RichTextDocument),
 		shouldRerenderOnTransaction: false,
@@ -53,6 +63,8 @@ export function RichTextEditor({
 		() => (editor ? createEditorSession(editor) : null),
 		[editor],
 	);
+	const citationRequest =
+		preset === "contributor" ? onRequestCitation : undefined;
 
 	useEffect(() => {
 		if (editor) editor.setEditable(editable);
@@ -72,10 +84,13 @@ export function RichTextEditor({
 
 	if (!editor || !session) return null;
 
+	const isEmpty = !hasRichTextContent(normalizeRichTextDocument(value));
+
 	return (
 		<section
 			className={[
-				"relative overflow-hidden rounded-lg border border-border bg-card text-card-foreground shadow-sm transition-[border-color,box-shadow] focus-within:border-primary/45 focus-within:ring-4 focus-within:ring-primary/8",
+				// overflow-clip (not hidden) keeps the sticky toolbar working.
+				"relative overflow-clip rounded-lg border border-border bg-card text-card-foreground shadow-sm transition-[border-color,box-shadow] focus-within:border-primary/45 focus-within:ring-4 focus-within:ring-primary/8",
 				className,
 			]
 				.filter(Boolean)
@@ -85,9 +100,8 @@ export function RichTextEditor({
 				<EditorToolbar
 					session={session}
 					onRequestBibleReference={onRequestBibleReference}
-					onRequestCitation={
-						preset === "contributor" ? onRequestCitation : undefined
-					}
+					onRequestCitation={citationRequest}
+					onRequestVerse={onRequestVerse}
 					preset={preset}
 				/>
 			) : null}
@@ -97,6 +111,7 @@ export function RichTextEditor({
 					.join(" ")}
 				editor={editor}
 			/>
+			{editable && isEmpty ? emptyState : null}
 			{footer ? (
 				<footer className="border-border border-t">{footer}</footer>
 			) : null}
@@ -104,9 +119,8 @@ export function RichTextEditor({
 				<SlashCommandMenu
 					session={session}
 					onRequestBibleReference={onRequestBibleReference}
-					onRequestCitation={
-						preset === "contributor" ? onRequestCitation : undefined
-					}
+					onRequestCitation={citationRequest}
+					onRequestVerse={onRequestVerse}
 					preset={preset}
 				/>
 			) : null}

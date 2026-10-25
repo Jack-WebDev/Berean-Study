@@ -33,6 +33,12 @@ import {
 	ToggleGroup,
 	ToggleGroupItem,
 } from "@berean-study/ui/components/toggle-group";
+import {
+	type QueryKey,
+	useMutation,
+	useQuery,
+	useQueryClient,
+} from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
 	ArrowLeftIcon,
@@ -47,13 +53,15 @@ import {
 	PlusCircleIcon,
 	Trash2Icon,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import {
 	deleteCollection,
-	getCollectionDetail,
+	type getCollectionDetail,
 	removeNoteFromCollection,
 } from "@/functions/collections";
 import { deleteNote } from "@/functions/notes";
+import { collectionDetailQueryOptions } from "@/queries/collections";
+import { collectionKeys, libraryKeys, noteKeys } from "@/queries/keys";
 import { CollectionCover } from "./collection-cover";
 import { toCollectionSummary } from "./collection-data";
 import { EditCollectionSheet } from "./new-collection-sheet";
@@ -78,44 +86,66 @@ export function CollectionDetailPage({
 	collectionId: number;
 }) {
 	const [activeView, setActiveView] = useState<CollectionView>("all");
-	const [detail, setDetail] = useState<CollectionDetail | undefined>(undefined);
-	const [hasLoadError, setHasLoadError] = useState(false);
 	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-	const [isDeletingCollection, setIsDeletingCollection] = useState(false);
-	const [deleteCollectionError, setDeleteCollectionError] = useState<
-		string | null
-	>(null);
 	const [isEditSheetOpen, setIsEditSheetOpen] = useState(false);
 	const navigate = useNavigate();
+	const queryClient = useQueryClient();
+	const detailQuery = useQuery(collectionDetailQueryOptions(collectionId));
+	const invalidateAffectedQueries = (...queryKeys: QueryKey[]) =>
+		Promise.all(
+			[collectionKeys.all, libraryKeys.all, ...queryKeys].map((queryKey) =>
+				queryClient.invalidateQueries({ queryKey }),
+			),
+		);
+	const removeNoteMutation = useMutation({
+		mutationFn: async (noteId: number) => {
+			const removed = await removeNoteFromCollection({
+				data: { id: collectionId, noteId },
+			});
+			if (!removed) throw new Error("Note membership not found.");
+		},
+		onSuccess: () => invalidateAffectedQueries(noteKeys.lists()),
+	});
+	const deleteNoteMutation = useMutation({
+		mutationFn: async (noteId: number) => {
+			const deleted = await deleteNote({ data: { id: noteId } });
+			if (!deleted) throw new Error("Note not found.");
+		},
+		onSuccess: () => invalidateAffectedQueries(noteKeys.all),
+	});
+	const deleteCollectionMutation = useMutation({
+		mutationFn: async () => {
+			const deleted = await deleteCollection({ data: { id: collectionId } });
+			if (!deleted) throw new Error("Collection not found.");
+		},
+		onSuccess: async () => {
+			await navigate({ to: "/library/collections" });
+			queryClient.removeQueries({
+				queryKey: collectionKeys.detail(collectionId),
+			});
+			await invalidateAffectedQueries(noteKeys.lists());
+		},
+	});
+	const isDeletingCollection = deleteCollectionMutation.isPending;
+	const deleteCollectionError = deleteCollectionMutation.isError
+		? "We couldn't delete this collection. Please try again."
+		: null;
 
-	const loadCollection = useCallback(async () => {
-		setHasLoadError(false);
-		setDetail(undefined);
-		try {
-			setDetail(await getCollectionDetail({ data: { id: collectionId } }));
-		} catch {
-			setHasLoadError(true);
-		}
-	}, [collectionId]);
-
-	useEffect(() => {
-		void loadCollection();
-	}, [loadCollection]);
-
-	if (hasLoadError) {
+	if (detailQuery.isError) {
 		return (
 			<CollectionDetailState
 				description="Please try loading this collection again."
-				onRetry={() => void loadCollection()}
+				onRetry={() => void detailQuery.refetch()}
 				title="Collection unavailable"
 			/>
 		);
 	}
 
-	if (detail === undefined) {
+	if (detailQuery.isPending) {
 		return <CollectionDetailSkeleton />;
 	}
 
+	const detail = detailQuery.data;
 	if (detail === null) {
 		return (
 			<CollectionDetailState
@@ -140,48 +170,6 @@ export function CollectionDetailPage({
 				: activeView === "passages"
 					? passages.length === 0
 					: true;
-	const removeNote = async (noteId: number) => {
-		const removed = await removeNoteFromCollection({
-			data: { id: collectionId, noteId },
-		});
-		if (!removed) throw new Error("Note membership not found.");
-		setDetail((currentDetail) =>
-			currentDetail
-				? {
-						...currentDetail,
-						notes: currentDetail.notes.filter((note) => note.id !== noteId),
-					}
-				: currentDetail,
-		);
-	};
-	const deleteCollectionNote = async (noteId: number) => {
-		const deleted = await deleteNote({ data: { id: noteId } });
-		if (!deleted) throw new Error("Note not found.");
-		setDetail((currentDetail) =>
-			currentDetail
-				? {
-						...currentDetail,
-						notes: currentDetail.notes.filter((note) => note.id !== noteId),
-					}
-				: currentDetail,
-		);
-	};
-	const confirmDeleteCollection = async () => {
-		setDeleteCollectionError(null);
-		setIsDeletingCollection(true);
-		try {
-			const deleted = await deleteCollection({ data: { id: collectionId } });
-			if (!deleted) throw new Error("Collection not found.");
-			await navigate({ to: "/library/collections" });
-		} catch {
-			setDeleteCollectionError(
-				"We couldn't delete this collection. Please try again.",
-			);
-		} finally {
-			setIsDeletingCollection(false);
-		}
-	};
-
 	return (
 		<Sheet onOpenChange={setIsEditSheetOpen} open={isEditSheetOpen}>
 			<div className="min-h-full bg-background px-5 py-7 text-foreground sm:px-8 sm:py-8 lg:px-10 lg:pb-12">
@@ -315,8 +303,8 @@ export function CollectionDetailPage({
 						{showNotes && notes.length > 0 ? (
 							<CollectionNotes
 								notes={notes}
-								onDelete={deleteCollectionNote}
-								onRemove={removeNote}
+								onDelete={deleteNoteMutation.mutateAsync}
+								onRemove={removeNoteMutation.mutateAsync}
 							/>
 						) : null}
 						{showPassages && passages.length > 0 ? (
@@ -361,20 +349,13 @@ export function CollectionDetailPage({
 				<EditCollectionSheet
 					collection={collection}
 					key={collection.id}
-					onUpdated={(updatedCollection) => {
-						setDetail((currentDetail) =>
-							currentDetail
-								? { ...currentDetail, collection: updatedCollection }
-								: currentDetail,
-						);
-						setIsEditSheetOpen(false);
-					}}
+					onUpdated={() => setIsEditSheetOpen(false)}
 				/>
 			) : null}
 			<AlertDialog
 				onOpenChange={(open) => {
 					if (!open && !isDeletingCollection) {
-						setDeleteCollectionError(null);
+						deleteCollectionMutation.reset();
 						setIsDeleteDialogOpen(false);
 					}
 				}}
@@ -399,7 +380,7 @@ export function CollectionDetailPage({
 						</AlertDialogCancel>
 						<AlertDialogAction
 							disabled={isDeletingCollection}
-							onClick={() => void confirmDeleteCollection()}
+							onClick={() => deleteCollectionMutation.mutate()}
 							variant="destructive"
 						>
 							{isDeletingCollection ? "Deleting…" : "Delete Collection"}

@@ -19,14 +19,19 @@ export function isRichTextDocument(value: unknown): value is RichTextDocument {
 	return Array.isArray(value.content) && value.content.every(isRichTextNode);
 }
 
-/** Returns whether a document contains user-authored text or a structured inline reference. */
+/** Returns whether a document contains user-authored text or a structured Scripture or source reference. */
 export function hasRichTextContent(document: RichTextDocument) {
 	return hasMeaningfulNode(document);
 }
 
 function hasMeaningfulNode(node: RichTextNode): boolean {
 	if (typeof node.text === "string" && node.text.trim()) return true;
-	if (node.type === "bibleReference" || node.type === "citation") return true;
+	if (
+		node.type === "bibleReference" ||
+		node.type === "citation" ||
+		node.type === "verseBlock"
+	)
+		return true;
 	return Array.isArray(node.content) && node.content.some(hasMeaningfulNode);
 }
 

@@ -1,4 +1,5 @@
 import { Toaster } from "@berean-study/ui/components/sonner";
+import type { QueryClient } from "@tanstack/react-query";
 import {
 	createRootRouteWithContext,
 	HeadContent,
@@ -16,8 +17,9 @@ import {
 import { FormDraftsProvider } from "@/components/form-drafts";
 import appCss from "../index.css?url";
 
-// biome-ignore lint/complexity/noBannedTypes: biome-ignore lint: false positive
-export type RouterAppContext = {};
+export type RouterAppContext = {
+	queryClient: QueryClient;
+};
 
 export const Route = createRootRouteWithContext<RouterAppContext>()({
 	head: () => ({

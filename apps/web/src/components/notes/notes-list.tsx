@@ -83,6 +83,7 @@ export function NotesList({
 							{notePreview(note.content)}
 						</span>
 						<span className="text-muted-foreground text-xs">
+							{note.status === "draft" ? "Draft · " : null}
 							Updated {formatDate(note.updatedAt, { dateStyle: "medium" })}
 						</span>
 					</button>

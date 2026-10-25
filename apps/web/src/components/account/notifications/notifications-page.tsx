@@ -7,6 +7,7 @@ import {
 import { Button } from "@berean-study/ui/components/button";
 import { Separator } from "@berean-study/ui/components/separator";
 import { Switch } from "@berean-study/ui/components/switch";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { LucideIcon } from "lucide-react";
 import {
 	BellRingIcon,
@@ -27,10 +28,8 @@ import {
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
-import {
-	getNotificationPreferences,
-	updateNotificationPreferences,
-} from "@/functions/notification-preferences";
+import { updateNotificationPreferences } from "@/functions/notification-preferences";
+import { notificationPreferencesQueryOptions } from "@/queries/notification-preferences";
 
 type QuietHours = {
 	enabled: boolean;
@@ -110,63 +109,57 @@ const defaultQuietHours: QuietHours = {
 };
 
 export function NotificationsPage() {
-	const [settings, setSettings] = useState<NotificationPreferences>(
-		defaultNotificationPreferences,
-	);
+	const queryClient = useQueryClient();
+	const preferencesQuery = useQuery(notificationPreferencesQueryOptions());
+	// Unsaved edits layered over the stored preferences.
+	const [draft, setDraft] = useState<NotificationPreferences | null>(null);
 	const [quietHours, setQuietHours] = useState<QuietHours>(defaultQuietHours);
-	const [isLoading, setIsLoading] = useState(true);
-	const [isSaving, setIsSaving] = useState(false);
+	const settings =
+		draft ?? preferencesQuery.data ?? defaultNotificationPreferences;
+	const isLoading = preferencesQuery.isPending;
+	const savePreferencesMutation = useMutation({
+		mutationFn: (preferences: NotificationPreferences) =>
+			updateNotificationPreferences({ data: preferences }),
+		onSuccess: (_result, preferences) => {
+			queryClient.setQueryData(
+				notificationPreferencesQueryOptions().queryKey,
+				preferences,
+			);
+			setDraft(null);
+			toast.success("Notification preferences saved.");
+		},
+		onError: () => toast.error("Unable to save notification preferences."),
+	});
+	const isSaving = savePreferencesMutation.isPending;
 
 	useEffect(() => {
-		let active = true;
-
-		void getNotificationPreferences()
-			.then((preferences) => {
-				if (active) setSettings(preferences);
-			})
-			.catch(() => {
-				if (active) toast.error("Unable to load notification settings.");
-			})
-			.finally(() => {
-				if (active) setIsLoading(false);
-			});
-
-		return () => {
-			active = false;
-		};
-	}, []);
+		if (preferencesQuery.isError) {
+			toast.error("Unable to load notification settings.");
+		}
+	}, [preferencesQuery.isError]);
 
 	function updateSetting(key: NotificationPreferenceKey, checked: boolean) {
-		setSettings((current) => ({ ...current, [key]: checked }));
+		setDraft({ ...settings, [key]: checked });
 	}
 
 	function updateEmailTopic(
 		key: NotificationTopicPreferenceKey,
 		checked: boolean,
 	) {
-		setSettings((current) => ({
-			...current,
-			emailTopics: { ...current.emailTopics, [key]: checked },
-		}));
+		setDraft({
+			...settings,
+			emailTopics: { ...settings.emailTopics, [key]: checked },
+		});
 	}
 
 	function resetPreferences() {
-		setSettings(defaultNotificationPreferences);
+		setDraft(defaultNotificationPreferences);
 		setQuietHours(defaultQuietHours);
 	}
 
-	async function savePreferences() {
+	function savePreferences() {
 		if (isSaving || isLoading) return;
-		setIsSaving(true);
-
-		try {
-			await updateNotificationPreferences({ data: settings });
-			toast.success("Notification preferences saved.");
-		} catch {
-			toast.error("Unable to save notification preferences.");
-		} finally {
-			setIsSaving(false);
-		}
+		savePreferencesMutation.mutate(settings);
 	}
 
 	return (

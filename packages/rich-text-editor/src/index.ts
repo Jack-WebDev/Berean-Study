@@ -5,13 +5,22 @@ export {
 	getDocumentReferences,
 } from "./bible-reference-utils";
 export { isValidCitation } from "./citation";
-export type { DocumentHeading } from "./document-utils";
+export type {
+	DocumentHeading,
+	DocumentSection,
+	DocumentVerseBlock,
+} from "./document-utils";
 export {
 	extractDocumentHeadings,
 	getCharacterCount,
+	getDocumentSections,
 	getDocumentText,
+	getDocumentVerseBlocks,
 	getEstimatedReadingTime,
+	getLinkedVerseCount,
+	getOpenTaskCount,
 	getWordCount,
+	isSectionHeading,
 } from "./document-utils";
 export {
 	emptyRichTextDocument,
@@ -35,8 +44,10 @@ export {
 } from "./editor-actions";
 export type {
 	EditorCommandTarget,
+	EditorSection,
 	EditorSession,
 	EditorToolbarSession,
+	OutlineEditorSession,
 	SlashCommandSession,
 	WorkspaceEditorSession,
 } from "./editor-session";
@@ -57,4 +68,10 @@ export type {
 	RichTextNode,
 	RichTextRendererProps,
 	RichTextSelectionResult,
+	SectionVariant,
+	VerseBlockAttributes,
+	VerseText,
 } from "./types";
+export type { VerseBlockSource } from "./verse-block";
+export { VerseBlockProvider } from "./verse-block";
+export { formatVerseReference, isValidVerseBlock } from "./verse-reference";

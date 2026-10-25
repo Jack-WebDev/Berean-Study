@@ -6,12 +6,20 @@
  */
 
 export type { RichTextDocument, RichTextNode } from "./document-types";
-export type { DocumentHeading } from "./document-utils";
+export type {
+	DocumentHeading,
+	DocumentSection,
+	DocumentVerseBlock,
+} from "./document-utils";
 export {
 	extractDocumentHeadings,
 	getCharacterCount,
+	getDocumentSections,
 	getDocumentText,
+	getDocumentVerseBlocks,
 	getEstimatedReadingTime,
+	getLinkedVerseCount,
+	getOpenTaskCount,
 	getWordCount,
 } from "./document-utils";
 export {

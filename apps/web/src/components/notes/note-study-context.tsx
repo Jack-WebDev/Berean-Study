@@ -5,6 +5,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@berean-study/ui/components/card";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
 	BookOpenIcon,
@@ -12,11 +13,8 @@ import {
 	LinkIcon,
 	ShapesIcon,
 } from "lucide-react";
-import { useEffect, useState } from "react";
 
-import { getPassageStudyContext } from "@/functions/passages";
-
-type StudyContext = Awaited<ReturnType<typeof getPassageStudyContext>>;
+import { passageStudyContextQueryOptions } from "@/queries/passages";
 
 const studyPrompts = [
 	"What does this text explicitly say?",
@@ -33,29 +31,11 @@ export function NoteStudyContext({
 	compact?: boolean;
 	passageId: string;
 }) {
-	const [context, setContext] = useState<StudyContext | undefined>(undefined);
-
-	useEffect(() => {
-		const id = Number(passageId);
-		if (!Number.isSafeInteger(id) || id <= 0) {
-			setContext(undefined);
-			return;
-		}
-
-		let isCurrent = true;
-		setContext(undefined);
-		void getPassageStudyContext({ data: { passageId: id } })
-			.then((nextContext) => {
-				if (isCurrent) setContext(nextContext);
-			})
-			.catch(() => {
-				if (isCurrent) setContext(null);
-			});
-
-		return () => {
-			isCurrent = false;
-		};
-	}, [passageId]);
+	const id = Number(passageId);
+	const { data: context } = useQuery({
+		...passageStudyContextQueryOptions(id),
+		enabled: Number.isSafeInteger(id) && id > 0,
+	});
 
 	if (!context) return null;
 

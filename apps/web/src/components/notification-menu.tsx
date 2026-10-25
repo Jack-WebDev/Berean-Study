@@ -6,16 +6,19 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@berean-study/ui/components/dropdown-menu";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { BellIcon, ChevronRightIcon, SettingsIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import {
-	getRecentNotifications,
+	type getRecentNotifications,
 	markAllNotificationsRead,
 	markNotificationRead,
 } from "@/functions/notifications";
+import { notificationKeys } from "@/queries/keys";
+import { recentNotificationsQueryOptions } from "@/queries/notifications";
 
 import {
 	categoryForKind,
@@ -33,16 +36,64 @@ const dropdownFilters: Array<{ id: DropdownFilter; label: string }> = [
 ];
 
 export function NotificationMenu() {
-	const [inbox, setInbox] = useState<RecentNotifications | null>(null);
+	const queryClient = useQueryClient();
+	const recentQuery = recentNotificationsQueryOptions();
+	const { data: inbox, isError: hasLoadError } = useQuery(recentQuery);
 	const [filter, setFilter] = useState<DropdownFilter>("all");
-	const [hasLoadError, setHasLoadError] = useState(false);
-	const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
 
-	useEffect(() => {
-		void getRecentNotifications()
-			.then(setInbox)
-			.catch(() => setHasLoadError(true));
-	}, []);
+	/** Shows a read-state change in the menu until the server confirms it. */
+	const optimisticUpdate = async (
+		update: (inbox: RecentNotifications) => RecentNotifications,
+	) => {
+		await queryClient.cancelQueries({ queryKey: recentQuery.queryKey });
+		const previous = queryClient.getQueryData(recentQuery.queryKey);
+		if (previous)
+			queryClient.setQueryData(recentQuery.queryKey, update(previous));
+		return { previous };
+	};
+	const rollback = (
+		context: { previous?: RecentNotifications } | undefined,
+	) => {
+		if (context?.previous)
+			queryClient.setQueryData(recentQuery.queryKey, context.previous);
+	};
+	const invalidateNotifications = () =>
+		queryClient.invalidateQueries({ queryKey: notificationKeys.all });
+
+	const markReadMutation = useMutation({
+		mutationFn: (id: number) => markNotificationRead({ data: { id } }),
+		onMutate: (id) =>
+			optimisticUpdate((current) => ({
+				...current,
+				notifications: current.notifications.map((item) =>
+					item.id === id ? { ...item, readAt: new Date() } : item,
+				),
+				unreadCount: Math.max(0, current.unreadCount - 1),
+			})),
+		onError: (_error, _id, context) => {
+			rollback(context);
+			toast.error("Unable to mark the notification as read.");
+		},
+		onSettled: invalidateNotifications,
+	});
+	const markAllReadMutation = useMutation({
+		mutationFn: () => markAllNotificationsRead(),
+		onMutate: () =>
+			optimisticUpdate((current) => ({
+				...current,
+				notifications: current.notifications.map((notification) => ({
+					...notification,
+					readAt: notification.readAt ?? new Date(),
+				})),
+				unreadCount: 0,
+			})),
+		onError: (_error, _variables, context) => {
+			rollback(context);
+			toast.error("Unable to mark notifications as read.");
+		},
+		onSettled: invalidateNotifications,
+	});
+	const isMarkingAllRead = markAllReadMutation.isPending;
 
 	const visibleNotifications = inbox?.notifications.filter((notification) => {
 		if (filter === "unread") return !notification.readAt;
@@ -52,47 +103,14 @@ export function NotificationMenu() {
 	});
 
 	function markRead(id: number) {
-		if (!inbox) return;
-		const notification = inbox.notifications.find((item) => item.id === id);
+		const notification = inbox?.notifications.find((item) => item.id === id);
 		if (!notification || notification.readAt) return;
-
-		setInbox((current) =>
-			current
-				? {
-						...current,
-						notifications: current.notifications.map((item) =>
-							item.id === id ? { ...item, readAt: new Date() } : item,
-						),
-						unreadCount: Math.max(0, current.unreadCount - 1),
-					}
-				: current,
-		);
-		void markNotificationRead({ data: { id } }).catch(() => {
-			toast.error("Unable to mark the notification as read.");
-		});
+		markReadMutation.mutate(id);
 	}
 
-	async function markAllRead() {
+	function markAllRead() {
 		if (!inbox || inbox.unreadCount === 0 || isMarkingAllRead) return;
-		const previousInbox = inbox;
-		setIsMarkingAllRead(true);
-		setInbox({
-			...inbox,
-			notifications: inbox.notifications.map((notification) => ({
-				...notification,
-				readAt: notification.readAt ?? new Date(),
-			})),
-			unreadCount: 0,
-		});
-
-		try {
-			await markAllNotificationsRead();
-		} catch {
-			setInbox(previousInbox);
-			toast.error("Unable to mark notifications as read.");
-		} finally {
-			setIsMarkingAllRead(false);
-		}
+		markAllReadMutation.mutate();
 	}
 
 	return (

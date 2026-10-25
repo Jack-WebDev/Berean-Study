@@ -1,3 +1,4 @@
+import { notePassages } from "../schema/note_passages";
 import { notes } from "../schema/notes";
 import {
 	createdAt,
@@ -19,13 +20,21 @@ export async function seedNotes(
 		.values(
 			rows(count, (i) => ({
 				userId: textId(context, "users", i),
-				passageId: numberId(context, "passages", i),
+				title: sentence(),
+				status: "saved" as const,
 				content: richTextContent(sentence()),
 				createdAt: createdAt(),
 				updatedAt: createdAt(),
 			})),
 		)
 		.returning({ id: notes.id });
+	await db.insert(notePassages).values(
+		inserted.map(({ id }, i) => ({
+			noteId: id,
+			passageId: numberId(context, "passages", i),
+			position: 0,
+		})),
+	);
 	save(
 		context,
 		"notes",

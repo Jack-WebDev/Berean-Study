@@ -22,21 +22,16 @@ import {
 	ToggleGroup,
 	ToggleGroupItem,
 } from "@berean-study/ui/components/toggle-group";
+import { useQuery } from "@tanstack/react-query";
 import {
 	ArrowDownUpIcon,
 	PlusIcon,
 	SearchIcon,
 	SearchXIcon,
 } from "lucide-react";
-import {
-	useCallback,
-	useDeferredValue,
-	useEffect,
-	useRef,
-	useState,
-} from "react";
+import { useDeferredValue, useState } from "react";
 
-import { listCollections } from "@/functions/collections";
+import { collectionsQueryOptions } from "@/queries/collections";
 
 import { type CollectionSummary, toCollectionSummary } from "./collection-data";
 import { CollectionGrid } from "./collection-grid";
@@ -65,57 +60,18 @@ const collectionNameCollator = new Intl.Collator(undefined, {
 	sensitivity: "base",
 });
 
-export function CollectionsPage({
-	collections = [],
-}: {
-	collections?: readonly CollectionSummary[];
-}) {
+export function CollectionsPage() {
 	const [isCreateSheetOpen, setIsCreateSheetOpen] = useState(false);
-	const [savedCollections, setSavedCollections] = useState<
-		CollectionSummary[] | null
-	>(null);
-	const [hasLoadError, setHasLoadError] = useState(false);
-	const hasCreatedCollection = useRef(false);
+	const collectionsQuery = useQuery({
+		...collectionsQueryOptions(),
+		select: (collections) => collections.map(toCollectionSummary),
+	});
 	const [searchQuery, setSearchQuery] = useState("");
 	const [activeFilter, setActiveFilter] = useState<CollectionFilter>("all");
 	const [sort, setSort] = useState<CollectionSort>("updated-desc");
 	const deferredSearchQuery = useDeferredValue(searchQuery);
 
-	const loadCollections = useCallback(() => {
-		let isCurrent = true;
-		setHasLoadError(false);
-
-		void listCollections()
-			.then((result) => {
-				if (isCurrent && !hasCreatedCollection.current) {
-					setSavedCollections(result.map(toCollectionSummary));
-				}
-			})
-			.catch(() => {
-				if (isCurrent) setHasLoadError(true);
-			});
-
-		return () => {
-			isCurrent = false;
-		};
-	}, []);
-
-	useEffect(() => loadCollections(), [loadCollections]);
-
-	const handleCollectionCreated = useCallback(
-		(collection: CollectionSummary) => {
-			hasCreatedCollection.current = true;
-			setSavedCollections((currentCollections) => [
-				collection,
-				...(currentCollections ?? collections),
-			]);
-			setIsCreateSheetOpen(false);
-		},
-		[collections],
-	);
-
-	const displayedCollections = savedCollections ?? collections;
-	const supportsCollectionFilters = savedCollections !== null;
+	const displayedCollections = collectionsQuery.data ?? [];
 	const normalizedSearchQuery = deferredSearchQuery.trim().toLocaleLowerCase();
 	const searchResults = normalizedSearchQuery
 		? displayedCollections.filter((collection) =>
@@ -128,25 +84,23 @@ export function CollectionsPage({
 				),
 			)
 		: displayedCollections;
-	const filteredCollections = supportsCollectionFilters
-		? searchResults.filter((collection) =>
-				matchesCollectionFilter(collection, activeFilter),
-			)
-		: searchResults;
+	const filteredCollections = searchResults.filter((collection) =>
+		matchesCollectionFilter(collection, activeFilter),
+	);
 	const sortedCollections = sortCollections(filteredCollections, sort);
 
-	if (savedCollections === null && !hasLoadError) {
+	if (collectionsQuery.isPending) {
 		return <CollectionsPageSkeleton />;
 	}
 
-	if (hasLoadError) {
-		return <CollectionsLoadError onRetry={loadCollections} />;
+	if (collectionsQuery.isError) {
+		return <CollectionsLoadError onRetry={collectionsQuery.refetch} />;
 	}
 
 	return (
 		<Sheet onOpenChange={setIsCreateSheetOpen} open={isCreateSheetOpen}>
 			<div className="min-h-full bg-background px-5 py-8 text-foreground sm:px-8 sm:py-10 lg:px-10">
-				<main className="mx-auto flex w-full max-w-[90rem] flex-col gap-8">
+				<main className="mx-auto flex w-full max-w-360 flex-col gap-8">
 					<header className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
 						<div>
 							<h1 className="font-serif text-4xl leading-none tracking-[-0.035em] sm:text-[2.75rem]">
@@ -175,7 +129,7 @@ export function CollectionsPage({
 						className="flex flex-col gap-3 xl:flex-row xl:items-center"
 					>
 						<label
-							className="block w-full max-w-xl xl:w-[26rem] xl:shrink-0"
+							className="block w-full max-w-xl xl:w-104 xl:shrink-0"
 							htmlFor="collections-search"
 						>
 							<span className="sr-only">Search collections</span>
@@ -206,7 +160,6 @@ export function CollectionsPage({
 							{collectionFilters.map((filter) => (
 								<ToggleGroupItem
 									className="h-8 rounded-full border-0 bg-muted px-3 text-muted-foreground hover:bg-muted/75 data-[pressed]:bg-primary data-[pressed]:text-primary-foreground"
-									disabled={!supportsCollectionFilters}
 									key={filter.value}
 									value={filter.value}
 								>
@@ -251,7 +204,7 @@ export function CollectionsPage({
 									onClear={() => setSearchQuery("")}
 									query={deferredSearchQuery.trim()}
 								/>
-							) : supportsCollectionFilters && activeFilter !== "all" ? (
+							) : activeFilter !== "all" ? (
 								<CollectionFilterEmptyState
 									filter={
 										collectionFilters.find(
@@ -269,7 +222,7 @@ export function CollectionsPage({
 				</main>
 			</div>
 			{isCreateSheetOpen ? (
-				<NewCollectionSheet onCreated={handleCollectionCreated} />
+				<NewCollectionSheet onCreated={() => setIsCreateSheetOpen(false)} />
 			) : null}
 		</Sheet>
 	);

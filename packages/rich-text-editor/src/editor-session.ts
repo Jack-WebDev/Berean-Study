@@ -1,7 +1,8 @@
-import type { Editor } from "@tiptap/core";
+import type { Editor, JSONContent } from "@tiptap/core";
+import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { NodeSelection } from "@tiptap/pm/state";
 import { useEditorState } from "@tiptap/react";
-
+import { hasRichTextContent } from "./document-validation";
 import {
 	type SlashCommandState,
 	slashCommandPluginKey,
@@ -10,11 +11,15 @@ import type {
 	BibleReferenceAttributes,
 	CitationAttributes,
 	RichTextDocument,
+	SectionVariant,
+	VerseBlockAttributes,
 } from "./types";
 
 export type EditorSessionCommand =
 	| "bullet"
+	| "checklist"
 	| "divider"
+	| "heading1"
 	| "heading2"
 	| "heading3"
 	| "numbered"
@@ -23,13 +28,15 @@ export type EditorSessionCommand =
 	| "table";
 
 export type EditorSessionState = {
-	activeBlock: "blockquote" | "bulletList" | "orderedList" | null;
-	activeHeading: 2 | 3 | null;
+	activeBlock: "blockquote" | "bulletList" | "orderedList" | "taskList" | null;
+	activeHeading: 1 | 2 | 3 | null;
 	canRedo: boolean;
 	canUndo: boolean;
 	isBibleReference: boolean;
 	isBold: boolean;
 	isCitation: boolean;
+	isCode: boolean;
+	isHighlight: boolean;
 	isItalic: boolean;
 	isLink: boolean;
 	isStrike: boolean;
@@ -42,6 +49,23 @@ export type EditorCommandTarget = {
 	applyCommand: (command: EditorSessionCommand) => boolean;
 	insertBibleReference: (reference: BibleReferenceAttributes) => boolean;
 	insertCitation: (citation: CitationAttributes) => boolean;
+	insertVerseBlock: (attributes: VerseBlockAttributes) => boolean;
+};
+
+export type EditorSection = { text: string; variant: SectionVariant };
+
+/** Operations used by outline tooling to build and navigate note sections. */
+export type OutlineEditorSession = {
+	/** Appends a section heading at the end and selects its text for typing. */
+	appendSection: (section?: EditorSection) => boolean;
+	/** Moves focus into the writing surface, at the start of the document. */
+	focusDocument: () => boolean;
+	focusSection: (index: number) => boolean;
+	/**
+	 * Fills an empty document with the sections and places the cursor under
+	 * the first one; appends them when the document already has content.
+	 */
+	insertSections: (sections: readonly EditorSection[]) => boolean;
 };
 
 /** Operations used by the toolbar outside the shared command catalog. */
@@ -50,7 +74,9 @@ export type EditorToolbarSession = EditorCommandTarget & {
 	getLinkHref: () => string;
 	removeLink: () => boolean;
 	setTextAlignment: (alignment: "center" | "left" | "right") => boolean;
-	toggleMark: (mark: "bold" | "italic" | "strike" | "underline") => boolean;
+	toggleMark: (
+		mark: "bold" | "code" | "highlight" | "italic" | "strike" | "underline",
+	) => boolean;
 	updateTable: (
 		action:
 			| "addColumn"
@@ -82,7 +108,7 @@ export type WorkspaceEditorSession = EditorCommandTarget & {
 	) => boolean;
 	focusHeading: (index: number) => boolean;
 	focusStructuredNode: (
-		type: "bibleReference" | "citation",
+		type: "bibleReference" | "citation" | "verseBlock",
 		index: number,
 	) => boolean;
 };
@@ -93,7 +119,8 @@ export type WorkspaceEditorSession = EditorCommandTarget & {
  */
 export type EditorSession = EditorToolbarSession &
 	SlashCommandSession &
-	WorkspaceEditorSession & {
+	WorkspaceEditorSession &
+	OutlineEditorSession & {
 		getDocument: () => RichTextDocument;
 		isSelectionInNode: (
 			type: "bibleReference" | "citation" | "heading",
@@ -108,11 +135,38 @@ const editors = new WeakMap<object, Editor>();
  */
 export function createEditorSession(editor: Editor): EditorSession {
 	let linkSelection: { from: number; to: number } | null = null;
+	// Panels outside the editor take focus when clicked. Tiptap's focus()
+	// refocuses on the next frame, and the browser then restores the old caret
+	// over any selection set meanwhile, so focus the view synchronously first.
+	const focusedChain = () => {
+		if (!editor.view.hasFocus()) editor.view.focus();
+		return editor.chain();
+	};
+	// Structural inserts often make the host re-render around the editor (an
+	// empty state disappears, padding changes). Chrome can keep typing at a
+	// stale caret even though the DOM selection reads correctly, so write the
+	// selection again once that render has happened.
+	const resyncDomSelection = (applied: boolean) => {
+		if (!applied || typeof requestAnimationFrame === "undefined")
+			return applied;
+		requestAnimationFrame(() => {
+			if (editor.isDestroyed || !editor.view.hasFocus()) return;
+			const { anchor, head } = editor.state.selection;
+			const start = editor.view.domAtPos(anchor);
+			const end = editor.view.domAtPos(head);
+			window
+				.getSelection()
+				?.setBaseAndExtent(start.node, start.offset, end.node, end.offset);
+		});
+		return applied;
+	};
 	const session: EditorSession = {
 		applyCommand: (command) => {
 			switch (command) {
 				case "paragraph":
 					return editor.chain().focus().setParagraph().run();
+				case "heading1":
+					return editor.chain().focus().toggleHeading({ level: 1 }).run();
 				case "heading2":
 					return editor.chain().focus().toggleHeading({ level: 2 }).run();
 				case "heading3":
@@ -121,6 +175,8 @@ export function createEditorSession(editor: Editor): EditorSession {
 					return editor.chain().focus().toggleBulletList().run();
 				case "numbered":
 					return editor.chain().focus().toggleOrderedList().run();
+				case "checklist":
+					return editor.chain().focus().toggleTaskList().run();
 				case "quote":
 					return editor.chain().focus().toggleBlockquote().run();
 				case "divider":
@@ -132,6 +188,19 @@ export function createEditorSession(editor: Editor): EditorSession {
 						.insertTable({ cols: 3, rows: 3, withHeaderRow: true })
 						.run();
 			}
+		},
+		appendSection: (section = { text: "New section", variant: "section" }) => {
+			const position = editor.state.doc.content.size;
+			return resyncDomSelection(
+				focusedChain()
+					.insertContentAt(position, createSectionContent([section]))
+					.setTextSelection({
+						from: position + 1,
+						to: position + 1 + section.text.length,
+					})
+					.scrollIntoView()
+					.run(),
+			);
 		},
 		applyLink: (href) => {
 			const selection = linkSelection;
@@ -161,23 +230,26 @@ export function createEditorSession(editor: Editor): EditorSession {
 			const position = findNodePosition(editor, "heading", index);
 			return position === null
 				? false
-				: editor
-						.chain()
-						.focus()
+				: focusedChain()
 						.setTextSelection(position + 1)
 						.scrollIntoView()
 						.run();
+		},
+		focusDocument: () => editor.commands.focus("start"),
+		focusSection: (index) => {
+			const section = findSectionHeading(editor, index);
+			return section
+				? focusedChain()
+						.setTextSelection(section.position + section.node.nodeSize - 1)
+						.scrollIntoView()
+						.run()
+				: false;
 		},
 		focusStructuredNode: (type, index) => {
 			const position = findNodePosition(editor, type, index);
 			return position === null
 				? false
-				: editor
-						.chain()
-						.focus()
-						.setNodeSelection(position)
-						.scrollIntoView()
-						.run();
+				: focusedChain().setNodeSelection(position).scrollIntoView().run();
 		},
 		getDocument: () => editor.getJSON() as RichTextDocument,
 		getLinkHref: () => {
@@ -209,6 +281,26 @@ export function createEditorSession(editor: Editor): EditorSession {
 		insertBibleReference: (reference) =>
 			editor.commands.insertBibleReference(reference),
 		insertCitation: (citation) => editor.commands.insertCitation(citation),
+		insertSections: (sections) => {
+			if (!sections.length) return false;
+			const content = createSectionContent(sections);
+			const isEmpty = !hasRichTextContent(editor.getJSON() as RichTextDocument);
+			const start = isEmpty ? 0 : editor.state.doc.content.size;
+			const chain = focusedChain();
+			if (isEmpty) chain.setContent({ content, type: "doc" });
+			else chain.insertContentAt(start, content);
+			// A heading spans its text plus open and close tokens; the cursor
+			// goes one position into the paragraph that follows it.
+			const firstHeadingSize = (sections[0]?.text.length ?? 0) + 2;
+			return resyncDomSelection(
+				chain
+					.setTextSelection(start + firstHeadingSize + 1)
+					.scrollIntoView()
+					.run(),
+			);
+		},
+		insertVerseBlock: (attributes) =>
+			resyncDomSelection(focusedChain().insertVerseBlock(attributes).run()),
 		registerKeyDownListener: (listener) => {
 			editor.view.dom.addEventListener("keydown", listener, true);
 			return () =>
@@ -226,6 +318,10 @@ export function createEditorSession(editor: Editor): EditorSession {
 			switch (mark) {
 				case "bold":
 					return editor.chain().focus().toggleBold().run();
+				case "code":
+					return editor.chain().focus().toggleCode().run();
+				case "highlight":
+					return editor.chain().focus().toggleHighlight().run();
 				case "italic":
 					return editor.chain().focus().toggleItalic().run();
 				case "underline":
@@ -276,6 +372,8 @@ export function useEditorSessionState(
 			isBibleReference: currentEditor.isActive("bibleReference"),
 			isBold: currentEditor.isActive("bold"),
 			isCitation: currentEditor.isActive("citation"),
+			isCode: currentEditor.isActive("code"),
+			isHighlight: currentEditor.isActive("highlight"),
 			isItalic: currentEditor.isActive("italic"),
 			isLink: currentEditor.isActive("link"),
 			isStrike: currentEditor.isActive("strike"),
@@ -304,15 +402,61 @@ function getEditor(session: object) {
 }
 
 function getActiveBlock(editor: Editor): EditorSessionState["activeBlock"] {
-	for (const block of ["blockquote", "bulletList", "orderedList"] as const)
+	for (const block of [
+		"taskList",
+		"blockquote",
+		"bulletList",
+		"orderedList",
+	] as const)
 		if (editor.isActive(block)) return block;
 	return null;
 }
 
-function getActiveHeading(editor: Editor): 2 | 3 | null {
-	if (editor.isActive("heading", { level: 2 })) return 2;
-	if (editor.isActive("heading", { level: 3 })) return 3;
+function getActiveHeading(editor: Editor): 1 | 2 | 3 | null {
+	for (const level of [1, 2, 3] as const)
+		if (editor.isActive("heading", { level })) return level;
 	return null;
+}
+
+/** Index of the outline section containing the cursor, or null before the first. */
+export function getActiveSectionIndex(editor: Editor): number | null {
+	const topLevelIndex = editor.state.selection.$from.index(0);
+	let sectionIndex: number | null = null;
+	editor.state.doc.forEach((node, _offset, index) => {
+		if (index <= topLevelIndex && isSectionHeadingNode(node))
+			sectionIndex = (sectionIndex ?? -1) + 1;
+	});
+	return sectionIndex;
+}
+
+function findSectionHeading(
+	editor: Editor,
+	index: number,
+): { node: ProseMirrorNode; position: number } | null {
+	const sections: { node: ProseMirrorNode; position: number }[] = [];
+	editor.state.doc.forEach((node, position) => {
+		if (isSectionHeadingNode(node)) sections.push({ node, position });
+	});
+	return sections[index] ?? null;
+}
+
+/** Mirrors `isSectionHeading` in document-utils for live editor nodes. */
+function isSectionHeadingNode(node: ProseMirrorNode) {
+	if (node.type.name !== "heading") return false;
+	return Boolean(node.attrs.variant) || node.attrs.level <= 2;
+}
+
+function createSectionContent(
+	sections: readonly EditorSection[],
+): JSONContent[] {
+	return sections.flatMap(({ text, variant }) => [
+		{
+			attrs: { level: 2, variant },
+			content: text ? [{ text, type: "text" }] : undefined,
+			type: "heading",
+		},
+		{ type: "paragraph" },
+	]);
 }
 
 function findNodePosition(editor: Editor, type: string, index: number) {

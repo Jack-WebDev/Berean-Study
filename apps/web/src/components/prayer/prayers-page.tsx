@@ -15,6 +15,7 @@ import {
 	EmptyTitle,
 } from "@berean-study/ui/components/empty";
 import { Separator } from "@berean-study/ui/components/separator";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
 	BookOpenIcon,
@@ -23,35 +24,23 @@ import {
 	PencilIcon,
 	PlusIcon,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
-import { getPrayer, listPrayers } from "@/functions/prayers";
+import { useState } from "react";
+import type { listPrayers } from "@/functions/prayers";
+import { prayerQueryOptions, prayersQueryOptions } from "@/queries/prayers";
 import { PrayerLibraryTabs } from "./library-tabs";
 
 type Prayer = Awaited<ReturnType<typeof listPrayers>>[number];
 
 export function PrayersPage() {
-	const [prayers, setPrayers] = useState<Prayer[] | null>(null);
-	const [loadFailed, setLoadFailed] = useState(false);
-	const [selectedPrayerId, setSelectedPrayerId] = useState<number | null>(null);
-	const loadPrayers = useCallback(async () => {
-		setLoadFailed(false);
-		try {
-			const nextPrayers = await listPrayers();
-			setPrayers(nextPrayers);
-			setSelectedPrayerId((current) =>
-				nextPrayers.some((prayer) => prayer.id === current)
-					? current
-					: (nextPrayers[0]?.id ?? null),
-			);
-		} catch {
-			setLoadFailed(true);
-		}
-	}, []);
-	useEffect(() => {
-		void loadPrayers();
-	}, [loadPrayers]);
+	const prayersQuery = useQuery(prayersQueryOptions());
+	const prayers = prayersQuery.data ?? null;
+	const [chosenPrayerId, setChosenPrayerId] = useState<number | null>(null);
+	// Falls back to the first prayer when nothing (or a removed prayer) is chosen.
 	const selectedPrayer =
-		prayers?.find((prayer) => prayer.id === selectedPrayerId) ?? null;
+		prayers?.find((prayer) => prayer.id === chosenPrayerId) ??
+		prayers?.[0] ??
+		null;
+	const selectedPrayerId = selectedPrayer?.id ?? null;
 	return (
 		<div className="min-h-full px-5 py-6 sm:px-8 lg:px-12">
 			<main className="mx-auto flex w-full max-w-7xl flex-col gap-4">
@@ -79,12 +68,12 @@ export function PrayersPage() {
 						</Button>
 					</div>
 				</header>
-				{loadFailed ? (
-					<PrayerLoadError onRetry={loadPrayers} />
+				{prayersQuery.isError ? (
+					<PrayerLoadError onRetry={() => void prayersQuery.refetch()} />
 				) : (
 					<div className="grid gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(23rem,.92fr)]">
 						<PrayerList
-							onSelect={setSelectedPrayerId}
+							onSelect={setChosenPrayerId}
 							prayers={prayers}
 							selectedPrayerId={selectedPrayerId}
 						/>
@@ -273,6 +262,7 @@ function PrayerDetail({ prayer }: { prayer: Prayer | null }) {
 								</Button>
 							</div>
 							<PrayerReflections
+								key={prayer.id}
 								prayerId={prayer.id}
 								reflectionCount={prayer.reflectionCount}
 							/>
@@ -291,26 +281,16 @@ function PrayerReflections({
 	prayerId: number;
 	reflectionCount: number;
 }) {
-	const [reflections, setReflections] = useState<
-		NonNullable<Awaited<ReturnType<typeof getPrayer>>>["reflections"] | null
-	>(null);
+	const prayerQuery = useQuery({
+		...prayerQueryOptions(prayerId),
+		enabled: reflectionCount > 0,
+	});
+	const reflections = prayerQuery.isError
+		? []
+		: prayerQuery.data === undefined
+			? null
+			: (prayerQuery.data?.reflections ?? []);
 	const [showAllReflections, setShowAllReflections] = useState(false);
-
-	useEffect(() => {
-		let active = true;
-		setReflections(null);
-		setShowAllReflections(false);
-		void getPrayer({ data: { id: prayerId } })
-			.then((prayer) => {
-				if (active) setReflections(prayer?.reflections ?? []);
-			})
-			.catch(() => {
-				if (active) setReflections([]);
-			});
-		return () => {
-			active = false;
-		};
-	}, [prayerId]);
 
 	if (reflectionCount === 0) {
 		return (

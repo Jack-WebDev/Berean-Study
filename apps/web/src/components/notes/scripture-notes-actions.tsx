@@ -1,30 +1,15 @@
 import { Button } from "@berean-study/ui/components/button";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { FilePlus2Icon, FileTextIcon, FolderPlusIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { AddPassageToCollectionDialog } from "@/components/collections/add-passage-to-collection-dialog";
-import { countNotesForPassage } from "@/functions/notes";
+import { passageNoteCountQueryOptions } from "@/queries/notes";
 
 export function ScriptureNotesActions({ passageId }: { passageId: number }) {
-	const [noteCount, setNoteCount] = useState<number | null>(null);
+	const { data: noteCount } = useQuery(passageNoteCountQueryOptions(passageId));
 	const [collectionDialogOpen, setCollectionDialogOpen] = useState(false);
-
-	useEffect(() => {
-		let isCurrent = true;
-
-		void countNotesForPassage({ data: { passageId } })
-			.then((count) => {
-				if (isCurrent) setNoteCount(count);
-			})
-			.catch(() => {
-				if (isCurrent) setNoteCount(null);
-			});
-
-		return () => {
-			isCurrent = false;
-		};
-	}, [passageId]);
 
 	return (
 		<div className="mt-4 flex flex-wrap items-center gap-2">

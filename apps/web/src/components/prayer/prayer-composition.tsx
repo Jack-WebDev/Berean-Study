@@ -28,6 +28,7 @@ import {
 	ToggleGroup,
 	ToggleGroupItem,
 } from "@berean-study/ui/components/toggle-group";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
 	ArrowLeftIcon,
@@ -38,10 +39,13 @@ import {
 	PlusIcon,
 	SaveIcon,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
-import { getPassageOptions } from "@/functions/passages";
-import { createPrayer, getPrayer, updatePrayer } from "@/functions/prayers";
+import type { getPassageOptions } from "@/functions/passages";
+import { createPrayer, updatePrayer } from "@/functions/prayers";
+import { communityKeys, libraryKeys, prayerKeys } from "@/queries/keys";
+import { passageOptionsQueryOptions } from "@/queries/passages";
+import { prayerQueryOptions } from "@/queries/prayers";
 
 type PrayerEditorMode = "preview" | "write";
 type PassageOption = Awaited<ReturnType<typeof getPassageOptions>>[number];
@@ -78,27 +82,6 @@ function preparePrayerInput(draft: PrayerDraft): PrayerInput {
 	};
 }
 
-function usePassageOptions() {
-	const [passages, setPassages] = useState<PassageOption[] | null>(null);
-	const [hasLoadError, setHasLoadError] = useState(false);
-
-	useEffect(() => {
-		let active = true;
-		void getPassageOptions()
-			.then((options) => {
-				if (active) setPassages(options);
-			})
-			.catch(() => {
-				if (active) setHasLoadError(true);
-			});
-		return () => {
-			active = false;
-		};
-	}, []);
-
-	return { hasLoadError, passages };
-}
-
 function usePrayerComposition({
 	initialDraft,
 	onSave,
@@ -108,9 +91,20 @@ function usePrayerComposition({
 	onSave: (input: PrayerInput) => Promise<void>;
 	saveErrorMessage: string;
 }) {
+	const queryClient = useQueryClient();
 	const [draft, setDraft] = useState(initialDraft);
-	const [isSaving, setIsSaving] = useState(false);
-	const { hasLoadError, passages } = usePassageOptions();
+	const passagesQuery = useQuery(passageOptionsQueryOptions());
+	const saveMutation = useMutation({
+		mutationFn: onSave,
+		onSuccess: () =>
+			Promise.all([
+				queryClient.invalidateQueries({ queryKey: prayerKeys.all }),
+				queryClient.invalidateQueries({ queryKey: libraryKeys.all }),
+				queryClient.invalidateQueries({
+					queryKey: communityKeys.publishingResources(),
+				}),
+			]),
+	});
 
 	const save = async (): Promise<SaveResult> => {
 		const input = preparePrayerInput(draft);
@@ -118,22 +112,19 @@ function usePrayerComposition({
 			return { error: "Enter a title for your prayer.", ok: false };
 		}
 
-		setIsSaving(true);
 		try {
-			await onSave(input);
+			await saveMutation.mutateAsync(input);
 			return { ok: true };
 		} catch {
 			return { error: saveErrorMessage, ok: false };
-		} finally {
-			setIsSaving(false);
 		}
 	};
 
 	return {
 		draft,
-		hasPassageLoadError: hasLoadError,
-		isSaving,
-		passages,
+		hasPassageLoadError: passagesQuery.isError,
+		isSaving: saveMutation.isPending,
+		passages: passagesQuery.data ?? null,
 		save,
 		setCategory: (category: string) =>
 			setDraft((current) => ({ ...current, category })),
@@ -302,36 +293,26 @@ export function NewPrayerPage() {
 }
 
 export function EditPrayerPage({ prayerId }: { prayerId: number }) {
-	const [loadedPrayer, setLoadedPrayer] = useState<PrayerDraft | null>(null);
-	const [notFound, setNotFound] = useState(false);
-	const loadPrayer = useCallback(async () => {
-		try {
-			const prayer = await getPrayer({ data: { id: prayerId } });
-			if (!prayer) {
-				setNotFound(true);
-				return;
-			}
-			setLoadedPrayer({
+	const prayerQuery = useQuery(prayerQueryOptions(prayerId));
+	const prayer = prayerQuery.data;
+
+	if (prayerQuery.isError || prayer === null)
+		return <p className="p-6 text-muted-foreground">Prayer not found.</p>;
+	if (!prayer)
+		return <p className="p-6 text-muted-foreground">Loading prayer…</p>;
+
+	return (
+		<EditPrayerEditor
+			initialDraft={{
 				category: prayer.category ?? "",
 				content: prayer.content,
 				passageId: prayer.passageId,
 				title: prayer.title,
-			});
-		} catch {
-			setNotFound(true);
-		}
-	}, [prayerId]);
-
-	useEffect(() => {
-		void loadPrayer();
-	}, [loadPrayer]);
-
-	if (notFound)
-		return <p className="p-6 text-muted-foreground">Prayer not found.</p>;
-	if (!loadedPrayer)
-		return <p className="p-6 text-muted-foreground">Loading prayer…</p>;
-
-	return <EditPrayerEditor initialDraft={loadedPrayer} prayerId={prayerId} />;
+			}}
+			key={prayerId}
+			prayerId={prayerId}
+		/>
+	);
 }
 
 function EditPrayerEditor({

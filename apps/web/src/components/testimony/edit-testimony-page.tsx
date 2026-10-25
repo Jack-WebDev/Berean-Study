@@ -6,35 +6,27 @@ import {
 } from "@berean-study/rich-text-editor";
 import { Button } from "@berean-study/ui/components/button";
 import { Input } from "@berean-study/ui/components/input";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { SaveIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
-import { getTestimony, updateTestimony } from "@/functions/testimonies";
+import { updateTestimony } from "@/functions/testimonies";
+import { communityKeys, libraryKeys, testimonyKeys } from "@/queries/keys";
+import { testimonyQueryOptions } from "@/queries/testimonies";
 
 export function EditTestimonyPage({ testimonyId }: { testimonyId: number }) {
 	const navigate = useNavigate();
-	const [title, setTitle] = useState("");
-	const [content, setContent] = useState<RichTextDocument>(
-		emptyRichTextDocument,
-	);
-	const [loaded, setLoaded] = useState(false);
-	const [saving, setSaving] = useState(false);
-	useEffect(() => {
-		void getTestimony({ data: { id: testimonyId } })
-			.then((testimony) => {
-				if (testimony) {
-					setTitle(testimony.title);
-					setContent(testimony.content);
-				}
-				setLoaded(true);
-			})
-			.catch(() => setLoaded(true));
-	}, [testimonyId]);
-	const save = async () => {
-		if (!title.trim() || !hasRichTextContent(content)) return;
-		setSaving(true);
-		try {
+	const queryClient = useQueryClient();
+	const testimonyQuery = useQuery(testimonyQueryOptions(testimonyId));
+	// Unsaved edits layered over the stored testimony.
+	const [draftTitle, setTitle] = useState<string | null>(null);
+	const [draftContent, setContent] = useState<RichTextDocument | null>(null);
+	const title = draftTitle ?? testimonyQuery.data?.title ?? "";
+	const content =
+		draftContent ?? testimonyQuery.data?.content ?? emptyRichTextDocument;
+	const saveMutation = useMutation({
+		mutationFn: async () => {
 			const testimony = await updateTestimony({
 				data: {
 					id: testimonyId,
@@ -43,15 +35,27 @@ export function EditTestimonyPage({ testimonyId }: { testimonyId: number }) {
 				},
 			});
 			if (!testimony) throw new Error();
+		},
+		onSuccess: async () => {
+			await Promise.all([
+				queryClient.invalidateQueries({ queryKey: testimonyKeys.all }),
+				queryClient.invalidateQueries({ queryKey: libraryKeys.all }),
+				queryClient.invalidateQueries({
+					queryKey: communityKeys.publishingResources(),
+				}),
+			]);
 			toast.success("Testimony updated.");
 			navigate({ to: "/library/testimonials" });
-		} catch {
-			toast.error("We couldn't update your testimony. Please try again.");
-		} finally {
-			setSaving(false);
-		}
+		},
+		onError: () =>
+			toast.error("We couldn't update your testimony. Please try again."),
+	});
+	const saving = saveMutation.isPending;
+	const save = () => {
+		if (!title.trim() || !hasRichTextContent(content)) return;
+		saveMutation.mutate();
 	};
-	if (!loaded)
+	if (testimonyQuery.isPending)
 		return <p className="p-6 text-muted-foreground">Loading testimony…</p>;
 	return (
 		<div className="min-h-full px-5 py-6 sm:px-8">

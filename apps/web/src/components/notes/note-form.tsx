@@ -1,9 +1,15 @@
 import {
+	type EditorSession,
+	getDocumentVerseBlocks,
+	getEstimatedReadingTime,
+	getLinkedVerseCount,
 	getWordCount,
 	hasRichTextContent,
 	type RichTextDocument,
-	RichTextEditorWorkspace,
-	RichTextRenderer,
+	RichTextEditor,
+	type VerseBlockAttributes,
+	VerseBlockProvider,
+	type VerseBlockSource,
 } from "@berean-study/rich-text-editor";
 import {
 	AlertDialog,
@@ -15,48 +21,47 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 } from "@berean-study/ui/components/alert-dialog";
-import { Button } from "@berean-study/ui/components/button";
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from "@berean-study/ui/components/dialog";
 import { FieldError } from "@berean-study/ui/components/field";
-import { Input } from "@berean-study/ui/components/input";
-import {
-	NativeSelect,
-	NativeSelectOption,
-} from "@berean-study/ui/components/native-select";
-import { Spinner } from "@berean-study/ui/components/spinner";
-import { useForm } from "@tanstack/react-form";
-import { Link } from "@tanstack/react-router";
-import {
-	BookOpenIcon,
-	CopyIcon,
-	ExternalLinkIcon,
-	FileTextIcon,
-	LinkIcon,
-	PlusIcon,
-	SaveIcon,
-	TagIcon,
-} from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useSidebar } from "@berean-study/ui/components/sidebar";
+import { useForm, useStore } from "@tanstack/react-form";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import { z } from "zod";
 
-import { getPassageOptions } from "@/functions/passages";
+import { deleteNote, saveNote } from "@/functions/notes";
+import { noteKeys } from "@/queries/keys";
+import { invalidateNoteQueries } from "@/queries/notes";
+import { verseRangeTextQueryOptions } from "@/queries/passages";
+
+import { NoteDetailsTab } from "./note-details-tab";
+import { NoteEmptyState } from "./note-empty-state";
+import { downloadTextFile, noteToPlainText, toFileName } from "./note-export";
+import { NoteOutlineTab } from "./note-outline-tab";
+import { NotePageHeader } from "./note-page-header";
+import { LinkPassageDialog, VersePickerDialog } from "./note-passage-pickers";
+import { type FocusedVerse, NotePassageTab } from "./note-passage-tab";
 import {
-	NoteAutosaveStatus,
+	NoteProperties,
+	PassageProperty,
+	TagsProperty,
+} from "./note-properties";
+import {
 	type NoteFormValues,
-	type NoteSaveStatus,
+	NoteSaveStatus,
 	type SavedNote,
+	type StoredNote,
+	useNoteAutosave,
 	useNoteSaveLifecycle,
 } from "./note-save-lifecycle";
+import {
+	useNoteTagSuggestions,
+	usePassageOptions,
+	usePreferredTranslation,
+} from "./note-study-data";
+import { NoteStudyPanel, useStudyTab } from "./note-study-panel";
+import { NoteTitleInput } from "./note-title-input";
 
-type PassageOption = Awaited<ReturnType<typeof getPassageOptions>>[number];
-type NoteEditorMode = "preview" | "write";
 const noteFormSchema = z.object({
 	title: z.string().trim().min(1, "Enter a title for your note.").max(200),
 	content: z
@@ -68,694 +73,548 @@ const noteFormSchema = z.object({
 			"Write a note before saving.",
 		)
 		.refine(hasRichTextContent, "Write a note before saving."),
-	passageId: z.string(),
+	passageIds: z.array(z.number().int().positive()).max(20),
 	tags: z.array(z.string().trim().min(1).max(50)).max(20),
 });
 
+type PendingVerseRequest = (verse: VerseBlockAttributes | null) => void;
+
+/**
+ * The note composer: title, properties and editor beside a study panel.
+ * Pages decide where to go after saving, leaving, deleting or duplicating.
+ */
 export function NoteForm({
-	initialNoteId,
+	initialNote,
 	initialValues,
-	onCancel,
-	onSaveDraft,
-	onSubmit,
+	isNew,
+	onDeleted,
+	onDuplicated,
+	onLeave,
+	onSaved,
 	submitLabel,
 }: {
-	initialNoteId?: number;
+	initialNote?: StoredNote;
 	initialValues: NoteFormValues;
-	onCancel: () => void;
-	onSaveDraft: (note: SavedNote, values: NoteFormValues) => Promise<void>;
-	onSubmit: (note: SavedNote, values: NoteFormValues) => Promise<void>;
+	isNew: boolean;
+	onDeleted: () => void;
+	onDuplicated: (noteId: number) => void;
+	onLeave: () => void;
+	onSaved: (note: SavedNote, values: NoteFormValues) => Promise<void> | void;
 	submitLabel: string;
 }) {
-	const [passages, setPassages] = useState<PassageOption[] | null>(null);
-	const [hasLoadError, setHasLoadError] = useState(false);
+	const passageOptions = usePassageOptions();
+	const passages = passageOptions.data ?? null;
+	const preferredTranslation = usePreferredTranslation();
+	const translation = preferredTranslation.data?.abbreviation ?? null;
+	const tagSuggestions = useNoteTagSuggestions();
+	const { save, storedNote, whenIdle } = useNoteSaveLifecycle(initialNote);
 	const [submitError, setSubmitError] = useState<string | null>(null);
-	const [discardDialogOpen, setDiscardDialogOpen] = useState(false);
-	const [editorMode, setEditorMode] = useState<NoteEditorMode>("write");
-	const [autosaveStatus, setAutosaveStatus] = useState<NoteSaveStatus>("saved");
-	const [bibleReferencePickerOpen, setBibleReferencePickerOpen] =
-		useState(false);
-	const bibleReferenceResolver = useRef<
-		((reference: { label: string; passageId: number } | null) => void) | null
-	>(null);
-	const { save } = useNoteSaveLifecycle(initialNoteId);
-	const saveDraft = useCallback(
-		async (values: NoteFormValues) => onSaveDraft(await save(values), values),
-		[onSaveDraft, save],
+	const [isLeaving, setIsLeaving] = useState(false);
+	const [session, setSession] = useState<EditorSession | null>(null);
+	const [activeSectionIndex, setActiveSectionIndex] = useState<number | null>(
+		null,
 	);
+	const [tab, setTab] = useStudyTab();
+	const [activePassageId, setActivePassageId] = useState<number | null>(
+		initialValues.passageIds[0] ?? null,
+	);
+	const [panelTranslationId, setPanelTranslationId] = useState<number | null>(
+		null,
+	);
+	const [focusedVerse, setFocusedVerse] = useState<FocusedVerse | null>(null);
+	const [isFocusMode, setIsFocusMode] = useFocusMode();
+	const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+	const [verseDialogOpen, setVerseDialogOpen] = useState(false);
+	const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
+	const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+	const pendingVerseRequest = useRef<PendingVerseRequest | null>(null);
+	const markSavedRef = useRef<(values: NoteFormValues) => void>(() => {});
+
 	const form = useForm({
 		defaultValues: initialValues,
 		onSubmit: async ({ value }) => {
 			setSubmitError(null);
 			try {
-				await onSubmit(await save(value), value);
+				const note = await save(value, { status: "saved" });
+				markSavedRef.current(value);
+				await onSaved(note, value);
 			} catch {
 				setSubmitError("Unable to save your note. Please try again.");
 			}
 		},
 		validators: { onSubmit: noteFormSchema },
 	});
-	useEffect(() => {
-		let active = true;
-		void getPassageOptions()
-			.then((options) => {
-				if (active) setPassages(options);
-			})
-			.catch(() => {
-				if (active) setHasLoadError(true);
-			});
-		return () => {
-			active = false;
-		};
-	}, []);
-	useEffect(() => () => bibleReferenceResolver.current?.(null), []);
-	const requestBibleReference = useCallback(
+	const values = useStore(form.store, (state) => state.values);
+	const isSubmitting = useStore(form.store, (state) => state.isSubmitting);
+
+	const autosave = useNoteAutosave({
+		initialValues,
+		isManualSaveInProgress: isSubmitting || isLeaving,
+		noteStatus: storedNote?.status ?? null,
+		onSave: save,
+		values,
+	});
+	markSavedRef.current = autosave.markSaved;
+
+	const linkedPassages = useMemo(
 		() =>
-			new Promise<{ label: string; passageId: number } | null>((resolve) => {
-				bibleReferenceResolver.current?.(null);
-				bibleReferenceResolver.current = resolve;
-				setBibleReferencePickerOpen(true);
+			values.passageIds.map(
+				(id) =>
+					passages?.find((passage) => passage.id === id) ?? {
+						id,
+						label: "Linked passage",
+					},
+			),
+		[passages, values.passageIds],
+	);
+	const shownPassageId =
+		activePassageId !== null && values.passageIds.includes(activePassageId)
+			? activePassageId
+			: (values.passageIds[0] ?? null);
+	const quotedVerses = useMemo(
+		() => getDocumentVerseBlocks(values.content),
+		[values.content],
+	);
+	const isEmpty = !hasRichTextContent(values.content);
+
+	const linkPassage = useCallback(
+		(passageId: number) => {
+			const current = form.getFieldValue("passageIds");
+			if (!current.includes(passageId))
+				form.setFieldValue("passageIds", [...current, passageId]);
+			setActivePassageId(passageId);
+		},
+		[form],
+	);
+	const unlinkPassage = (passageId: number) =>
+		form.setFieldValue(
+			"passageIds",
+			form.getFieldValue("passageIds").filter((id) => id !== passageId),
+		);
+
+	const quoteVerse = (verse: VerseBlockAttributes) => {
+		if (session?.insertVerseBlock(verse)) linkPassage(verse.passageId);
+	};
+
+	const requestVerse = useCallback(
+		() =>
+			new Promise<VerseBlockAttributes | null>((resolve) => {
+				pendingVerseRequest.current?.(null);
+				pendingVerseRequest.current = resolve;
+				setVerseDialogOpen(true);
 			}),
 		[],
 	);
-	const closeBibleReferencePicker = useCallback((open: boolean) => {
-		setBibleReferencePickerOpen(open);
-		if (!open) {
-			bibleReferenceResolver.current?.(null);
-			bibleReferenceResolver.current = null;
+	const settleVerseRequest = (verse: VerseBlockAttributes | null) => {
+		pendingVerseRequest.current?.(verse);
+		pendingVerseRequest.current = null;
+		setVerseDialogOpen(false);
+		if (verse) linkPassage(verse.passageId);
+	};
+	useEffect(() => () => pendingVerseRequest.current?.(null), []);
+
+	const queryClient = useQueryClient();
+	const verseSource = useMemo<VerseBlockSource>(
+		() => ({
+			loadVerses: (verse) =>
+				queryClient.query(
+					verseRangeTextQueryOptions({
+						bookId: verse.bookId,
+						chapter: verse.chapter,
+						translation: verse.translation,
+						verseEnd: verse.verseEnd,
+						verseStart: verse.verseStart,
+					}),
+				),
+			onOpen: (verse) => {
+				setIsFocusMode(false);
+				linkPassage(verse.passageId);
+				setFocusedVerse({
+					chapter: verse.chapter,
+					passageId: verse.passageId,
+					verseEnd: verse.verseEnd,
+					verseStart: verse.verseStart,
+				});
+				setTab("passage");
+			},
+		}),
+		[linkPassage, queryClient, setIsFocusMode, setTab],
+	);
+
+	const deleteNoteMutation = useMutation({
+		mutationFn: (noteId: number) => deleteNote({ data: { id: noteId } }),
+		onSuccess: (_result, noteId) => {
+			queryClient.removeQueries({ queryKey: noteKeys.detail(noteId) });
+			return invalidateNoteQueries(queryClient);
+		},
+	});
+	const duplicateNoteMutation = useMutation({
+		mutationFn: async () => {
+			const copy = await saveNote({
+				data: {
+					content: values.content,
+					passageIds: values.passageIds,
+					tags: values.tags,
+					title: values.title.trim() ? `${values.title.trim()} (copy)` : "",
+				},
+			});
+			if (!copy) throw new Error("Note not found.");
+			return copy;
+		},
+		onSuccess: (copy) => {
+			void invalidateNoteQueries(queryClient);
+			toast.success("Note duplicated.");
+			onDuplicated(copy.id);
+		},
+		onError: () =>
+			toast.error("Unable to duplicate this note. Please try again."),
+	});
+
+	const leave = async ({ deleteDraft }: { deleteDraft: boolean }) => {
+		setIsLeaving(true);
+		try {
+			const noteId = deleteDraft ? await whenIdle() : undefined;
+			if (noteId !== undefined) await deleteNoteMutation.mutateAsync(noteId);
+			onLeave();
+		} catch {
+			setIsLeaving(false);
+			toast.error("Unable to discard this note. Please try again.");
 		}
-	}, []);
-	const selectBibleReference = useCallback((passage: PassageOption) => {
-		bibleReferenceResolver.current?.({
-			label: passage.label,
-			passageId: passage.id,
-		});
-		bibleReferenceResolver.current = null;
-		setBibleReferencePickerOpen(false);
-	}, []);
+	};
+	const discard = () => {
+		const hasUnsavedChanges =
+			autosave.state === "pending" || autosave.state === "failed";
+		const hasAnything =
+			!isEmpty ||
+			Boolean(values.title.trim()) ||
+			values.passageIds.length > 0 ||
+			values.tags.length > 0;
+		if (isNew ? hasAnything : hasUnsavedChanges) setConfirmDiscardOpen(true);
+		else void leave({ deleteDraft: false });
+	};
+
+	const duplicate = () => duplicateNoteMutation.mutate();
+	const remove = async () => {
+		setIsLeaving(true);
+		try {
+			const noteId = await whenIdle();
+			if (noteId !== undefined) await deleteNoteMutation.mutateAsync(noteId);
+			toast.success("Note deleted.");
+			onDeleted();
+		} catch {
+			setIsLeaving(false);
+			toast.error("Unable to delete this note. Please try again.");
+		}
+	};
+
+	useEffect(() => {
+		const handleKeyDown = (event: KeyboardEvent) => {
+			const isModifier = event.metaKey || event.ctrlKey;
+			if (isModifier && event.shiftKey && event.key.toLowerCase() === "f") {
+				event.preventDefault();
+				setIsFocusMode((current) => !current);
+			} else if (event.key === "Escape" && !hasOpenOverlay()) {
+				// The editor marks Escape as handled, so defaultPrevented can't
+				// tell us whether a dialog or menu used it; check for one instead.
+				setIsFocusMode(false);
+			}
+		};
+		window.addEventListener("keydown", handleKeyDown);
+		return () => window.removeEventListener("keydown", handleKeyDown);
+	}, [setIsFocusMode]);
 
 	return (
-		<>
+		<VerseBlockProvider value={verseSource}>
+			{/* Inline-size containment stops long content (a long title in the
+			    breadcrumb, the one-line toolbar) from widening the page on
+			    narrow screens; it truncates or scrolls inside instead. */}
 			<form
-				className="note-composer mt-3"
-				onSubmit={(event) => {
-					event.preventDefault();
-					event.stopPropagation();
-					form.handleSubmit();
-				}}
+				className="contain-[inline-size] mx-auto w-full max-w-[1680px] px-4 pb-12 sm:px-8"
+				noValidate
 				onKeyDown={(event) => {
 					if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
 						event.preventDefault();
-						form.handleSubmit();
+						void form.handleSubmit();
 					}
 				}}
+				onSubmit={(event) => {
+					event.preventDefault();
+					event.stopPropagation();
+					void form.handleSubmit();
+				}}
 			>
-				<div className="note-composer-layout">
-					<aside className="note-context-column" aria-label="Passage context">
-						<form.Subscribe selector={(state) => state.values.passageId}>
-							{(passageId) => (
-								<PassageCard
-									error={
-										hasLoadError
-											? "Passages are unavailable. Please try again."
-											: undefined
-									}
-									passages={passages}
-									passageId={passageId}
-									onChange={(value) => form.setFieldValue("passageId", value)}
+				<NotePageHeader
+					breadcrumb={
+						values.title.trim() || (isNew ? "New note" : "Untitled note")
+					}
+					isFocusMode={isFocusMode}
+					isSubmitting={isSubmitting || isLeaving}
+					onDiscard={discard}
+					onToggleFocusMode={() => setIsFocusMode((current) => !current)}
+					saveStatus={
+						<NoteSaveStatus
+							canAutosave={autosave.canAutosave}
+							lastSavedAt={autosave.lastSavedAt}
+							noteStatus={storedNote?.status ?? null}
+							onRetry={autosave.retry}
+							state={autosave.state}
+						/>
+					}
+					submitLabel={submitLabel}
+				/>
+				{submitError ? (
+					<FieldError className="mt-2 text-right">{submitError}</FieldError>
+				) : null}
+
+				<div className="mt-7 flex flex-wrap items-start gap-8">
+					<section
+						aria-label="Note editor"
+						className="flex min-w-0 flex-[2.5_1_35rem] flex-col"
+					>
+						<form.Field name="title">
+							{(field) => (
+								<NoteTitleInput
+									error={field.state.meta.errors[0]?.message}
+									onBlur={field.handleBlur}
+									onChange={field.handleChange}
+									onEnter={() => session?.focusDocument()}
+									value={field.state.value}
 								/>
 							)}
-						</form.Subscribe>
-					</aside>
-					<main className="note-editor-card">
+						</form.Field>
+
+						{isFocusMode ? null : (
+							<NoteProperties>
+								<PassageProperty
+									linkedPassages={linkedPassages}
+									onLink={() => setLinkDialogOpen(true)}
+									onRemove={unlinkPassage}
+									translation={translation}
+								/>
+								<TagsProperty
+									onChange={(tags) => form.setFieldValue("tags", tags)}
+									suggestions={
+										tagSuggestions.data?.map((tag) => tag.name) ?? []
+									}
+									tags={values.tags}
+								/>
+							</NoteProperties>
+						)}
+
 						<form.Field name="content">
 							{(field) => {
 								const error = field.state.meta.errors[0]?.message;
 								return (
-									<div data-invalid={error ? true : undefined}>
-										{editorMode === "write" ? (
-											<form.Subscribe selector={(state) => state.values.title}>
-												{(title) => (
-													<form.Subscribe
-														selector={(state) => state.isSubmitting}
-													>
-														{(isSubmitting) => (
-															<RichTextEditorWorkspace
-																ariaLabel="Note content"
-																contentClassName="[&_.ProseMirror]:min-h-96"
-																editable
-																slots={{
-																	editorHeader: (
-																		<>
-																			<form.Field name="title">
-																				{(titleField) => (
-																					<NoteTitleField field={titleField} />
-																				)}
-																			</form.Field>
-																			<div className="note-content-heading">
-																				<label
-																					className="note-field-label"
-																					htmlFor={field.name}
-																				>
-																					Content{" "}
-																					<span aria-hidden="true">*</span>
-																				</label>
-																				<EditorModeToggle
-																					editorMode={editorMode}
-																					onChange={setEditorMode}
-																				/>
-																			</div>
-																		</>
-																	),
-																	focusedHeader: {
-																		status: isSubmitting
-																			? "Saving…"
-																			: focusedSaveStatus(autosaveStatus),
-																		title: title || "Untitled note",
-																	},
-																	inspector: {
-																		footer: (
-																			<div className="note-inspector-footer">
-																				<form.Subscribe
-																					selector={(state) =>
-																						state.values.tags
-																					}
-																				>
-																					{(tags) => (
-																						<DraftTags
-																							tags={tags}
-																							onChange={(nextTags) =>
-																								form.setFieldValue(
-																									"tags",
-																									nextTags,
-																								)
-																							}
-																						/>
-																					)}
-																				</form.Subscribe>
-																				<NoteInspectorDetails
-																					content={field.state.value}
-																				/>
-																			</div>
-																		),
-																		details: (
-																			<NoteDetails status={autosaveStatus} />
-																		),
-																		organization: <NoteOrganization />,
-																		tags: (
-																			<form.Subscribe
-																				selector={(state) => state.values.tags}
-																			>
-																				{(tags) => (
-																					<DraftTags
-																						tags={tags}
-																						onChange={(nextTags) =>
-																							form.setFieldValue(
-																								"tags",
-																								nextTags,
-																							)
-																						}
-																					/>
-																				)}
-																			</form.Subscribe>
-																		),
-																	},
-																}}
-																id={field.name}
-																footer={
-																	<div className="note-editor-footer">
-																		<span>/ Type / for commands...</span>
-																		<form.Subscribe
-																			selector={(state) =>
-																				getWordCount(state.values.content)
-																			}
-																		>
-																			{(wordCount) => (
-																				<span>{wordCount} words</span>
-																			)}
-																		</form.Subscribe>
-																	</div>
-																}
-																onChange={field.handleChange}
-																onRequestBibleReference={requestBibleReference}
-																placeholder="Start writing your note here…"
-																presentation="composer"
-																preset="member"
-																value={field.state.value}
-															/>
-														)}
-													</form.Subscribe>
-												)}
-											</form.Subscribe>
-										) : (
-											<div className="note-preview-card">
-												<form.Field name="title">
-													{(titleField) => (
-														<NoteTitleField field={titleField} />
-													)}
-												</form.Field>
-												<div className="note-content-heading">
-													<label
-														className="note-field-label"
-														htmlFor={field.name}
-													>
-														Content <span aria-hidden="true">*</span>
-													</label>
-													<EditorModeToggle
-														editorMode={editorMode}
-														onChange={setEditorMode}
+									<div className="mt-7" data-invalid={error ? true : undefined}>
+										<RichTextEditor
+											ariaLabel="Note body"
+											className="rounded-[14px] shadow-none"
+											contentClassName={noteBodyClassName(isEmpty && isNew)}
+											emptyState={
+												isNew ? (
+													<NoteEmptyState
+														onChooseTemplate={(template) =>
+															session?.insertSections(template.sections)
+														}
 													/>
-												</div>
-												<RichTextRenderer
-													ariaLabel="Note content preview"
-													document={field.state.value}
-													preset="member"
-												/>
-											</div>
-										)}
-										{error ? <FieldError>{error}</FieldError> : null}
+												) : undefined
+											}
+											footer={<NoteEditorFooter document={values.content} />}
+											id={field.name}
+											onActiveSectionChange={setActiveSectionIndex}
+											onChange={field.handleChange}
+											onRequestVerse={requestVerse}
+											onSessionReady={setSession}
+											placeholder={
+												isNew
+													? "Start writing, or pick a structure to guide your study."
+													: "Start writing your note…"
+											}
+											preset="member"
+											value={field.state.value}
+										/>
+										{error ? (
+											<FieldError className="mt-2">{error}</FieldError>
+										) : null}
 									</div>
 								);
 							}}
 						</form.Field>
-					</main>
-					<form.Subscribe
-						selector={(state) => ({
-							canSubmit: state.canSubmit,
-							isDirty: state.isDirty,
-							isSubmitting: state.isSubmitting,
-							values: state.values,
-						})}
-					>
-						{({ canSubmit, isDirty, isSubmitting, values }) => (
-							<div className="note-save-actions">
-								<NoteAutosaveStatus
-									initialValues={initialValues}
-									isManualSaveInProgress={isSubmitting}
-									onSave={save}
-									onStatusChange={setAutosaveStatus}
-									values={values}
-								/>
-								<div className="note-save-buttons">
-									<Button
-										disabled={isSubmitting}
-										onClick={() =>
-											isDirty ? setDiscardDialogOpen(true) : onCancel()
+					</section>
+
+					{isFocusMode ? null : (
+						<aside
+							aria-label="Study panel"
+							className="min-w-0 flex-[1_1_23.75rem]"
+						>
+							<NoteStudyPanel
+								details={
+									<NoteDetailsTab
+										document={values.content}
+										mainPassage={linkedPassages[0] ?? null}
+										onDelete={() => setConfirmDeleteOpen(true)}
+										onDuplicate={duplicate}
+										onExport={() =>
+											downloadTextFile(
+												toFileName(values.title),
+												noteToPlainText(values.title, values.content),
+											)
 										}
-										type="button"
-										variant="ghost"
-									>
-										Cancel
-									</Button>
-									<Button
-										disabled={!canSubmit || isSubmitting}
-										onClick={() => void saveDraft(values)}
-										type="button"
-										variant="outline"
-									>
-										<FileTextIcon aria-hidden="true" data-icon="inline-start" />
-										Save as draft
-									</Button>
-									<Button
-										className="note-primary-save"
-										disabled={!canSubmit || isSubmitting}
-										type="submit"
-									>
-										{isSubmitting ? (
-											<Spinner aria-hidden="true" data-icon="inline-start" />
-										) : (
-											<SaveIcon aria-hidden="true" data-icon="inline-start" />
-										)}
-										{submitLabel}
-									</Button>
-								</div>
-								{submitError ? <FieldError>{submitError}</FieldError> : null}
-							</div>
-						)}
-					</form.Subscribe>
+										storedNote={storedNote}
+									/>
+								}
+								onTabChange={setTab}
+								outline={
+									<NoteOutlineTab
+										activeSectionIndex={activeSectionIndex}
+										document={values.content}
+										session={session}
+									/>
+								}
+								passage={
+									<NotePassageTab
+										activePassageId={shownPassageId}
+										focusedVerse={focusedVerse}
+										linkedPassages={linkedPassages}
+										onActivePassageChange={setActivePassageId}
+										onLinkPassage={linkPassage}
+										onQuote={quoteVerse}
+										onTranslationChange={setPanelTranslationId}
+										passages={passages}
+										quotedVerses={quotedVerses}
+										translation={translation}
+										translationId={panelTranslationId}
+									/>
+								}
+								tab={tab}
+							/>
+						</aside>
+					)}
 				</div>
 			</form>
-			<AlertDialog onOpenChange={setDiscardDialogOpen} open={discardDialogOpen}>
+
+			<LinkPassageDialog
+				excludeIds={values.passageIds}
+				onOpenChange={setLinkDialogOpen}
+				onSelect={(passage) => linkPassage(passage.id)}
+				open={linkDialogOpen}
+				passages={passages}
+			/>
+			<VersePickerDialog
+				initialPassageId={shownPassageId}
+				onOpenChange={(open) => {
+					if (!open) settleVerseRequest(null);
+				}}
+				onSelect={settleVerseRequest}
+				open={verseDialogOpen}
+				passages={passages}
+			/>
+			<AlertDialog
+				onOpenChange={setConfirmDiscardOpen}
+				open={confirmDiscardOpen}
+			>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>Discard unsaved changes?</AlertDialogTitle>
+						<AlertDialogTitle>
+							{isNew ? "Discard this note?" : "Discard unsaved changes?"}
+						</AlertDialogTitle>
 						<AlertDialogDescription>
-							Your changes have not been saved and will be lost.
+							{isNew
+								? "This note and anything already autosaved will be deleted."
+								: "Changes since the last save will be lost. Earlier autosaves are kept."}
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
-						<AlertDialogCancel>Keep editing</AlertDialogCancel>
-						<AlertDialogAction onClick={onCancel} variant="destructive">
-							Discard changes
+						<AlertDialogCancel>Keep writing</AlertDialogCancel>
+						<AlertDialogAction
+							onClick={() => void leave({ deleteDraft: isNew })}
+							variant="destructive"
+						>
+							Discard
 						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
-			<PassagePickerDialog
-				error={
-					hasLoadError ? "Passages are unavailable. Please try again." : null
-				}
-				onOpenChange={closeBibleReferencePicker}
-				onSelect={selectBibleReference}
-				open={bibleReferencePickerOpen}
-				passages={passages}
-			/>
-		</>
+			<AlertDialog onOpenChange={setConfirmDeleteOpen} open={confirmDeleteOpen}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Delete this note?</AlertDialogTitle>
+						<AlertDialogDescription>
+							The note will be removed from your library and any collections.
+							This can’t be undone.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel>Cancel</AlertDialogCancel>
+						<AlertDialogAction
+							onClick={() => void remove()}
+							variant="destructive"
+						>
+							Delete note
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
+		</VerseBlockProvider>
 	);
 }
 
-function focusedSaveStatus(status: "idle" | "saving" | "saved" | "failed") {
-	if (status === "saving") return "Saving…";
-	if (status === "failed") return "Save failed";
-	if (status === "idle") return "Unsaved changes";
-	return "Saved";
+function hasOpenOverlay() {
+	return Boolean(
+		window.document.querySelector(
+			'[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]',
+		),
+	);
 }
 
-function NoteTitleField({
-	field,
-}: {
-	field: {
-		handleBlur: () => void;
-		handleChange: (value: string) => void;
-		name: string;
-		state: {
-			meta: { errors: Array<unknown> };
-			value: string;
-		};
-	};
-}) {
-	const firstError = field.state.meta.errors[0];
-	const error =
-		firstError && typeof firstError === "object" && "message" in firstError
-			? String(firstError.message ?? "")
-			: undefined;
+function NoteEditorFooter({ document }: { document: RichTextDocument }) {
+	const linkedVerses = getLinkedVerseCount(document);
 	return (
-		<div data-invalid={error ? true : undefined}>
-			<label className="note-field-label" htmlFor={field.name}>
-				Note Title <span aria-hidden="true">*</span>
-			</label>
-			<Input
-				className="note-title-input"
-				id={field.name}
-				onBlur={field.handleBlur}
-				onChange={(event) => field.handleChange(event.target.value)}
-				placeholder="Enter note title..."
-				value={field.state.value}
-			/>
-			{error ? <FieldError>{error}</FieldError> : null}
+		<div className="flex flex-wrap justify-between gap-2 px-4 py-3 text-[13px] text-muted-foreground">
+			<span>
+				{getWordCount(document)} words · {getEstimatedReadingTime(document)} min
+				read
+			</span>
+			<span>
+				{linkedVerses
+					? `${linkedVerses} linked ${linkedVerses === 1 ? "verse" : "verses"}`
+					: "Markdown shortcuts supported"}
+			</span>
 		</div>
 	);
 }
 
-function EditorModeToggle({
-	editorMode,
-	onChange,
-}: {
-	editorMode: NoteEditorMode;
-	onChange: (mode: NoteEditorMode) => void;
-}) {
-	return (
-		<fieldset className="note-mode-toggle">
-			<legend className="sr-only">Note editor mode</legend>
-			<button
-				aria-pressed={editorMode === "write"}
-				className={editorMode === "write" ? "is-active" : undefined}
-				onClick={() => onChange("write")}
-				type="button"
-			>
-				Write
-			</button>
-			<button
-				aria-pressed={editorMode === "preview"}
-				className={editorMode === "preview" ? "is-active" : undefined}
-				onClick={() => onChange("preview")}
-				type="button"
-			>
-				Preview
-			</button>
-		</fieldset>
-	);
+/** Reading-sized note body; shorter while the empty state sits beneath it. */
+function noteBodyClassName(isShowingEmptyState: boolean) {
+	return [
+		"text-[19px]! text-foreground/90 leading-[1.65]!",
+		"[&_.ProseMirror]:max-w-190! [&_.ProseMirror]:px-5! [&_.ProseMirror]:pt-8! sm:[&_.ProseMirror]:px-10!",
+		isShowingEmptyState
+			? "[&_.ProseMirror]:min-h-0! [&_.ProseMirror]:pb-2!"
+			: "[&_.ProseMirror]:min-h-95! [&_.ProseMirror]:pb-10!",
+	].join(" ");
 }
 
-function NoteOrganization() {
-	return (
-		<dl className="grid gap-1 text-muted-foreground">
-			<div className="flex justify-between gap-3">
-				<dt>Location</dt>
-				<dd className="text-foreground">Notes</dd>
-			</div>
-		</dl>
-	);
-}
-
-function NoteDetails({
-	status,
-}: {
-	status: "idle" | "saving" | "saved" | "failed";
-}) {
-	return (
-		<dl className="grid gap-1 text-muted-foreground">
-			<div className="flex justify-between gap-3">
-				<dt>Status</dt>
-				<dd className="text-foreground">Draft</dd>
-			</div>
-			<div className="flex justify-between gap-3">
-				<dt>Autosave</dt>
-				<dd className="text-foreground">{focusedSaveStatus(status)}</dd>
-			</div>
-		</dl>
-	);
-}
-
-function NoteInspectorDetails({ content }: { content: RichTextDocument }) {
-	return (
-		<section className="note-side-card note-inspector-details">
-			<h2>
-				<FileTextIcon aria-hidden="true" /> Note Details
-			</h2>
-			<dl>
-				<div>
-					<dt>Created</dt>
-					<dd>Just now</dd>
-				</div>
-				<div>
-					<dt>Last edited</dt>
-					<dd>Just now</dd>
-				</div>
-				<div>
-					<dt>Word count</dt>
-					<dd>{getWordCount(content)} words</dd>
-				</div>
-			</dl>
-		</section>
-	);
-}
-
-function PassageCard({
-	error,
-	onChange,
-	passageId,
-	passages,
-}: {
-	error?: string;
-	onChange: (value: string) => void;
-	passageId: string;
-	passages: PassageOption[] | null;
-}) {
-	const selected = passages?.find(
-		(passage) => passage.id.toString() === passageId,
-	);
-	const copyReference = () => {
-		if (selected && navigator.clipboard) {
-			void navigator.clipboard.writeText(selected.label);
-		}
-	};
-	return (
-		<section className="note-passage-card">
-			<h2>
-				<BookOpenIcon aria-hidden="true" /> Linked Passage
-			</h2>
-			{selected ? (
-				<>
-					<Link
-						className="note-passage-preview"
-						search={{ passage: selected.id }}
-						to="/bible"
-					>
-						<span>{selected.label}</span>
-						<ExternalLinkIcon aria-hidden="true" />
-						<small>Open the linked Scripture passage</small>
-					</Link>
-					<p className="note-passage-change-label">
-						<LinkIcon aria-hidden="true" /> Change passage
-					</p>
-				</>
-			) : (
-				<>
-					<h3 className="note-passage-reference">Choose a passage</h3>
-					<p className="note-passage-copy">
-						Select the Scripture passage that your note will remain connected
-						to.
-					</p>
-				</>
-			)}
-			<NativeSelect
-				aria-label="Linked passage"
-				disabled={passages === null || Boolean(error)}
-				onChange={(event) => onChange(event.target.value)}
-				value={passageId}
-			>
-				<NativeSelectOption value="">
-					{passages === null ? "Loading passages…" : "Choose a passage"}
-				</NativeSelectOption>
-				{passages?.map((passage) => (
-					<NativeSelectOption key={passage.id} value={passage.id}>
-						{passage.label}
-					</NativeSelectOption>
-				))}
-			</NativeSelect>
-			{error ? <FieldError>{error}</FieldError> : null}
-			{selected ? (
-				<div className="note-passage-actions">
-					<Link search={{ passage: selected.id }} to="/bible">
-						<BookOpenIcon aria-hidden="true" /> Open in reader
-					</Link>
-					<button onClick={copyReference} type="button">
-						<CopyIcon aria-hidden="true" /> Copy reference
-					</button>
-					<Link search={{ passage: selected.id }} to="/bible">
-						<ExternalLinkIcon aria-hidden="true" /> View context
-					</Link>
-				</div>
-			) : (
-				<Link className="note-browse-scripture" to="/bible">
-					Browse Scripture <span aria-hidden="true">→</span>
-				</Link>
-			)}
-		</section>
-	);
-}
-
-function DraftTags({
-	onChange,
-	tags,
-}: {
-	onChange: (tags: string[]) => void;
-	tags: string[];
-}) {
-	const [value, setValue] = useState("");
-	const addTag = () => {
-		const next = value.trim();
-		if (
-			next &&
-			!tags.some(
-				(tag) =>
-					tag.localeCompare(next, undefined, { sensitivity: "accent" }) === 0,
-			)
-		)
-			onChange([...tags, next]);
-		setValue("");
-	};
-	return (
-		<section className="note-side-card">
-			<h2>
-				<TagIcon aria-hidden="true" /> Tags
-			</h2>
-			<p>Add tags to organize your notes.</p>
-			<Input
-				onChange={(event) => setValue(event.target.value)}
-				onKeyDown={(event) => {
-					if (event.key === "Enter") {
-						event.preventDefault();
-						addTag();
-					}
-				}}
-				placeholder="Add a tag..."
-				value={value}
-			/>
-			<div className="note-tag-list">
-				{tags.map((tag) => (
-					<button
-						key={tag}
-						onClick={() => onChange(tags.filter((item) => item !== tag))}
-						type="button"
-					>
-						{tag}
-						<span aria-hidden="true">×</span>
-					</button>
-				))}
-			</div>
-			<button className="note-add-tag" onClick={addTag} type="button">
-				<PlusIcon aria-hidden="true" /> Add tag
-			</button>
-		</section>
-	);
-}
-
-function PassagePickerDialog({
-	error,
-	onOpenChange,
-	onSelect,
-	open,
-	passages,
-}: {
-	error: string | null;
-	onOpenChange: (open: boolean) => void;
-	onSelect: (passage: PassageOption) => void;
-	open: boolean;
-	passages: PassageOption[] | null;
-}) {
-	const [passageId, setPassageId] = useState("");
-	const selectedPassage = passages?.find(
-		(passage) => passage.id.toString() === passageId,
-	);
+/**
+ * Focus mode hides the app sidebar (restoring it afterwards only if it was
+ * open); the composer hides the study panel and properties itself.
+ */
+function useFocusMode() {
+	const { open, setOpen } = useSidebar();
+	const [isFocusMode, setIsFocusMode] = useState(false);
+	const sidebarOpen = useRef(open);
+	sidebarOpen.current = open;
+	const setSidebarOpen = useRef(setOpen);
+	setSidebarOpen.current = setOpen;
 
 	useEffect(() => {
-		if (open) setPassageId("");
-	}, [open]);
+		if (!isFocusMode) return;
+		const wasOpen = sidebarOpen.current;
+		setSidebarOpen.current(false);
+		return () => {
+			if (wasOpen) setSidebarOpen.current(true);
+		};
+	}, [isFocusMode]);
 
-	return (
-		<Dialog onOpenChange={onOpenChange} open={open}>
-			<DialogContent>
-				<DialogHeader>
-					<DialogTitle>Insert Bible passage</DialogTitle>
-					<DialogDescription>
-						Choose the Scripture passage to reference in this note.
-					</DialogDescription>
-				</DialogHeader>
-				<NativeSelect
-					aria-label="Bible passage"
-					disabled={passages === null || Boolean(error)}
-					onChange={(event) => setPassageId(event.target.value)}
-					value={passageId}
-				>
-					<NativeSelectOption value="">
-						{passages === null ? "Loading passages…" : "Choose a passage"}
-					</NativeSelectOption>
-					{passages?.map((passage) => (
-						<NativeSelectOption key={passage.id} value={passage.id}>
-							{passage.label}
-						</NativeSelectOption>
-					))}
-				</NativeSelect>
-				{error ? <FieldError>{error}</FieldError> : null}
-				<DialogFooter>
-					<Button
-						onClick={() => onOpenChange(false)}
-						type="button"
-						variant="outline"
-					>
-						Cancel
-					</Button>
-					<Button
-						disabled={!selectedPassage}
-						onClick={() => selectedPassage && onSelect(selectedPassage)}
-						type="button"
-					>
-						Insert passage
-					</Button>
-				</DialogFooter>
-			</DialogContent>
-		</Dialog>
-	);
+	return [isFocusMode, setIsFocusMode] as const;
 }

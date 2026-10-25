@@ -9,23 +9,24 @@ import {
 import { books } from "./schema/books";
 import { collectionNotes } from "./schema/collection_notes";
 import { collections } from "./schema/collections";
+import { notePassages } from "./schema/note_passages";
 import { noteTagAssignments, userNoteTags } from "./schema/note_tags";
 import { notes } from "./schema/notes";
 import { passages } from "./schema/passages";
 
 type DbClient = typeof db;
 
-export type CreateNoteInput = {
+export type NoteStatus = "draft" | "saved";
+
+export type SaveNoteInput = {
 	content: RichTextDocument;
-	passageId?: number | null;
-	title: string;
-};
-
-export type UpdateNoteInput = CreateNoteInput;
-
-export type SaveNoteInput = CreateNoteInput & {
 	id?: number;
+	/** Linked passages in display order; the first is the note's main passage. */
+	passageIds: number[];
+	/** Omit to keep the stored status; new notes start as drafts. */
+	status?: NoteStatus;
 	tags: string[];
+	title: string;
 };
 
 export type SetNoteTagsInput = {
@@ -46,16 +47,28 @@ export type NoteTag = {
 	name: string;
 };
 
+export type NotePassage = {
+	id: number;
+	label: string;
+};
+
+/** Main passage columns come from the note's first linked passage. */
 const noteSelection = {
 	bookName: books.name,
 	content: notes.content,
 	createdAt: notes.createdAt,
 	id: notes.id,
-	passageId: notes.passageId,
+	passageId: notePassages.passageId,
 	passageTitle: passages.title,
+	status: notes.status,
 	title: notes.title,
 	updatedAt: notes.updatedAt,
 };
+
+const mainPassageJoin = and(
+	eq(notePassages.noteId, notes.id),
+	eq(notePassages.position, 0),
+);
 
 /** Returns matching notes owned by the supplied user, newest first. */
 export async function listNotes(
@@ -79,7 +92,13 @@ export async function listNotes(
 			);
 		conditions.push(inArray(notes.id, noteIdsForCollection));
 	}
-	if (input.passageId) conditions.push(eq(notes.passageId, input.passageId));
+	if (input.passageId) {
+		const noteIdsForPassage = db
+			.select({ noteId: notePassages.noteId })
+			.from(notePassages)
+			.where(eq(notePassages.passageId, input.passageId));
+		conditions.push(inArray(notes.id, noteIdsForPassage));
+	}
 	if (input.tagId) {
 		const noteIdsForTag = db
 			.select({ noteId: noteTagAssignments.noteId })
@@ -107,12 +126,16 @@ export async function listNotes(
 	const matchingNotes = await db
 		.select(noteSelection)
 		.from(notes)
-		.leftJoin(passages, eq(passages.id, notes.passageId))
+		.leftJoin(notePassages, mainPassageJoin)
+		.leftJoin(passages, eq(passages.id, notePassages.passageId))
 		.leftJoin(books, eq(books.id, passages.bookId))
 		.where(and(...conditions))
 		.orderBy(desc(notes.updatedAt), desc(notes.id));
 
-	return addTagsToNotes(db, userId, matchingNotes.map(toNoteDocument));
+	return addPassagesToNotes(
+		db,
+		await addTagsToNotes(db, userId, matchingNotes.map(toNoteDocument)),
+	);
 }
 
 /** Returns Scripture books that have at least one note owned by the user. */
@@ -120,7 +143,8 @@ export async function listNoteBooks(db: DbClient, userId: string) {
 	return db
 		.selectDistinct({ id: books.id, name: books.name })
 		.from(notes)
-		.innerJoin(passages, eq(passages.id, notes.passageId))
+		.innerJoin(notePassages, eq(notePassages.noteId, notes.id))
+		.innerJoin(passages, eq(passages.id, notePassages.passageId))
 		.innerJoin(books, eq(books.id, passages.bookId))
 		.where(eq(notes.userId, userId))
 		.orderBy(asc(books.id));
@@ -148,7 +172,10 @@ export async function countNotesForPassage(
 	const [result] = await db
 		.select({ count: count() })
 		.from(notes)
-		.where(and(eq(notes.userId, userId), eq(notes.passageId, passageId)));
+		.innerJoin(notePassages, eq(notePassages.noteId, notes.id))
+		.where(
+			and(eq(notes.userId, userId), eq(notePassages.passageId, passageId)),
+		);
 
 	return result?.count ?? 0;
 }
@@ -158,16 +185,18 @@ export async function getNote(db: DbClient, userId: string, noteId: number) {
 	const [note] = await db
 		.select(noteSelection)
 		.from(notes)
-		.leftJoin(passages, eq(passages.id, notes.passageId))
+		.leftJoin(notePassages, mainPassageJoin)
+		.leftJoin(passages, eq(passages.id, notePassages.passageId))
 		.leftJoin(books, eq(books.id, passages.bookId))
 		.where(and(eq(notes.id, noteId), eq(notes.userId, userId)))
 		.limit(1);
 
 	if (!note) return null;
 
-	const [noteWithTags] = await addTagsToNotes(db, userId, [
-		toNoteDocument(note),
-	]);
+	const [noteWithTags] = await addPassagesToNotes(
+		db,
+		await addTagsToNotes(db, userId, [toNoteDocument(note)]),
+	);
 	return noteWithTags;
 }
 
@@ -246,61 +275,23 @@ export async function setNoteTags(
 	return db.transaction((tx) => replaceNoteTags(tx, userId, noteId, tags));
 }
 
-export async function createNote(
-	db: DbClient,
-	userId: string,
-	input: CreateNoteInput,
-) {
-	if (input.passageId !== null && input.passageId !== undefined) {
-		await assertPassageExists(db, input.passageId);
-	}
-
-	const [note] = await db
-		.insert(notes)
-		.values({
-			...input,
-			content: serializeRichTextDocument(input.content),
-			userId,
-		})
-		.returning();
-	if (!note) throw new Error("Unable to create note.");
-	return toNoteDocument(note);
-}
-
-/** Returns null when a note does not exist or belongs to a different user. */
-export async function updateNote(
-	db: DbClient,
-	userId: string,
-	noteId: number,
-	input: UpdateNoteInput,
-) {
-	if (input.passageId !== null && input.passageId !== undefined) {
-		await assertPassageExists(db, input.passageId);
-	}
-
-	const [note] = await db
-		.update(notes)
-		.set({ ...input, content: serializeRichTextDocument(input.content) })
-		.where(and(eq(notes.id, noteId), eq(notes.userId, userId)))
-		.returning();
-
-	return note ? toNoteDocument(note) : null;
-}
-
-/** Creates or updates a note and replaces its tags as one atomic save. */
+/**
+ * Creates or updates a note and replaces its tags and linked passages as one
+ * atomic save. A saved note must have a title; drafts may be untitled.
+ */
 export async function saveNote(
 	db: DbClient,
 	userId: string,
 	input: SaveNoteInput,
 ) {
-	if (input.passageId !== null && input.passageId !== undefined) {
-		await assertPassageExists(db, input.passageId);
-	}
+	const passageIds = Array.from(new Set(input.passageIds));
+	await assertPassagesExist(db, passageIds);
 
-	const { id, tags: inputTags, ...noteInput } = input;
+	const { id, passageIds: _passageIds, tags: inputTags, ...noteInput } = input;
 	const storedNoteInput = {
 		...noteInput,
 		content: serializeRichTextDocument(noteInput.content),
+		title: noteInput.title.trim(),
 	};
 	const tags = normalizeTags(inputTags);
 
@@ -320,7 +311,8 @@ export async function saveNote(
 		if (!note) return null;
 
 		await replaceNoteTags(tx, userId, note.id, tags);
-		return toNoteDocument(note);
+		await replaceNotePassages(tx, note.id, passageIds);
+		return toNoteDocument({ ...note, passageId: passageIds[0] ?? null });
 	});
 }
 
@@ -338,14 +330,14 @@ export async function deleteNote(db: DbClient, userId: string, noteId: number) {
 	return Boolean(deletedNote);
 }
 
-async function assertPassageExists(db: DbClient, passageId: number) {
-	const [passage] = await db
+async function assertPassagesExist(db: DbClient, passageIds: number[]) {
+	if (passageIds.length === 0) return;
+	const found = await db
 		.select({ id: passages.id })
 		.from(passages)
-		.where(eq(passages.id, passageId))
-		.limit(1);
+		.where(inArray(passages.id, passageIds));
 
-	if (!passage) throw new Error("Passage not found.");
+	if (found.length !== passageIds.length) throw new Error("Passage not found.");
 }
 
 async function assertNoteOwned(db: DbClient, userId: string, noteId: number) {
@@ -396,6 +388,59 @@ async function addTagsToNotes<Note extends { id: number }>(
 		...note,
 		tags: tagsByNoteId.get(note.id) ?? [],
 	}));
+}
+
+/** Adds every linked passage, in the member's order, to each note. */
+async function addPassagesToNotes<Note extends { id: number }>(
+	db: DbClient,
+	notesToEnrich: Note[],
+): Promise<Array<Note & { passages: NotePassage[] }>> {
+	if (notesToEnrich.length === 0) return [];
+
+	const rows = await db
+		.select({
+			bookName: books.name,
+			id: passages.id,
+			noteId: notePassages.noteId,
+			title: passages.title,
+		})
+		.from(notePassages)
+		.innerJoin(passages, eq(passages.id, notePassages.passageId))
+		.innerJoin(books, eq(books.id, passages.bookId))
+		.where(
+			inArray(
+				notePassages.noteId,
+				notesToEnrich.map((note) => note.id),
+			),
+		)
+		.orderBy(asc(notePassages.position));
+	const passagesByNoteId = new Map<number, NotePassage[]>();
+	for (const row of rows) {
+		const notePassageList = passagesByNoteId.get(row.noteId) ?? [];
+		notePassageList.push({ id: row.id, label: row.title ?? row.bookName });
+		passagesByNoteId.set(row.noteId, notePassageList);
+	}
+
+	return notesToEnrich.map((note) => ({
+		...note,
+		passages: passagesByNoteId.get(note.id) ?? [],
+	}));
+}
+
+async function replaceNotePassages(
+	tx: Parameters<Parameters<DbClient["transaction"]>[0]>[0],
+	noteId: number,
+	passageIds: number[],
+) {
+	await tx.delete(notePassages).where(eq(notePassages.noteId, noteId));
+	if (passageIds.length === 0) return;
+	await tx.insert(notePassages).values(
+		passageIds.map((passageId, position) => ({
+			noteId,
+			passageId,
+			position,
+		})),
+	);
 }
 
 function normalizeTag(name: string) {

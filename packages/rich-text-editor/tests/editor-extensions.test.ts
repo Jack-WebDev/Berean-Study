@@ -44,13 +44,13 @@ function command(catalog: EditorCommandCatalog, id: string): EditorCommand {
 }
 
 describe("Berean rich-text schema", () => {
-	it("supports H2 and H3 but rejects H1", () => {
+	it("supports H1 to H3 but rejects deeper headings", () => {
 		const editor = createEditor();
-		expect(editor.commands.toggleHeading({ level: 2 })).toBe(true);
-		expect(editor.getJSON().content?.[0]?.attrs?.level).toBe(2);
-		expect(editor.commands.toggleHeading({ level: 3 })).toBe(true);
-		expect(editor.getJSON().content?.[0]?.attrs?.level).toBe(3);
-		expect(editor.commands.toggleHeading({ level: 1 })).toBe(false);
+		for (const level of [1, 2, 3] as const) {
+			expect(editor.commands.setHeading({ level })).toBe(true);
+			expect(editor.getJSON().content?.[0]?.attrs?.level).toBe(level);
+		}
+		expect(editor.commands.setHeading({ level: 4 })).toBe(false);
 	});
 
 	it("supports the approved inline marks", () => {
@@ -135,6 +135,7 @@ describe("Berean rich-text schema", () => {
 			},
 			insertBibleReference: () => true,
 			insertCitation: () => true,
+			insertVerseBlock: () => true,
 		};
 
 		const catalog = createEditorCommandCatalog({ preset: "member" });
