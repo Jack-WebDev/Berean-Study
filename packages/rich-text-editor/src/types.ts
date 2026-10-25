@@ -1,9 +1,14 @@
 import type { ReactNode } from "react";
 
-import type { RichTextDocument } from "./document-types";
+import type { RichTextDocument, VerseBlockAttributes } from "./document-types";
 import type { EditorSession } from "./editor-session";
 
-export type { RichTextDocument, RichTextNode } from "./document-types";
+export type {
+	RichTextDocument,
+	RichTextNode,
+	SectionVariant,
+	VerseBlockAttributes,
+} from "./document-types";
 
 export type BibleReferenceAttributes = {
 	label: string;
@@ -14,6 +19,8 @@ export type CitationAttributes = {
 	citationId: number;
 	label: string;
 };
+
+export type VerseText = { number: number; text: string };
 
 export type RichTextEditorPreset = "member" | "contributor";
 
@@ -45,6 +52,16 @@ export type RichTextEditorProps = {
 		| null
 		| undefined
 		| Promise<BibleReferenceAttributes | null | undefined>;
+	/** Opens a host-owned verse picker and inserts the chosen range as a Verse block. */
+	onRequestVerse?: () =>
+		| VerseBlockAttributes
+		| null
+		| undefined
+		| Promise<VerseBlockAttributes | null | undefined>;
+	/** Reports the index of the outline section containing the cursor. */
+	onActiveSectionChange?: (index: number | null) => void;
+	/** Shown under the writing surface while the document is empty. */
+	emptyState?: ReactNode;
 	/** Opens a host-owned source picker; contributor preset only. */
 	onRequestCitation?: () =>
 		| CitationAttributes

@@ -21,16 +21,20 @@ const noteIdSchema = z.object({
 	id: z.number().int().positive(),
 });
 
-const noteInputSchema = z.object({
-	content: richTextDocumentSchema,
-	passageId: z.number().int().positive().nullable().optional(),
-	title: z.string().trim().min(1).max(200),
-});
-
-const saveNoteSchema = noteInputSchema.extend({
-	id: z.number().int().positive().optional(),
-	tags: z.array(z.string().trim().min(1).max(50)).max(20),
-});
+/** Autosaved drafts may be untitled; saving a note out of draft needs a title. */
+const saveNoteSchema = z
+	.object({
+		content: richTextDocumentSchema,
+		id: z.number().int().positive().optional(),
+		passageIds: z.array(z.number().int().positive()).max(20),
+		status: z.enum(["draft", "saved"]).optional(),
+		tags: z.array(z.string().trim().min(1).max(50)).max(20),
+		title: z.string().trim().max(200),
+	})
+	.refine((note) => note.status !== "saved" || note.title.length > 0, {
+		message: "Enter a title before saving your note.",
+		path: ["title"],
+	});
 
 const listNotesSchema = z.object({
 	bookId: z.number().int().positive().optional(),

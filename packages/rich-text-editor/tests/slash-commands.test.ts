@@ -24,7 +24,7 @@ describe("slash commands", () => {
 			filterEditorCommands(contributorCatalog.commands(), "head").map(
 				(command) => command.id,
 			),
-		).toEqual(["heading2", "heading3"]);
+		).toEqual(["heading1", "heading2", "heading3"]);
 	});
 
 	it("wraps keyboard navigation through command results", () => {

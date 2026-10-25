@@ -36,64 +36,55 @@ export function EditNotePage({ noteId }: { noteId: number }) {
 	}, [loadNote]);
 
 	return (
-		<div className="min-h-full bg-background px-5 py-8 text-foreground sm:px-8 lg:px-12">
-			<div className="mx-auto w-full max-w-360">
-				{note === undefined ? (
-					<p
-						aria-live="polite"
-						className="mt-8 text-muted-foreground text-sm"
-						role="status"
-					>
-						Loading note…
-					</p>
-				) : hasLoadError ? (
-					<NoteLoadState
-						description="Please try loading the note again."
-						onRetry={() => void loadNote()}
-						title="Note unavailable"
-					/>
-				) : note === null ? (
-					<NoteLoadState
-						description="It may have been deleted or is no longer available."
-						title="Note not found"
-					/>
-				) : (
-					<>
-						<header>
-							<h1 className="font-serif text-3xl tracking-[-0.02em] sm:text-4xl">
-								Edit Note
-							</h1>
-							<p className="mt-2 text-muted-foreground text-sm leading-6">
-								Update your reflection and its Scripture connection.
-							</p>
-						</header>
-						<NoteForm
-							initialNoteId={note.id}
-							initialValues={{
-								content: note.content,
-								passageId: note.passageId?.toString() ?? "",
-								tags: note.tags.map((tag) => tag.name),
-								title: note.title || "Untitled note",
-							}}
-							key={note.id}
-							onCancel={() =>
-								navigate({ to: "/library/notes", search: { note: note.id } })
-							}
-							onSaveDraft={async () => {
-								toast.success("Draft saved.");
-							}}
-							onSubmit={async () => {
-								toast.success("Note updated.");
-								navigate({
-									to: "/library/notes",
-									search: { note: note.id },
-								});
-							}}
-							submitLabel="Save changes"
-						/>
-					</>
-				)}
-			</div>
+		<div className="min-h-full bg-background text-foreground">
+			<h1 className="sr-only">Edit note</h1>
+			{note === undefined ? (
+				<p
+					aria-live="polite"
+					className="mx-auto mt-8 max-w-[1680px] px-4 text-muted-foreground text-sm sm:px-8"
+					role="status"
+				>
+					Loading note…
+				</p>
+			) : hasLoadError ? (
+				<NoteLoadState
+					description="Please try loading the note again."
+					onRetry={() => void loadNote()}
+					title="Note unavailable"
+				/>
+			) : note === null ? (
+				<NoteLoadState
+					description="It may have been deleted or is no longer available."
+					title="Note not found"
+				/>
+			) : (
+				<NoteForm
+					initialNote={note}
+					initialValues={{
+						content: note.content,
+						passageIds: note.passages.map((passage) => passage.id),
+						tags: note.tags.map((tag) => tag.name),
+						title: note.title,
+					}}
+					isNew={false}
+					key={note.id}
+					onDeleted={() => navigate({ to: "/library/notes" })}
+					onDuplicated={(copyId) =>
+						navigate({
+							params: { noteId: copyId },
+							to: "/library/notes/$noteId/edit",
+						})
+					}
+					onLeave={() =>
+						navigate({ search: { note: note.id }, to: "/library/notes" })
+					}
+					onSaved={() => {
+						toast.success("Note saved.");
+						navigate({ search: { note: note.id }, to: "/library/notes" });
+					}}
+					submitLabel="Save note"
+				/>
+			)}
 		</div>
 	);
 }

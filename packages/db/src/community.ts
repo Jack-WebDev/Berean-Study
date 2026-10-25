@@ -1,5 +1,5 @@
 import { getDocumentText } from "@berean-study/rich-text-editor/document";
-import { and, count, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import type { db } from "./index";
 import { parseStoredRichText } from "./rich-text-storage";
@@ -9,6 +9,7 @@ import { collections } from "./schema/collections";
 import { communityPostBookmarks } from "./schema/community_post_bookmarks";
 import { communityPostPassages } from "./schema/community_post_passages";
 import { communityPosts } from "./schema/community_posts";
+import { notePassages } from "./schema/note_passages";
 import { notes } from "./schema/notes";
 import { prayerPassages } from "./schema/prayer_passages";
 import { prayers } from "./schema/prayers";
@@ -458,20 +459,20 @@ async function getPublishingSource(
 	switch (type) {
 		case "note": {
 			const [source] = await db
-				.select({
-					content: notes.content,
-					passageId: notes.passageId,
-					title: notes.title,
-				})
+				.select({ content: notes.content, title: notes.title })
 				.from(notes)
 				.where(and(eq(notes.id, sourceId), eq(notes.userId, userId)))
 				.limit(1);
-			return source
-				? {
-						passageIds: source.passageId ? [source.passageId] : [],
-						snapshot: createSourceSnapshot(type, source.title, source.content),
-					}
-				: null;
+			if (!source) return null;
+			const linkedPassages = await db
+				.select({ passageId: notePassages.passageId })
+				.from(notePassages)
+				.where(eq(notePassages.noteId, sourceId))
+				.orderBy(asc(notePassages.position));
+			return {
+				passageIds: linkedPassages.map(({ passageId }) => passageId),
+				snapshot: createSourceSnapshot(type, source.title, source.content),
+			};
 		}
 		case "collection": {
 			const [source] = await db

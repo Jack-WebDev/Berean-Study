@@ -6,6 +6,7 @@ import { books } from "./schema/books";
 import { collectionNotes } from "./schema/collection_notes";
 import { collectionPassages } from "./schema/collection_passages";
 import { collections } from "./schema/collections";
+import { notePassages } from "./schema/note_passages";
 import { notes } from "./schema/notes";
 import { passages } from "./schema/passages";
 
@@ -406,7 +407,11 @@ async function listNotesForCollection(
 		.select(collectionNoteSelection)
 		.from(collectionNotes)
 		.innerJoin(notes, eq(notes.id, collectionNotes.noteId))
-		.leftJoin(passages, eq(passages.id, notes.passageId))
+		.leftJoin(
+			notePassages,
+			and(eq(notePassages.noteId, notes.id), eq(notePassages.position, 0)),
+		)
+		.leftJoin(passages, eq(passages.id, notePassages.passageId))
 		.leftJoin(books, eq(books.id, passages.bookId))
 		.where(
 			and(

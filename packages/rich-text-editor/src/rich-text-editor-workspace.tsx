@@ -498,7 +498,9 @@ function DocumentPanel({
 							className="block w-full truncate rounded-sm py-1 text-left hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
 							key={heading.id}
 							onClick={() => session?.focusHeading(index)}
-							style={{ paddingLeft: `${(heading.level - 2) * 12}px` }}
+							style={{
+								paddingLeft: `${Math.max(0, heading.level - 2) * 12}px`,
+							}}
 							type="button"
 						>
 							{heading.text}

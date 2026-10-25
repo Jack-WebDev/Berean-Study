@@ -1,6 +1,5 @@
 import { emptyRichTextDocument } from "@berean-study/rich-text-editor";
-import { Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeftIcon } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 
 import { NoteForm } from "./note-form";
@@ -15,59 +14,39 @@ export function NewNotePage({
 	const navigate = useNavigate({ from: "/library/notes/new" });
 
 	return (
-		<div className="min-h-full bg-background px-4 py-6 text-foreground sm:px-6 lg:px-8">
-			<div className="mx-auto w-full max-w-340">
-				<header>
-					<Link
-						className="inline-flex items-center gap-2 font-medium text-primary text-xs hover:underline"
-						to="/library/notes"
-					>
-						<ArrowLeftIcon aria-hidden="true" className="size-3.5" />
-						Notes <span className="text-muted-foreground">/ Create note</span>
-					</Link>
-					<h1 className="mt-3 font-serif text-3xl leading-10 tracking-[-0.03em] sm:text-4xl">
-						New Note
-					</h1>
-					<p className="mt-1 font-serif text-muted-foreground text-sm leading-5 sm:text-base">
-						Capture what you’re learning from Scripture with clarity and
-						purpose.
-					</p>
-				</header>
-				<NoteForm
-					initialValues={{
-						content: emptyRichTextDocument,
-						passageId: initialPassageId?.toString() ?? "",
-						tags: [],
-						title: "",
-					}}
-					onCancel={() =>
-						returnPassageId
-							? navigate({
-									to: "/bible",
-									search: { passage: returnPassageId },
-								})
-							: navigate({ to: "/library/notes" })
-					}
-					onSubmit={async (note, values) => {
-						toast.success("Note saved.");
-						navigate({
-							to: "/library/notes",
-							search: {
-								addToCollection: true,
-								note: note.id,
-								passage: values.passageId
-									? Number(values.passageId)
-									: undefined,
-								return: returnPassageId,
-							},
-						});
-					}}
-					onSaveDraft={async () => {
-						toast.success("Draft saved.");
-					}}
-					submitLabel="Save note"
-				/>
-			</div>
+		<div className="min-h-full bg-background text-foreground">
+			<h1 className="sr-only">New note</h1>
+			<NoteForm
+				initialValues={{
+					content: emptyRichTextDocument,
+					passageIds: initialPassageId ? [initialPassageId] : [],
+					tags: [],
+					title: "",
+				}}
+				isNew
+				onDeleted={() => navigate({ to: "/library/notes" })}
+				onDuplicated={(noteId) =>
+					navigate({ params: { noteId }, to: "/library/notes/$noteId/edit" })
+				}
+				onLeave={() =>
+					returnPassageId
+						? navigate({ search: { passage: returnPassageId }, to: "/bible" })
+						: navigate({ to: "/library/notes" })
+				}
+				onSaved={(note, values) => {
+					toast.success("Note saved.");
+					navigate({
+						search: {
+							addToCollection: true,
+							note: note.id,
+							passage: values.passageIds[0],
+							return: returnPassageId,
+						},
+						to: "/library/notes",
+					});
+				}}
+				submitLabel="Save note"
+			/>
 		</div>
 	);
 }

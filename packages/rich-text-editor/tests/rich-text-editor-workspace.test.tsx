@@ -115,15 +115,16 @@ describe("RichTextEditorWorkspace", () => {
 		expect(button(contributor.container, "Citation")).toBeTruthy();
 	});
 
-	it("opens labelled toolbar menu groups", async () => {
+	it("opens labelled toolbar menus", async () => {
 		const { container } = await mount({});
 
-		await click(button(container, "Insert content") as HTMLButtonElement);
-		expect(window.document.body.textContent).toContain(
-			"Bring something into your writing",
+		await click(
+			button(container, "Text style: Paragraph") as HTMLButtonElement,
 		);
+		expect(window.document.body.textContent).toContain("Heading 1");
 
-		await click(button(container, "More writing tools") as HTMLButtonElement);
+		await click(button(container, "More formatting") as HTMLButtonElement);
+		expect(window.document.body.textContent).toContain("Strikethrough");
 		expect(window.document.body.textContent).toContain("Paragraph alignment");
 	});
 

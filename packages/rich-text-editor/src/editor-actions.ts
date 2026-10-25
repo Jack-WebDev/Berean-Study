@@ -3,17 +3,21 @@ import type {
 	BibleReferenceAttributes,
 	CitationAttributes,
 	RichTextEditorPreset,
+	VerseBlockAttributes,
 } from "./types";
 
 export type EditorCommandId =
 	| "paragraph"
+	| "heading1"
 	| "heading2"
 	| "heading3"
 	| "bullet"
 	| "numbered"
+	| "checklist"
 	| "quote"
 	| "divider"
 	| "table"
+	| "verse"
 	| "bible"
 	| "citation";
 
@@ -28,9 +32,16 @@ export type CitationRequest = () =>
 	| undefined
 	| Promise<CitationAttributes | null | undefined>;
 
+export type VerseRequest = () =>
+	| VerseBlockAttributes
+	| null
+	| undefined
+	| Promise<VerseBlockAttributes | null | undefined>;
+
 export type EditorCommandContext = {
 	onRequestBibleReference?: ReferenceRequest;
 	onRequestCitation?: CitationRequest;
+	onRequestVerse?: VerseRequest;
 	preset: RichTextEditorPreset;
 };
 
@@ -66,8 +77,16 @@ const commandDefinitions: readonly EditorCommandDefinition[] = [
 		execute: (target) => target.applyCommand("paragraph"),
 		group: "block",
 		id: "paragraph",
-		keywords: ["text"],
-		label: "Body text",
+		keywords: ["text", "body"],
+		label: "Paragraph",
+	},
+	{
+		description: "Add a large heading.",
+		execute: (target) => target.applyCommand("heading1"),
+		group: "block",
+		id: "heading1",
+		keywords: ["heading", "h1", "title"],
+		label: "Heading 1",
 	},
 	{
 		description: "Add a section heading.",
@@ -75,15 +94,15 @@ const commandDefinitions: readonly EditorCommandDefinition[] = [
 		group: "block",
 		id: "heading2",
 		keywords: ["heading", "h2"],
-		label: "Heading",
+		label: "Heading 2",
 	},
 	{
 		description: "Add a subsection heading.",
 		execute: (target) => target.applyCommand("heading3"),
 		group: "block",
 		id: "heading3",
-		keywords: ["heading", "h3"],
-		label: "Subheading",
+		keywords: ["heading", "h3", "subheading"],
+		label: "Heading 3",
 	},
 	{
 		description: "Create an unordered list.",
@@ -100,6 +119,14 @@ const commandDefinitions: readonly EditorCommandDefinition[] = [
 		id: "numbered",
 		keywords: ["list", "ordered"],
 		label: "Numbered list",
+	},
+	{
+		description: "Track tasks you can tick off.",
+		execute: (target) => target.applyCommand("checklist"),
+		group: "structure",
+		id: "checklist",
+		keywords: ["list", "task", "todo", "checkbox"],
+		label: "Checklist",
 	},
 	{
 		description: "Set the selected text apart as a quotation.",
@@ -124,6 +151,18 @@ const commandDefinitions: readonly EditorCommandDefinition[] = [
 		id: "table",
 		keywords: ["grid"],
 		label: "Table",
+	},
+	{
+		description: "Quote Scripture as a linked Verse block.",
+		execute: async (target, context) => {
+			const verse = await context.onRequestVerse?.();
+			return verse ? target.insertVerseBlock(verse) : false;
+		},
+		group: "insert",
+		id: "verse",
+		isAvailable: (context) => Boolean(context.onRequestVerse),
+		keywords: ["scripture", "quote", "passage", "bible"],
+		label: "Verse",
 	},
 	{
 		description: "Insert a Scripture reference.",

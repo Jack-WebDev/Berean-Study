@@ -1,4 +1,6 @@
-import type { Extensions } from "@tiptap/core";
+import { Extension, type Extensions } from "@tiptap/core";
+import Highlight from "@tiptap/extension-highlight";
+import { TaskItem, TaskList } from "@tiptap/extension-list";
 import Placeholder from "@tiptap/extension-placeholder";
 import {
 	Table,
@@ -14,6 +16,7 @@ import { Citation } from "./citation";
 import { sanitizePastedHtml } from "./paste-sanitization";
 import { SlashCommands } from "./slash-commands";
 import type { RichTextEditorPreset } from "./types";
+import { VerseBlock } from "./verse-block";
 
 const allowedProtocols = new Set(["http:", "https:", "mailto:"]);
 
@@ -26,6 +29,30 @@ function isAllowedLinkUri(uri: string | undefined) {
 	}
 }
 
+/**
+ * Marks template headings (Observe, Interpret, Apply…) so outline tooling can
+ * read them and the content styles can tint them.
+ */
+const SectionHeadingVariant = Extension.create({
+	name: "sectionHeadingVariant",
+
+	addGlobalAttributes() {
+		return [
+			{
+				types: ["heading"],
+				attributes: {
+					variant: {
+						default: null,
+						parseHTML: (element) => element.getAttribute("data-variant"),
+						renderHTML: (attributes) =>
+							attributes.variant ? { "data-variant": attributes.variant } : {},
+					},
+				},
+			},
+		];
+	},
+});
+
 /** Returns the deliberately constrained schema shared by edit and read-only use. */
 export function createRichTextExtensions(
 	placeholder = "Start writing…",
@@ -35,7 +62,7 @@ export function createRichTextExtensions(
 	const { interactive = true } = options;
 	return [
 		StarterKit.configure({
-			heading: { levels: [2, 3] },
+			heading: { levels: [1, 2, 3] },
 			link: {
 				autolink: false,
 				isAllowedUri: isAllowedLinkUri,
@@ -51,7 +78,12 @@ export function createRichTextExtensions(
 		TableRow,
 		TableHeader,
 		TableCell,
+		Highlight,
+		TaskList,
+		TaskItem.configure({ nested: true }),
+		SectionHeadingVariant,
 		BibleReference,
+		VerseBlock,
 		...(preset === "contributor" ? [Citation] : []),
 		...(interactive
 			? [SlashCommands, Placeholder.configure({ placeholder })]

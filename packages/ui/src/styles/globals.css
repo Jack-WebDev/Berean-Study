@@ -62,6 +62,21 @@
 	/* Landing-page brand role: scoped to the marketing surface below. */
 	--brand: oklch(0.42 0.06 155);
 	--brand-foreground: oklch(0.985 0.005 85);
+
+	/* Quoted Scripture: verse blocks, passage chips, highlighted verses */
+	--scripture: oklch(0.959 0.018 86);
+	--scripture-foreground: oklch(0.45 0.082 78);
+	--scripture-border: oklch(0.89 0.052 86);
+	--scripture-accent: oklch(0.67 0.11 78);
+
+	--highlight: oklch(0.916 0.053 88);
+	--success: oklch(0.487 0.07 153);
+
+	/* Study template section labels */
+	--section-observe: oklch(0.957 0.007 261);
+	--section-observe-foreground: oklch(0.32 0.065 255);
+	--section-apply: oklch(0.958 0.009 151);
+	--section-apply-foreground: oklch(0.427 0.072 151);
 }
 
 .dark {
@@ -114,6 +129,19 @@
 
 	--brand: oklch(0.7 0.06 155);
 	--brand-foreground: oklch(0.17 0.025 255);
+
+	--scripture: oklch(0.26 0.03 80);
+	--scripture-foreground: oklch(0.82 0.09 82);
+	--scripture-border: oklch(0.4 0.05 80);
+	--scripture-accent: oklch(0.72 0.095 85);
+
+	--highlight: oklch(0.42 0.07 85);
+	--success: oklch(0.76 0.09 153);
+
+	--section-observe: oklch(0.27 0.035 255);
+	--section-observe-foreground: oklch(0.8 0.05 245);
+	--section-apply: oklch(0.27 0.03 151);
+	--section-apply-foreground: oklch(0.78 0.08 151);
 }
 
 .landing {
@@ -125,6 +153,16 @@
 @theme inline {
 	--font-sans: "DM Sans", system-ui, sans-serif;
 	--font-serif: "Libre Baskerville", Georgia, serif;
+	--color-scripture: var(--scripture);
+	--color-scripture-foreground: var(--scripture-foreground);
+	--color-scripture-border: var(--scripture-border);
+	--color-scripture-accent: var(--scripture-accent);
+	--color-highlight: var(--highlight);
+	--color-success: var(--success);
+	--color-section-observe: var(--section-observe);
+	--color-section-observe-foreground: var(--section-observe-foreground);
+	--color-section-apply: var(--section-apply);
+	--color-section-apply-foreground: var(--section-apply-foreground);
 	--color-brand-foreground: var(--brand-foreground);
 	--color-brand: var(--brand);
 	--color-sidebar-ring: var(--sidebar-ring);
