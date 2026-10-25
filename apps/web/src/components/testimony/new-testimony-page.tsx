@@ -6,11 +6,13 @@ import {
 } from "@berean-study/rich-text-editor";
 import { Button } from "@berean-study/ui/components/button";
 import { Input } from "@berean-study/ui/components/input";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { SaveIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { createTestimony } from "@/functions/testimonies";
+import { communityKeys, libraryKeys, testimonyKeys } from "@/queries/keys";
 
 export function NewTestimonyPage() {
 	const navigate = useNavigate();
@@ -18,27 +20,36 @@ export function NewTestimonyPage() {
 	const [content, setContent] = useState<RichTextDocument>(
 		emptyRichTextDocument,
 	);
-	const [saving, setSaving] = useState(false);
-	const save = async () => {
-		if (!title.trim() || !hasRichTextContent(content)) {
-			toast.error("Add a title and testimony before saving.");
-			return;
-		}
-		setSaving(true);
-		try {
-			await createTestimony({
+	const queryClient = useQueryClient();
+	const saveMutation = useMutation({
+		mutationFn: () =>
+			createTestimony({
 				data: {
 					content,
 					title: title.trim(),
 				},
-			});
+			}),
+		onSuccess: async () => {
+			await Promise.all([
+				queryClient.invalidateQueries({ queryKey: testimonyKeys.all }),
+				queryClient.invalidateQueries({ queryKey: libraryKeys.all }),
+				queryClient.invalidateQueries({
+					queryKey: communityKeys.publishingResources(),
+				}),
+			]);
 			toast.success("Testimony saved.");
 			navigate({ to: "/library/testimonials" });
-		} catch {
-			toast.error("We couldn't save your testimony. Please try again.");
-		} finally {
-			setSaving(false);
+		},
+		onError: () =>
+			toast.error("We couldn't save your testimony. Please try again."),
+	});
+	const saving = saveMutation.isPending;
+	const save = () => {
+		if (!title.trim() || !hasRichTextContent(content)) {
+			toast.error("Add a title and testimony before saving.");
+			return;
 		}
+		saveMutation.mutate();
 	};
 	return (
 		<div className="min-h-full px-5 py-6 sm:px-8">

@@ -2,10 +2,12 @@ import {
 	hasRichTextContent,
 	type RichTextDocument,
 } from "@berean-study/rich-text-editor";
+import { useQueryClient } from "@tanstack/react-query";
 import { CheckIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { saveNote } from "@/functions/notes";
+import { invalidateNoteQueries } from "@/queries/notes";
 
 export type NoteFormValues = {
 	content: RichTextDocument;
@@ -35,6 +37,7 @@ const AUTOSAVE_DELAY_MS = 1000;
  * subsequent updates. Pages only decide what to do after a save succeeds.
  */
 export function useNoteSaveLifecycle(initialNote?: StoredNote) {
+	const queryClient = useQueryClient();
 	const noteId = useRef<number | undefined>(initialNote?.id);
 	const saveQueue = useRef<Promise<void>>(Promise.resolve());
 	const [storedNote, setStoredNote] = useState<StoredNote | null>(
@@ -61,6 +64,9 @@ export function useNoteSaveLifecycle(initialNote?: StoredNote) {
 
 				noteId.current = savedNote.id;
 				setStoredNote(savedNote);
+				// The form is the source of truth while editing, so mark the cached
+				// copies stale for their next use rather than refetching every save.
+				void invalidateNoteQueries(queryClient, { refetchType: "none" });
 				return savedNote;
 			});
 
@@ -70,7 +76,7 @@ export function useNoteSaveLifecycle(initialNote?: StoredNote) {
 			);
 			return nextSave;
 		},
-		[],
+		[queryClient],
 	);
 
 	/** Resolves with the note's id once every queued save has settled. */

@@ -1,14 +1,19 @@
-import { useEffect, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 
-import { listNotes, listNoteTags } from "@/functions/notes";
-import {
+import type {
 	getPassageOptions,
-	getPassageStudyContext,
 	getPassageText,
-	getPreferredTranslation,
-	listRecentPassages,
 	listTranslations,
 } from "@/functions/passages";
+import { notesQueryOptions, noteTagsQueryOptions } from "@/queries/notes";
+import {
+	passageOptionsQueryOptions,
+	passageStudyContextQueryOptions,
+	passageTextQueryOptions,
+	preferredTranslationQueryOptions,
+	recentPassagesQueryOptions,
+	translationsQueryOptions,
+} from "@/queries/passages";
 
 export type PassageOption = Awaited<
 	ReturnType<typeof getPassageOptions>
@@ -18,68 +23,24 @@ export type PassageText = NonNullable<
 >;
 export type Translation = Awaited<ReturnType<typeof listTranslations>>[number];
 
-export type AsyncValue<T> =
-	| { status: "idle" }
-	| { status: "loading" }
-	| { status: "failed" }
-	| { status: "ready"; value: T };
-
-/**
- * Loads a value whenever `key` changes and ignores responses for stale keys.
- * A null key means there is nothing to load yet.
- */
-function useAsyncValue<T>(
-	key: string | null,
-	load: () => Promise<T>,
-): AsyncValue<T> {
-	const loadRef = useRef(load);
-	loadRef.current = load;
-	const [state, setState] = useState<{ key: string | null } & AsyncValue<T>>({
-		key: null,
-		status: "idle",
-	});
-
-	useEffect(() => {
-		if (key === null) return;
-		let active = true;
-		setState({ key, status: "loading" });
-		loadRef
-			.current()
-			.then((value) => {
-				if (active) setState({ key, status: "ready", value });
-			})
-			.catch(() => {
-				if (active) setState({ key, status: "failed" });
-			});
-		return () => {
-			active = false;
-		};
-	}, [key]);
-
-	if (key === null) return { status: "idle" };
-	return state.key === key ? state : { status: "loading" };
-}
-
 export function usePassageOptions() {
-	return useAsyncValue("passages", () => getPassageOptions());
+	return useQuery(passageOptionsQueryOptions());
 }
 
 export function useTranslations() {
-	return useAsyncValue("translations", () => listTranslations());
+	return useQuery(translationsQueryOptions());
 }
 
 export function usePreferredTranslation() {
-	return useAsyncValue("preferred-translation", () =>
-		getPreferredTranslation(),
-	);
+	return useQuery(preferredTranslationQueryOptions());
 }
 
 export function useRecentPassages() {
-	return useAsyncValue("recent", () => listRecentPassages());
+	return useQuery(recentPassagesQueryOptions());
 }
 
 export function useNoteTagSuggestions() {
-	return useAsyncValue("tags", () => listNoteTags());
+	return useQuery(noteTagsQueryOptions());
 }
 
 /** Passage text in a translation; the member's preferred one when unset. */
@@ -87,31 +48,25 @@ export function usePassageText(
 	passageId: number | null,
 	translationId: number | null,
 ) {
-	return useAsyncValue(
-		passageId ? `${passageId}:${translationId ?? "preferred"}` : null,
-		() =>
-			getPassageText({
-				data: {
-					passageId: passageId ?? 0,
-					translationId: translationId ?? undefined,
-				},
-			}),
-	);
+	return useQuery({
+		...passageTextQueryOptions(passageId ?? 0, translationId ?? undefined),
+		enabled: passageId !== null,
+	});
 }
 
 export function useRelatedPassages(passageId: number | null) {
-	return useAsyncValue(passageId ? String(passageId) : null, async () => {
-		const context = await getPassageStudyContext({
-			data: { passageId: passageId ?? 0 },
-		});
-		return context?.relatedPassages ?? [];
+	return useQuery({
+		...passageStudyContextQueryOptions(passageId ?? 0),
+		enabled: passageId !== null,
+		select: (context) => context?.relatedPassages ?? [],
 	});
 }
 
 export function useNotesForPassage(passageId: number | null) {
-	return useAsyncValue(passageId ? String(passageId) : null, () =>
-		listNotes({ data: { passageId: passageId ?? 0, sort: "updated-desc" } }),
-	);
+	return useQuery({
+		...notesQueryOptions({ passageId: passageId ?? 0 }),
+		enabled: passageId !== null,
+	});
 }
 
 /** Case-insensitive match on every word of the query, capped for display. */

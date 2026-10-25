@@ -36,6 +36,7 @@ import {
 	SheetTitle,
 } from "@berean-study/ui/components/sheet";
 import { Textarea } from "@berean-study/ui/components/textarea";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
 	BookOpenIcon,
 	CheckIcon,
@@ -50,6 +51,7 @@ import { type FormEvent, useState } from "react";
 import { toast } from "sonner";
 
 import { createCollection, updateCollection } from "@/functions/collections";
+import { collectionKeys, communityKeys, libraryKeys } from "@/queries/keys";
 import {
 	type CollectionSummary,
 	collectionCovers,
@@ -177,8 +179,30 @@ function CollectionFormSheet({
 	);
 	const [tagInput, setTagInput] = useState("");
 	const [tags, setTags] = useState<string[]>(collection?.tags ?? []);
-	const [isSubmitting, setIsSubmitting] = useState(false);
-	const [submissionError, setSubmissionError] = useState<string | null>(null);
+	const queryClient = useQueryClient();
+	const saveMutation = useMutation({
+		mutationFn: onSubmit,
+		onSuccess: async (savedCollection) => {
+			await Promise.all([
+				queryClient.invalidateQueries({ queryKey: collectionKeys.all }),
+				queryClient.invalidateQueries({ queryKey: libraryKeys.all }),
+				queryClient.invalidateQueries({
+					queryKey: communityKeys.publishingResources(),
+				}),
+			]);
+			onSaved(savedCollection);
+			toast.success(isEditing ? "Collection updated." : "Collection created.");
+		},
+	});
+	const isSubmitting = saveMutation.isPending;
+	const submissionError = saveMutation.error
+		? saveMutation.error.message ===
+			"A collection with this name already exists."
+			? saveMutation.error.message
+			: isEditing
+				? "We couldn't update this collection. Your changes haven't been saved."
+				: "We couldn't create this collection. Your changes haven't been lost."
+		: null;
 
 	const handleNameBlur = () => {
 		setHasTouchedName(true);
@@ -208,37 +232,20 @@ function CollectionFormSheet({
 		(option) => allowedContent[option.value],
 	);
 
-	const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+	const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
 		setHasTouchedName(true);
 		const nextNameError = validateCollectionName(name);
 		setNameError(nextNameError);
 		if (nextNameError || isSubmitting) return;
 
-		setSubmissionError(null);
-		setIsSubmitting(true);
-		try {
-			const savedCollection = await onSubmit({
-				allowedContent: previewContents.map((option) => option.value),
-				coverId,
-				description,
-				name,
-				tags,
-			});
-			onSaved(savedCollection);
-			toast.success(isEditing ? "Collection updated." : "Collection created.");
-		} catch (error) {
-			setSubmissionError(
-				error instanceof Error &&
-					error.message === "A collection with this name already exists."
-					? error.message
-					: isEditing
-						? "We couldn't update this collection. Your changes haven't been saved."
-						: "We couldn't create this collection. Your changes haven't been lost.",
-			);
-		} finally {
-			setIsSubmitting(false);
-		}
+		saveMutation.mutate({
+			allowedContent: previewContents.map((option) => option.value),
+			coverId,
+			description,
+			name,
+			tags,
+		});
 	};
 
 	return (
@@ -331,7 +338,7 @@ function CollectionFormSheet({
 										/>
 										<img
 											alt=""
-											className="aspect-[10/7] w-full object-cover"
+											className="aspect-10/7 w-full object-cover"
 											src={cover.image}
 										/>
 										<span

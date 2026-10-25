@@ -18,6 +18,7 @@ import {
 	EmptyTitle,
 } from "@berean-study/ui/components/empty";
 import { Input } from "@berean-study/ui/components/input";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
 	BookOpenIcon,
@@ -28,39 +29,24 @@ import {
 	SearchIcon,
 	UsersIcon,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { PrayerLibraryTabs } from "@/components/prayer/library-tabs";
 import { publishCommunityPost } from "@/functions/community";
-import { listTestimonies } from "@/functions/testimonies";
+import { communityKeys, testimonyKeys } from "@/queries/keys";
+import { testimoniesQueryOptions } from "@/queries/testimonies";
 
 type Filter = "all" | "recent" | "shared";
 type Sort = "oldest" | "recent" | "title";
 
 export function TestimoniesPage() {
-	const [testimonies, setTestimonies] = useState<Testimony[] | null>(null);
-	const [failed, setFailed] = useState(false);
+	const queryClient = useQueryClient();
+	const testimoniesQuery = useQuery(testimoniesQueryOptions());
+	const testimonies = testimoniesQuery.data ?? null;
 	const [filter, setFilter] = useState<Filter>("all");
 	const [query, setQuery] = useState("");
 	const [sort, setSort] = useState<Sort>("recent");
 	const [selectedId, setSelectedId] = useState<number | null>(null);
-	const load = useCallback(async () => {
-		setFailed(false);
-		try {
-			const next = await listTestimonies();
-			setTestimonies(next);
-			setSelectedId((current) =>
-				next.some((item) => item.id === current)
-					? current
-					: (next[0]?.id ?? null),
-			);
-		} catch {
-			setFailed(true);
-		}
-	}, []);
-	useEffect(() => {
-		void load();
-	}, [load]);
 	const visible = useMemo(
 		() =>
 			(testimonies ?? [])
@@ -92,22 +78,26 @@ export function TestimoniesPage() {
 	);
 	const selected =
 		visible.find((item) => item.id === selectedId) ?? visible[0] ?? null;
-	const share = async (id: number) => {
-		try {
+	const shareMutation = useMutation({
+		mutationFn: async (id: number) => {
 			const result = await publishCommunityPost({
 				data: { sourceId: id, type: "testimony" },
 			});
 			if (!result) throw new Error("Unable to publish Community post.");
+			return result;
+		},
+		onSuccess: (result) => {
 			toast.success(
 				result.alreadyPublished
 					? "This testimony is already shared with Community."
 					: "Testimony shared to Community.",
 			);
-			void load();
-		} catch {
-			toast.error("We couldn't share this testimony. Please try again.");
-		}
-	};
+			void queryClient.invalidateQueries({ queryKey: testimonyKeys.all });
+			void queryClient.invalidateQueries({ queryKey: communityKeys.all });
+		},
+		onError: () =>
+			toast.error("We couldn't share this testimony. Please try again."),
+	});
 	return (
 		<div className="min-h-full px-5 py-6 sm:px-8 lg:px-12">
 			<main className="mx-auto flex w-full max-w-7xl flex-col gap-4">
@@ -129,8 +119,8 @@ export function TestimoniesPage() {
 						<PrayerLibraryTabs active="testimonies" />
 					</div>
 				</header>
-				{failed ? (
-					<LoadError onRetry={load} />
+				{testimoniesQuery.isError ? (
+					<LoadError onRetry={() => void testimoniesQuery.refetch()} />
 				) : (
 					<div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(24rem,.95fr)]">
 						<TestimonyList
@@ -145,7 +135,10 @@ export function TestimoniesPage() {
 							sort={sort}
 							testimonies={visible}
 						/>
-						<TestimonyDetail onShare={share} testimony={selected} />
+						<TestimonyDetail
+							onShare={shareMutation.mutate}
+							testimony={selected}
+						/>
 					</div>
 				)}
 			</main>

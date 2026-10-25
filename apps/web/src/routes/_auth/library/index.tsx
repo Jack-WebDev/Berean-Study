@@ -1,44 +1,43 @@
+import { type UseQueryResult, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import type { LibraryDestinationCountsState } from "@/components/library/library-destinations";
+import { LibraryPage } from "@/components/library/library-page";
 import {
-	type ContinueReadingState,
-	LibraryPage,
-} from "@/components/library/library-page";
-import type { RecentLibraryActivityState } from "@/components/library/recent-library-activity";
-import type { RecentlyStudiedState } from "@/components/library/recently-studied";
-import {
-	getContinueReading,
-	getLibraryDestinationCounts,
-	getRecentLibraryActivity,
-	getRecentlyStudied,
-} from "@/functions/get-library-overview";
+	continueReadingQueryOptions,
+	libraryDestinationCountsQueryOptions,
+	recentLibraryActivityQueryOptions,
+	recentlyStudiedQueryOptions,
+} from "@/queries/library";
 
 export const Route = createFileRoute("/_auth/library/")({
 	component: LibraryRoute,
-	loader: loadLibraryData,
+	// Load all four sections before the page opens. If one fails, the page
+	// still opens and that section shows its own error message.
+	loader: ({ context: { queryClient } }) =>
+		Promise.all([
+			queryClient.query(continueReadingQueryOptions()).catch(ignoreError),
+			queryClient
+				.query(libraryDestinationCountsQueryOptions())
+				.catch(ignoreError),
+			queryClient.query(recentLibraryActivityQueryOptions()).catch(ignoreError),
+			queryClient.query(recentlyStudiedQueryOptions()).catch(ignoreError),
+		]),
 	pendingComponent: LibraryLoadingRoute,
 });
 
-type LibraryData = {
-	continueReading: ContinueReadingState;
-	destinationCounts: LibraryDestinationCountsState;
-	recentActivity: RecentLibraryActivityState;
-	recentlyStudied: RecentlyStudiedState;
-};
-
 function LibraryRoute() {
-	const {
-		continueReading,
-		destinationCounts,
-		recentActivity,
-		recentlyStudied,
-	} = Route.useLoaderData();
+	const continueReading = useQuery(continueReadingQueryOptions());
+	const destinationCounts = useQuery(libraryDestinationCountsQueryOptions());
+	const recentActivity = useQuery(recentLibraryActivityQueryOptions());
+	const recentlyStudied = useQuery(recentlyStudiedQueryOptions());
+
 	return (
 		<LibraryPage
-			continueReading={continueReading}
-			destinationCounts={destinationCounts}
-			recentActivity={recentActivity}
-			recentlyStudied={recentlyStudied}
+			continueReading={toSectionState(continueReading, (reading) => reading)}
+			destinationCounts={toSectionState(destinationCounts, (counts) => ({
+				counts,
+			}))}
+			recentActivity={toSectionState(recentActivity, (items) => ({ items }))}
+			recentlyStudied={toSectionState(recentlyStudied, (items) => ({ items }))}
 		/>
 	);
 }
@@ -54,51 +53,13 @@ function LibraryLoadingRoute() {
 	);
 }
 
-async function loadLibraryData(): Promise<LibraryData> {
-	const [continueReading, destinationCounts, recentActivity, recentlyStudied] =
-		await Promise.all([
-			loadContinueReading(),
-			loadDestinationCounts(),
-			loadRecentActivity(),
-			loadRecentlyStudied(),
-		]);
+function ignoreError() {}
 
-	return {
-		continueReading,
-		destinationCounts,
-		recentActivity,
-		recentlyStudied,
-	};
-}
-
-async function loadContinueReading(): Promise<ContinueReadingState> {
-	try {
-		return { ...(await getContinueReading()), status: "ready" };
-	} catch {
-		return { status: "error" };
-	}
-}
-
-async function loadDestinationCounts(): Promise<LibraryDestinationCountsState> {
-	try {
-		return { counts: await getLibraryDestinationCounts(), status: "ready" };
-	} catch {
-		return { status: "error" };
-	}
-}
-
-async function loadRecentActivity(): Promise<RecentLibraryActivityState> {
-	try {
-		return { items: await getRecentLibraryActivity(), status: "ready" };
-	} catch {
-		return { status: "error" };
-	}
-}
-
-async function loadRecentlyStudied(): Promise<RecentlyStudiedState> {
-	try {
-		return { items: await getRecentlyStudied(), status: "ready" };
-	} catch {
-		return { status: "error" };
-	}
+function toSectionState<TData, TReady extends object>(
+	query: UseQueryResult<TData>,
+	toReady: (data: TData) => TReady,
+) {
+	if (query.isPending) return { status: "loading" as const };
+	if (query.isError) return { status: "error" as const };
+	return { ...toReady(query.data), status: "ready" as const };
 }

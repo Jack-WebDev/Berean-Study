@@ -169,9 +169,7 @@ function OtherNotesOnPassage({
 }) {
 	const notes = useNotesForPassage(passage.id);
 	const otherNotes =
-		notes.status === "ready"
-			? notes.value.filter((note) => note.id !== currentNoteId).slice(0, 5)
-			: [];
+		notes.data?.filter((note) => note.id !== currentNoteId).slice(0, 5) ?? [];
 
 	return (
 		<section
@@ -181,7 +179,7 @@ function OtherNotesOnPassage({
 			<h3 className={eyebrowClassName} id="note-details-related">
 				Your other notes on {passage.label}
 			</h3>
-			{notes.status === "ready" && otherNotes.length ? (
+			{notes.isSuccess && otherNotes.length ? (
 				<ul className="flex flex-col gap-1">
 					{otherNotes.map((note) => (
 						<li key={note.id}>
@@ -199,9 +197,9 @@ function OtherNotesOnPassage({
 				</ul>
 			) : (
 				<p className="text-secondary-foreground text-sm leading-normal">
-					{notes.status === "ready"
+					{notes.isSuccess
 						? "None yet. Notes on this passage will gather here so you can see how your understanding grows."
-						: notes.status === "failed"
+						: notes.isError
 							? "Your other notes couldn’t be loaded."
 							: "Loading your notes…"}
 				</p>

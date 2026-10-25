@@ -8,7 +8,8 @@ import {
 import { Input } from "@berean-study/ui/components/input";
 import { Textarea } from "@berean-study/ui/components/textarea";
 import { cn } from "@berean-study/ui/lib/utils";
-import { Link, useNavigate, useRouter } from "@tanstack/react-router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link, useNavigate } from "@tanstack/react-router";
 import {
 	ArrowLeftIcon,
 	BookOpenIcon,
@@ -17,13 +18,21 @@ import {
 	FolderIcon,
 	HeartIcon,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import {
-	listCommunityPublishingResources,
+	type listCommunityPublishingResources,
 	publishCommunityPost,
 } from "@/functions/community";
+import { communityPublishingResourcesQueryOptions } from "@/queries/community";
+import {
+	collectionKeys,
+	communityKeys,
+	noteKeys,
+	prayerKeys,
+	testimonyKeys,
+} from "@/queries/keys";
 
 type Resource = Awaited<
 	ReturnType<typeof listCommunityPublishingResources>
@@ -57,29 +66,50 @@ const publishingTypes = [
 	},
 ] as const;
 
+const sourceKeys = {
+	collection: collectionKeys.all,
+	note: noteKeys.all,
+	prayer: prayerKeys.all,
+	testimony: testimonyKeys.all,
+} satisfies Record<PostType, readonly unknown[]>;
+
 export function CommunitySharePage() {
 	const navigate = useNavigate({ from: "/community/share" });
-	const router = useRouter();
-	const [resources, setResources] = useState<Resource[] | null>(null);
-	const [loadFailed, setLoadFailed] = useState(false);
+	const queryClient = useQueryClient();
+	const resourcesQuery = useQuery(communityPublishingResourcesQueryOptions());
+	const resources = resourcesQuery.data ?? null;
+	const loadFailed = resourcesQuery.isError;
 	const [type, setType] = useState<PostType | null>(null);
 	const [sourceId, setSourceId] = useState<number | null>(null);
 	const [title, setTitle] = useState("");
 	const [excerpt, setExcerpt] = useState("");
 	const [isPreviewing, setIsPreviewing] = useState(false);
-	const [isPublishing, setIsPublishing] = useState(false);
-
-	const loadResources = useCallback(async () => {
-		setLoadFailed(false);
-		try {
-			setResources(await listCommunityPublishingResources());
-		} catch {
-			setLoadFailed(true);
-		}
-	}, []);
-	useEffect(() => {
-		void loadResources();
-	}, [loadResources]);
+	const publishMutation = useMutation({
+		mutationFn: async (input: {
+			snapshot: { excerpt: string; title: string };
+			sourceId: number;
+			type: PostType;
+		}) => {
+			const result = await publishCommunityPost({ data: input });
+			if (!result) throw new Error("Unable to publish Community post.");
+			return result;
+		},
+		onSuccess: async (result, input) => {
+			await Promise.all([
+				queryClient.invalidateQueries({ queryKey: communityKeys.all }),
+				queryClient.invalidateQueries({ queryKey: sourceKeys[input.type] }),
+			]);
+			toast.success(
+				result.alreadyPublished
+					? "This item is already shared with Community."
+					: "Published to Community.",
+			);
+			navigate({ to: "/community" });
+		},
+		onError: () =>
+			toast.error("We couldn't publish this item. Please try again."),
+	});
+	const isPublishing = publishMutation.isPending;
 
 	const available = useMemo(
 		() => resources?.filter((item) => item.type === type) ?? [],
@@ -99,31 +129,18 @@ export function CommunitySharePage() {
 		setExcerpt(resource.excerpt);
 		setIsPreviewing(false);
 	};
-	const publish = async () => {
+	const publish = () => {
 		if (!type || !selected || !title.trim() || !excerpt.trim()) return;
-		setIsPublishing(true);
-		try {
-			const result = await publishCommunityPost({
-				data: { snapshot: { excerpt, title }, sourceId: selected.id, type },
-			});
-			if (!result) throw new Error("Unable to publish Community post.");
-			await router.invalidate();
-			toast.success(
-				result.alreadyPublished
-					? "This item is already shared with Community."
-					: "Published to Community.",
-			);
-			navigate({ to: "/community" });
-		} catch {
-			toast.error("We couldn't publish this item. Please try again.");
-		} finally {
-			setIsPublishing(false);
-		}
+		publishMutation.mutate({
+			snapshot: { excerpt, title },
+			sourceId: selected.id,
+			type,
+		});
 	};
 
 	return (
 		<main className="min-h-full bg-background text-foreground">
-			<div className="mx-auto flex w-full max-w-[72rem] flex-col gap-8 px-5 py-10 sm:px-8 sm:py-14 lg:px-10 lg:py-16">
+			<div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-5 py-10 sm:px-8 sm:py-14 lg:px-10 lg:py-16">
 				<Link
 					className={cn(
 						buttonVariants({ size: "sm", variant: "ghost" }),
@@ -152,7 +169,7 @@ export function CommunitySharePage() {
 							Your library could not be loaded.
 						</p>
 						<Button
-							onClick={() => void loadResources()}
+							onClick={() => void resourcesQuery.refetch()}
 							size="sm"
 							type="button"
 							variant="outline"
@@ -316,7 +333,7 @@ export function CommunitySharePage() {
 									{isPreviewing ? (
 										<Button
 											disabled={isPublishing}
-											onClick={() => void publish()}
+											onClick={publish}
 											type="button"
 										>
 											{isPublishing ? "Publishing…" : "Publish to Community"}

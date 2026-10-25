@@ -4,6 +4,7 @@ import {
 	AlertTitle,
 } from "@berean-study/ui/components/alert";
 import { Button } from "@berean-study/ui/components/button";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { LucideIcon } from "lucide-react";
 import {
 	CircleAlertIcon,
@@ -12,10 +13,11 @@ import {
 	SmartphoneIcon,
 	Trash2Icon,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { authClient } from "@/lib/auth-client";
+import { accountSessionsQueryOptions } from "@/queries/account";
 
 import {
 	ChangePasswordDialog,
@@ -24,50 +26,49 @@ import {
 } from "./security-dialogs";
 import { SecurityPanelHeader } from "./security-panel";
 import { ActiveSessionsPanel } from "./security-sessions";
-import type { SecuritySession } from "./types";
 
 export function SecurityPage() {
 	const { data: currentSession } = authClient.useSession();
-	const [sessions, setSessions] = useState<SecuritySession[]>([]);
-	const [isLoadingSessions, setIsLoadingSessions] = useState(true);
+	const queryClient = useQueryClient();
+	const sessionsQuery = useQuery({
+		...accountSessionsQueryOptions(),
+		enabled: Boolean(currentSession?.user.id),
+	});
 	const [showAllSessions, setShowAllSessions] = useState(false);
 	const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
 	const [isTwoFactorDialogOpen, setIsTwoFactorDialogOpen] = useState(false);
 	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
-	const loadSessions = useCallback(async () => {
-		setIsLoadingSessions(true);
-		const { data, error } = await authClient.listSessions();
-		setIsLoadingSessions(false);
-		if (error) {
-			toast.error(error.message || "Unable to load active sessions.");
-			return;
-		}
-		setSessions(data ?? []);
-	}, []);
-
+	const sessionsError = sessionsQuery.error;
 	useEffect(() => {
-		if (currentSession?.user.id) void loadSessions();
-	}, [currentSession?.user.id, loadSessions]);
+		if (sessionsError) toast.error(sessionsError.message);
+	}, [sessionsError]);
 
-	async function revokeSession(token: string) {
-		const { error } = await authClient.revokeSession({ token });
-		if (error) {
-			toast.error(error.message || "Unable to sign out that session.");
-			return;
-		}
-		toast.success("Session signed out.");
-		void loadSessions();
-	}
+	const revokeSessionMutation = useMutation({
+		mutationFn: async (token: string) => {
+			const { error } = await authClient.revokeSession({ token });
+			if (error)
+				throw new Error(error.message || "Unable to sign out that session.");
+		},
+		onSuccess: () => {
+			toast.success("Session signed out.");
+			void queryClient.invalidateQueries({
+				queryKey: accountSessionsQueryOptions().queryKey,
+			});
+		},
+		onError: (error) => toast.error(error.message),
+	});
 
-	async function revokeAllSessions() {
-		const { error } = await authClient.revokeSessions();
-		if (error) {
-			toast.error(error.message || "Unable to sign out of all sessions.");
-			return;
-		}
-		window.location.assign("/login");
-	}
+	const revokeAllSessionsMutation = useMutation({
+		mutationFn: async () => {
+			const { error } = await authClient.revokeSessions();
+			if (error)
+				throw new Error(error.message || "Unable to sign out of all sessions.");
+		},
+		// Every session is gone, so leave with a full reload that drops all state.
+		onSuccess: () => window.location.assign("/login"),
+		onError: (error) => toast.error(error.message),
+	});
 
 	const isTwoFactorEnabled = currentSession?.user.twoFactorEnabled ?? false;
 
@@ -109,11 +110,13 @@ export function SecurityPage() {
 					</section>
 					<ActiveSessionsPanel
 						currentSessionId={currentSession?.session.id}
-						isLoading={isLoadingSessions}
-						onRevoke={revokeSession}
-						onRevokeAll={() => void revokeAllSessions()}
+						isLoading={sessionsQuery.isPending}
+						onRevoke={(token) =>
+							revokeSessionMutation.mutateAsync(token).catch(() => undefined)
+						}
+						onRevokeAll={() => revokeAllSessionsMutation.mutate()}
 						onShowAllChange={() => setShowAllSessions((current) => !current)}
-						sessions={sessions}
+						sessions={sessionsQuery.data ?? []}
 						showAll={showAllSessions}
 					/>
 					<section className="rounded-xl border border-destructive/30 bg-card p-4 shadow-sm sm:p-5">

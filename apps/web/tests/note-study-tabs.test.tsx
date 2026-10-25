@@ -44,6 +44,7 @@ vi.mock("@tanstack/react-router", () => ({
 
 import { NoteOutlineTab } from "../src/components/notes/note-outline-tab";
 import { NotePassageTab } from "../src/components/notes/note-passage-tab";
+import { renderWithQueryClient } from "./render-with-query-client";
 
 afterEach(cleanup);
 
@@ -160,7 +161,7 @@ describe("Passage tab", () => {
 
 	it("searches and lists recent passages before one is linked", async () => {
 		const onLinkPassage = vi.fn();
-		render(
+		renderWithQueryClient(
 			<NotePassageTab
 				activePassageId={null}
 				focusedVerse={null}
@@ -194,7 +195,7 @@ describe("Passage tab", () => {
 	it("marks quoted verses and quotes the selected verse", async () => {
 		const onQuote = vi.fn();
 		const onLinkPassage = vi.fn();
-		render(
+		renderWithQueryClient(
 			<NotePassageTab
 				activePassageId={7}
 				focusedVerse={null}

@@ -10,7 +10,6 @@ import {
 	type VerseBlockAttributes,
 	VerseBlockProvider,
 	type VerseBlockSource,
-	type VerseText,
 } from "@berean-study/rich-text-editor";
 import {
 	AlertDialog,
@@ -25,12 +24,15 @@ import {
 import { FieldError } from "@berean-study/ui/components/field";
 import { useSidebar } from "@berean-study/ui/components/sidebar";
 import { useForm, useStore } from "@tanstack/react-form";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
 import { deleteNote, saveNote } from "@/functions/notes";
-import { getVerseRangeText } from "@/functions/passages";
+import { noteKeys } from "@/queries/keys";
+import { invalidateNoteQueries } from "@/queries/notes";
+import { verseRangeTextQueryOptions } from "@/queries/passages";
 
 import { NoteDetailsTab } from "./note-details-tab";
 import { NoteEmptyState } from "./note-empty-state";
@@ -101,13 +103,9 @@ export function NoteForm({
 	submitLabel: string;
 }) {
 	const passageOptions = usePassageOptions();
-	const passages =
-		passageOptions.status === "ready" ? passageOptions.value : null;
+	const passages = passageOptions.data ?? null;
 	const preferredTranslation = usePreferredTranslation();
-	const translation =
-		preferredTranslation.status === "ready"
-			? (preferredTranslation.value?.abbreviation ?? null)
-			: null;
+	const translation = preferredTranslation.data?.abbreviation ?? null;
 	const tagSuggestions = useNoteTagSuggestions();
 	const { save, storedNote, whenIdle } = useNoteSaveLifecycle(initialNote);
 	const [submitError, setSubmitError] = useState<string | null>(null);
@@ -215,26 +213,19 @@ export function NoteForm({
 	};
 	useEffect(() => () => pendingVerseRequest.current?.(null), []);
 
-	const verseCache = useRef(new Map<string, Promise<VerseText[]>>());
+	const queryClient = useQueryClient();
 	const verseSource = useMemo<VerseBlockSource>(
 		() => ({
-			loadVerses: (verse) => {
-				const key = JSON.stringify(verse);
-				const cached = verseCache.current.get(key);
-				if (cached) return cached;
-				const request = getVerseRangeText({
-					data: {
+			loadVerses: (verse) =>
+				queryClient.query(
+					verseRangeTextQueryOptions({
 						bookId: verse.bookId,
 						chapter: verse.chapter,
 						translation: verse.translation,
 						verseEnd: verse.verseEnd,
 						verseStart: verse.verseStart,
-					},
-				});
-				verseCache.current.set(key, request);
-				request.catch(() => verseCache.current.delete(key));
-				return request;
-			},
+					}),
+				),
 			onOpen: (verse) => {
 				setIsFocusMode(false);
 				linkPassage(verse.passageId);
@@ -247,14 +238,43 @@ export function NoteForm({
 				setTab("passage");
 			},
 		}),
-		[linkPassage, setIsFocusMode, setTab],
+		[linkPassage, queryClient, setIsFocusMode, setTab],
 	);
+
+	const deleteNoteMutation = useMutation({
+		mutationFn: (noteId: number) => deleteNote({ data: { id: noteId } }),
+		onSuccess: (_result, noteId) => {
+			queryClient.removeQueries({ queryKey: noteKeys.detail(noteId) });
+			return invalidateNoteQueries(queryClient);
+		},
+	});
+	const duplicateNoteMutation = useMutation({
+		mutationFn: async () => {
+			const copy = await saveNote({
+				data: {
+					content: values.content,
+					passageIds: values.passageIds,
+					tags: values.tags,
+					title: values.title.trim() ? `${values.title.trim()} (copy)` : "",
+				},
+			});
+			if (!copy) throw new Error("Note not found.");
+			return copy;
+		},
+		onSuccess: (copy) => {
+			void invalidateNoteQueries(queryClient);
+			toast.success("Note duplicated.");
+			onDuplicated(copy.id);
+		},
+		onError: () =>
+			toast.error("Unable to duplicate this note. Please try again."),
+	});
 
 	const leave = async ({ deleteDraft }: { deleteDraft: boolean }) => {
 		setIsLeaving(true);
 		try {
 			const noteId = deleteDraft ? await whenIdle() : undefined;
-			if (noteId !== undefined) await deleteNote({ data: { id: noteId } });
+			if (noteId !== undefined) await deleteNoteMutation.mutateAsync(noteId);
 			onLeave();
 		} catch {
 			setIsLeaving(false);
@@ -273,28 +293,12 @@ export function NoteForm({
 		else void leave({ deleteDraft: false });
 	};
 
-	const duplicate = async () => {
-		try {
-			const copy = await saveNote({
-				data: {
-					content: values.content,
-					passageIds: values.passageIds,
-					tags: values.tags,
-					title: values.title.trim() ? `${values.title.trim()} (copy)` : "",
-				},
-			});
-			if (!copy) throw new Error("Note not found.");
-			toast.success("Note duplicated.");
-			onDuplicated(copy.id);
-		} catch {
-			toast.error("Unable to duplicate this note. Please try again.");
-		}
-	};
+	const duplicate = () => duplicateNoteMutation.mutate();
 	const remove = async () => {
 		setIsLeaving(true);
 		try {
 			const noteId = await whenIdle();
-			if (noteId !== undefined) await deleteNote({ data: { id: noteId } });
+			if (noteId !== undefined) await deleteNoteMutation.mutateAsync(noteId);
 			toast.success("Note deleted.");
 			onDeleted();
 		} catch {
@@ -325,7 +329,7 @@ export function NoteForm({
 			    breadcrumb, the one-line toolbar) from widening the page on
 			    narrow screens; it truncates or scrolls inside instead. */}
 			<form
-				className="mx-auto w-full max-w-[1680px] px-4 pb-12 [contain:inline-size] sm:px-8"
+				className="contain-[inline-size] mx-auto w-full max-w-[1680px] px-4 pb-12 sm:px-8"
 				noValidate
 				onKeyDown={(event) => {
 					if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
@@ -390,9 +394,7 @@ export function NoteForm({
 								<TagsProperty
 									onChange={(tags) => form.setFieldValue("tags", tags)}
 									suggestions={
-										tagSuggestions.status === "ready"
-											? tagSuggestions.value.map((tag) => tag.name)
-											: []
+										tagSuggestions.data?.map((tag) => tag.name) ?? []
 									}
 									tags={values.tags}
 								/>
@@ -451,7 +453,7 @@ export function NoteForm({
 										document={values.content}
 										mainPassage={linkedPassages[0] ?? null}
 										onDelete={() => setConfirmDeleteOpen(true)}
-										onDuplicate={() => void duplicate()}
+										onDuplicate={duplicate}
 										onExport={() =>
 											downloadTextFile(
 												toFileName(values.title),

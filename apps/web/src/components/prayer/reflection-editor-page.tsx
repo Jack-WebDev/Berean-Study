@@ -7,17 +7,22 @@ import {
 } from "@berean-study/rich-text-editor";
 import { Button } from "@berean-study/ui/components/button";
 import { FieldError } from "@berean-study/ui/components/field";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeftIcon, BookOpenIcon, SaveIcon } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
-import { getPassageOptions } from "@/functions/passages";
 import {
 	createPrayerReflection,
-	getPrayer,
-	getPrayerReflection,
+	type getPrayer,
 	updatePrayerReflection,
 } from "@/functions/prayers";
+import { libraryKeys, prayerKeys } from "@/queries/keys";
+import { passageOptionsQueryOptions } from "@/queries/passages";
+import {
+	prayerQueryOptions,
+	prayerReflectionQueryOptions,
+} from "@/queries/prayers";
 
 type Prayer = NonNullable<Awaited<ReturnType<typeof getPrayer>>>;
 
@@ -29,76 +34,74 @@ export function ReflectionEditorPage({
 	reflectionId?: number;
 }) {
 	const navigate = useNavigate();
-	const [prayer, setPrayer] = useState<Prayer | null | undefined>(undefined);
-	const [content, setContent] = useState<RichTextDocument>(
-		emptyRichTextDocument,
-	);
-	const [passageLabel, setPassageLabel] = useState<string | null>(null);
-	const [loadFailed, setLoadFailed] = useState(false);
-	const [isSaving, setIsSaving] = useState(false);
-	const [submitError, setSubmitError] = useState<string | null>(null);
+	const queryClient = useQueryClient();
 	const isEditing = reflectionId !== undefined;
-
-	const load = useCallback(async () => {
-		setLoadFailed(false);
-		try {
-			const [loadedPrayer, passages, reflection] = await Promise.all([
-				getPrayer({ data: { id: prayerId } }),
-				getPassageOptions(),
-				isEditing
-					? getPrayerReflection({ data: { prayerId, reflectionId } })
-					: Promise.resolve(null),
-			]);
-			if (!loadedPrayer || (isEditing && !reflection)) {
-				setPrayer(null);
-				return;
-			}
-			setPrayer(loadedPrayer);
-			setPassageLabel(
-				passages.find((passage) => passage.id === loadedPrayer.passageId)
-					?.label ?? null,
-			);
-			if (reflection) setContent(reflection.content);
-		} catch {
-			setLoadFailed(true);
-		}
-	}, [isEditing, prayerId, reflectionId]);
-
-	useEffect(() => {
-		void load();
-	}, [load]);
-
-	const saveReflection = async () => {
-		if (!hasRichTextContent(content)) {
-			setSubmitError("Write a reflection before saving.");
-			return;
-		}
-		setIsSaving(true);
-		setSubmitError(null);
-		try {
+	const prayerQuery = useQuery(prayerQueryOptions(prayerId));
+	const passagesQuery = useQuery(passageOptionsQueryOptions());
+	const reflectionQuery = useQuery({
+		...prayerReflectionQueryOptions(prayerId, reflectionId ?? 0),
+		enabled: isEditing,
+	});
+	// Unsaved edits layered over the stored reflection.
+	const [draftContent, setContent] = useState<RichTextDocument | null>(null);
+	const [validationError, setValidationError] = useState<string | null>(null);
+	const content =
+		draftContent ?? reflectionQuery.data?.content ?? emptyRichTextDocument;
+	const saveMutation = useMutation({
+		mutationFn: async (nextContent: RichTextDocument) => {
 			const saved = isEditing
 				? await updatePrayerReflection({
-						data: {
-							content,
-							prayerId,
-							reflectionId,
-						},
+						data: { content: nextContent, prayerId, reflectionId },
 					})
 				: await createPrayerReflection({
-						data: { content, prayerId },
+						data: { content: nextContent, prayerId },
 					});
 			if (!saved) throw new Error("Prayer not found.");
+			return saved;
+		},
+		onSuccess: async (saved) => {
+			await Promise.all([
+				queryClient.invalidateQueries({ queryKey: prayerKeys.all }),
+				queryClient.invalidateQueries({ queryKey: libraryKeys.all }),
+			]);
 			toast.success(isEditing ? "Reflection updated." : "Reflection saved.");
 			navigate({
 				to: "/library/reflections",
 				search: { reflection: saved.id },
 			});
-		} catch {
-			setSubmitError("We couldn't save your reflection. Please try again.");
-		} finally {
-			setIsSaving(false);
+		},
+	});
+	const isSaving = saveMutation.isPending;
+	const submitError =
+		validationError ??
+		(saveMutation.isError
+			? "We couldn't save your reflection. Please try again."
+			: null);
+
+	const saveReflection = () => {
+		if (!hasRichTextContent(content)) {
+			setValidationError("Write a reflection before saving.");
+			return;
 		}
+		setValidationError(null);
+		saveMutation.mutate(content);
 	};
+
+	const loadFailed =
+		prayerQuery.isError ||
+		passagesQuery.isError ||
+		(isEditing && reflectionQuery.isError);
+	const isLoading =
+		prayerQuery.isPending ||
+		passagesQuery.isPending ||
+		(isEditing && reflectionQuery.isPending);
+	const prayer =
+		prayerQuery.data && (!isEditing || reflectionQuery.data)
+			? prayerQuery.data
+			: null;
+	const passageLabel =
+		passagesQuery.data?.find((passage) => passage.id === prayer?.passageId)
+			?.label ?? null;
 
 	if (loadFailed) {
 		return (
@@ -114,7 +117,7 @@ export function ReflectionEditorPage({
 			</div>
 		);
 	}
-	if (prayer === undefined) {
+	if (isLoading) {
 		return <p className="p-6 text-muted-foreground">Loading prayer…</p>;
 	}
 	if (prayer === null) {

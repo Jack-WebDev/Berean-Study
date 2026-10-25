@@ -1,12 +1,19 @@
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import HomePage from "@/components/home/home-page";
-import { getReaderHomeOverview } from "@/functions/get-reader-home-overview";
+import { readerHomeQueryOptions } from "@/queries/library";
 
 export const Route = createFileRoute("/_auth/home")({
-	loader: () => getReaderHomeOverview(),
+	loader: ({ context }) =>
+		// "static" returns cached data at once; the page refreshes it if old.
+		context.queryClient.query({
+			...readerHomeQueryOptions(),
+			staleTime: "static",
+		}),
 	component: HomePageComponent,
 });
 
 function HomePageComponent() {
-	return <HomePage overview={Route.useLoaderData()} />;
+	const { data: overview } = useSuspenseQuery(readerHomeQueryOptions());
+	return <HomePage overview={overview} />;
 }

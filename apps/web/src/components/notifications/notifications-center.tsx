@@ -6,6 +6,12 @@ import {
 	DropdownMenuTrigger,
 } from "@berean-study/ui/components/dropdown-menu";
 import { Input } from "@berean-study/ui/components/input";
+import {
+	type InfiniteData,
+	useInfiniteQuery,
+	useMutation,
+	useQueryClient,
+} from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
 	BookOpenIcon,
@@ -19,11 +25,13 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import {
-	getNotificationPage,
+	type getNotificationPage,
 	markAllNotificationsRead,
 	markNotificationRead,
 	markNotificationUnread,
 } from "@/functions/notifications";
+import { notificationKeys } from "@/queries/keys";
+import { notificationPagesQueryOptions } from "@/queries/notifications";
 
 import {
 	categoryForKind,
@@ -56,157 +64,94 @@ const filters: Array<{
 ];
 
 export function NotificationsCenter() {
-	const [page, setPage] = useState<NotificationPage | null>(null);
+	const queryClient = useQueryClient();
 	const [filter, setFilter] = useState<NotificationFilter>("all");
 	const [query, setQuery] = useState("");
-	const [hasLoadError, setHasLoadError] = useState(false);
-	const [isLoadingMore, setIsLoadingMore] = useState(false);
-	const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
+	const pagesQuery = notificationPagesQueryOptions(pageRequest(filter, query));
+	const {
+		data,
+		fetchNextPage,
+		hasNextPage,
+		isError: hasLoadError,
+		isFetchNextPageError,
+		isFetchingNextPage,
+		isPending,
+	} = useInfiniteQuery(pagesQuery);
+	const notifications = data?.pages.flatMap((page) => page.notifications);
+	// Counts describe the whole inbox, so the latest page has the freshest.
+	const summary = data?.pages.at(-1);
 
 	useEffect(() => {
-		let current = true;
-		setPage(null);
-		setHasLoadError(false);
-		void getNotificationPage({
-			data: pageRequest(filter, query),
-		})
-			.then((nextPage) => {
-				if (current) setPage(nextPage);
-			})
-			.catch(() => {
-				if (current) setHasLoadError(true);
-			});
-		return () => {
-			current = false;
-		};
-	}, [filter, query]);
+		if (isFetchNextPageError) toast.error("Unable to load more notifications.");
+	}, [isFetchNextPageError]);
 
-	async function loadMore() {
-		if (!page?.nextCursor || isLoadingMore) return;
-		setIsLoadingMore(true);
-		try {
-			const nextPage = await getNotificationPage({
-				data: pageRequest(filter, query, page.nextCursor),
-			});
-			setPage((current) =>
-				current
-					? {
-							...nextPage,
-							notifications: [
-								...current.notifications,
-								...nextPage.notifications,
-							],
-						}
-					: current,
-			);
-		} catch {
-			toast.error("Unable to load more notifications.");
-		} finally {
-			setIsLoadingMore(false);
-		}
-	}
+	/** Applies a read-state change to the visible pages until the server confirms. */
+	const optimisticUpdate = async (
+		update: (
+			pages: InfiniteData<NotificationPage>,
+		) => InfiniteData<NotificationPage>,
+	) => {
+		await queryClient.cancelQueries({ queryKey: pagesQuery.queryKey });
+		const previous = queryClient.getQueryData(pagesQuery.queryKey);
+		if (previous)
+			queryClient.setQueryData(pagesQuery.queryKey, update(previous));
+		return { previous };
+	};
+	const mutationOptions = (errorMessage: string) => ({
+		onError: (
+			_error: Error,
+			_variables: unknown,
+			context: { previous?: InfiniteData<NotificationPage> } | undefined,
+		) => {
+			if (context?.previous)
+				queryClient.setQueryData(pagesQuery.queryKey, context.previous);
+			toast.error(errorMessage);
+		},
+		onSettled: () =>
+			queryClient.invalidateQueries({ queryKey: notificationKeys.all }),
+	});
 
-	function updateReadState(notification: Notification, read: boolean) {
-		setPage((current) => {
-			if (!current) return current;
-			const notifications = current.notifications
-				.map((item) =>
-					item.id === notification.id
-						? { ...item, readAt: read ? new Date() : null }
-						: item,
-				)
-				.filter(
-					(item) => filter !== "unread" || !read || item.id !== notification.id,
-				);
-			return {
-				...current,
-				notifications,
-				unreadCount: Math.max(0, current.unreadCount + (read ? -1 : 1)),
-			};
-		});
-	}
-
-	function restoreReadState(notification: Notification, read: boolean) {
-		setPage((current) => {
-			if (!current) return current;
-			if (read) {
-				return {
-					...current,
-					notifications:
-						filter === "unread"
-							? current.notifications.filter(
-									(item) => item.id !== notification.id,
-								)
-							: current.notifications.map((item) =>
-									item.id === notification.id
-										? { ...item, readAt: new Date() }
-										: item,
-								),
-					unreadCount: Math.max(0, current.unreadCount - 1),
-				};
-			}
-			const restored = { ...notification, readAt: null };
-			const exists = current.notifications.some(
-				(item) => item.id === notification.id,
-			);
-			return {
-				...current,
-				notifications: exists
-					? current.notifications.map((item) =>
-							item.id === notification.id ? restored : item,
-						)
-					: [restored, ...current.notifications],
-				unreadCount: current.unreadCount + 1,
-			};
-		});
-	}
+	const markReadMutation = useMutation({
+		mutationFn: (notification: Notification) =>
+			markNotificationRead({ data: { id: notification.id } }),
+		onMutate: (notification) =>
+			optimisticUpdate((pages) =>
+				withReadState(pages, notification.id, true, filter),
+			),
+		...mutationOptions("Unable to mark the notification as read."),
+	});
+	const markUnreadMutation = useMutation({
+		mutationFn: (notification: Notification) =>
+			markNotificationUnread({ data: { id: notification.id } }),
+		onMutate: (notification) =>
+			optimisticUpdate((pages) =>
+				withReadState(pages, notification.id, false, filter),
+			),
+		...mutationOptions("Unable to mark the notification as unread."),
+	});
+	const markAllReadMutation = useMutation({
+		mutationFn: () => markAllNotificationsRead(),
+		onMutate: () => optimisticUpdate((pages) => withAllRead(pages, filter)),
+		...mutationOptions("Unable to mark notifications as read."),
+	});
+	const isMarkingAllRead = markAllReadMutation.isPending;
 
 	function markRead(notification: Notification) {
-		if (notification.readAt) return;
-		updateReadState(notification, true);
-		void markNotificationRead({ data: { id: notification.id } }).catch(() => {
-			restoreReadState(notification, false);
-			toast.error("Unable to mark the notification as read.");
-		});
+		if (!notification.readAt) markReadMutation.mutate(notification);
 	}
 
 	function markUnread(notification: Notification) {
-		if (!notification.readAt) return;
-		updateReadState(notification, false);
-		void markNotificationUnread({ data: { id: notification.id } }).catch(() => {
-			restoreReadState(notification, true);
-			toast.error("Unable to mark the notification as unread.");
-		});
+		if (notification.readAt) markUnreadMutation.mutate(notification);
 	}
 
-	async function markAllRead() {
-		if (!page || page.unreadCount === 0 || isMarkingAllRead) return;
-		const previousPage = page;
-		setIsMarkingAllRead(true);
-		setPage({
-			...page,
-			notifications:
-				filter === "unread"
-					? []
-					: page.notifications.map((notification) => ({
-							...notification,
-							readAt: notification.readAt ?? new Date(),
-						})),
-			unreadCount: 0,
-		});
-		try {
-			await markAllNotificationsRead();
-		} catch {
-			setPage(previousPage);
-			toast.error("Unable to mark notifications as read.");
-		} finally {
-			setIsMarkingAllRead(false);
-		}
+	function markAllRead() {
+		if (!summary || summary.unreadCount === 0 || isMarkingAllRead) return;
+		markAllReadMutation.mutate();
 	}
 
 	return (
 		<main className="min-h-full bg-[#fffdf8] px-4 py-7 text-[#13294b] sm:px-7 lg:px-10 lg:py-8 dark:bg-background dark:text-foreground">
-			<div className="mx-auto w-full max-w-[1160px]">
+			<div className="mx-auto w-full max-w-290">
 				<header className="mb-6">
 					<h1 className="font-serif text-[34px] leading-tight tracking-[-0.04em] sm:text-[38px]">
 						Notifications
@@ -224,27 +169,27 @@ export function NotificationsCenter() {
 						onMarkAllRead={markAllRead}
 						onQueryChange={setQuery}
 						query={query}
-						totalCount={page?.totalCount ?? 0}
-						unreadCount={page?.unreadCount ?? 0}
-						categoryCounts={page?.categoryCounts}
+						totalCount={summary?.totalCount ?? 0}
+						unreadCount={summary?.unreadCount ?? 0}
+						categoryCounts={summary?.categoryCounts}
 					/>
 					<NotificationFeed
 						hasLoadError={hasLoadError}
-						isLoading={page === null && !hasLoadError}
-						notifications={page?.notifications ?? []}
+						isLoading={isPending}
+						notifications={notifications ?? []}
 						onMarkRead={markRead}
 						onMarkUnread={markUnread}
 						query={query}
 					/>
-					{page?.nextCursor ? (
+					{hasNextPage ? (
 						<div className="flex justify-center border-[#eee9e1] border-t py-5 dark:border-border">
 							<Button
 								className="h-9 rounded-lg border-[#ded4c4] px-5 text-[#294363] dark:border-border dark:text-foreground"
-								disabled={isLoadingMore}
-								onClick={loadMore}
+								disabled={isFetchingNextPage}
+								onClick={() => void fetchNextPage()}
 								variant="outline"
 							>
-								{isLoadingMore ? "Loading…" : "Load more"}
+								{isFetchingNextPage ? "Loading…" : "Load more"}
 							</Button>
 						</div>
 					) : null}
@@ -314,7 +259,7 @@ function NotificationToolbar({
 				})}
 			</fieldset>
 			<div className="flex flex-wrap items-center gap-2 lg:flex-nowrap">
-				<div className="relative min-w-[180px] flex-1 lg:w-[180px] lg:flex-none">
+				<div className="relative min-w-45 flex-1 lg:w-45 lg:flex-none">
 					<SearchIcon
 						aria-hidden="true"
 						className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[#8190a5] dark:text-muted-foreground"
@@ -431,7 +376,7 @@ function NotificationRow({
 				<span className="block font-semibold text-[#17335a] text-[13px] leading-5 dark:text-foreground">
 					{notification.title}
 				</span>
-				<span className="mt-0.5 line-clamp-2 block text-[#71809a] text-[12px] leading-[18px] dark:text-muted-foreground">
+				<span className="mt-0.5 line-clamp-2 block text-[#71809a] text-[12px] leading-4.5 dark:text-muted-foreground">
 					{notification.body}
 				</span>
 				<span
@@ -448,7 +393,7 @@ function NotificationRow({
 				unread ? "bg-[#fffaf0] dark:bg-amber-950/15" : "bg-white dark:bg-card"
 			}
 		>
-			<article className="relative flex min-h-[102px] items-start gap-3 border-[#eee9e1] border-b px-3 py-3 last:border-b-0 sm:px-4 dark:border-border">
+			<article className="relative flex min-h-25.5 items-start gap-3 border-[#eee9e1] border-b px-3 py-3 last:border-b-0 sm:px-4 dark:border-border">
 				<div className="flex min-w-0 flex-1 items-start gap-3">
 					{notification.destination ? (
 						<Link
@@ -594,16 +539,55 @@ function actionForCategory(category: ReturnType<typeof categoryForKind>) {
 			return "View";
 	}
 }
-function pageRequest(
-	filter: NotificationFilter,
-	query: string,
-	cursor?: NonNullable<NotificationPage["nextCursor"]>,
-) {
+function pageRequest(filter: NotificationFilter, query: string) {
 	return {
 		category: filter === "all" || filter === "unread" ? undefined : filter,
-		cursor,
 		limit: 20,
 		query: query || undefined,
 		unreadOnly: filter === "unread",
+	};
+}
+
+function withReadState(
+	data: InfiniteData<NotificationPage>,
+	notificationId: number,
+	read: boolean,
+	filter: NotificationFilter,
+): InfiniteData<NotificationPage> {
+	return {
+		...data,
+		pages: data.pages.map((page) => ({
+			...page,
+			notifications: page.notifications
+				.map((item) =>
+					item.id === notificationId
+						? { ...item, readAt: read ? new Date() : null }
+						: item,
+				)
+				.filter(
+					(item) => filter !== "unread" || !read || item.id !== notificationId,
+				),
+			unreadCount: Math.max(0, page.unreadCount + (read ? -1 : 1)),
+		})),
+	};
+}
+
+function withAllRead(
+	data: InfiniteData<NotificationPage>,
+	filter: NotificationFilter,
+): InfiniteData<NotificationPage> {
+	return {
+		...data,
+		pages: data.pages.map((page) => ({
+			...page,
+			notifications:
+				filter === "unread"
+					? []
+					: page.notifications.map((notification) => ({
+							...notification,
+							readAt: notification.readAt ?? new Date(),
+						})),
+			unreadCount: 0,
+		})),
 	};
 }

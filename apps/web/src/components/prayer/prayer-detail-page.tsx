@@ -17,65 +17,56 @@ import {
 	EmptyHeader,
 	EmptyTitle,
 } from "@berean-study/ui/components/empty";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { ArrowLeftIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 
-import { deletePrayerReflection, getPrayer } from "@/functions/prayers";
-
-type Prayer = Awaited<ReturnType<typeof getPrayer>>;
+import { deletePrayerReflection } from "@/functions/prayers";
+import { libraryKeys, prayerKeys } from "@/queries/keys";
+import { prayerQueryOptions } from "@/queries/prayers";
 
 export function PrayerDetailPage({ prayerId }: { prayerId: number }) {
-	const [prayer, setPrayer] = useState<Prayer | undefined>(undefined);
-	const [loadFailed, setLoadFailed] = useState(false);
+	const queryClient = useQueryClient();
+	const prayerQuery = useQuery(prayerQueryOptions(prayerId));
 	const [reflectionToDelete, setReflectionToDelete] = useState<number | null>(
 		null,
 	);
-	const [isDeletingReflection, setIsDeletingReflection] = useState(false);
-	const loadPrayer = useCallback(async () => {
-		setLoadFailed(false);
-		try {
-			setPrayer(await getPrayer({ data: { id: prayerId } }));
-		} catch {
-			setLoadFailed(true);
-		}
-	}, [prayerId]);
-	useEffect(() => {
-		void loadPrayer();
-	}, [loadPrayer]);
-
-	if (prayer === undefined) return <PrayerState title="Loading prayer…" />;
-	if (loadFailed) {
-		return <PrayerState onRetry={loadPrayer} title="Prayer unavailable" />;
-	}
-	if (prayer === null) return <PrayerState title="Prayer not found" />;
-	const deleteReflection = async () => {
-		if (reflectionToDelete === null) return;
-		setIsDeletingReflection(true);
-		try {
+	const deleteReflectionMutation = useMutation({
+		mutationFn: async (reflectionId: number) => {
 			const deleted = await deletePrayerReflection({
-				data: { prayerId, reflectionId: reflectionToDelete },
+				data: { prayerId, reflectionId },
 			});
 			if (!deleted) throw new Error("Reflection not found.");
-			setPrayer((current) =>
-				current
-					? {
-							...current,
-							reflectionCount: current.reflectionCount - 1,
-							reflections: current.reflections.filter(
-								(reflection) => reflection.id !== reflectionToDelete,
-							),
-						}
-					: current,
-			);
+		},
+		onSuccess: async () => {
+			await Promise.all([
+				queryClient.invalidateQueries({ queryKey: prayerKeys.all }),
+				queryClient.invalidateQueries({ queryKey: libraryKeys.all }),
+			]);
 			setReflectionToDelete(null);
 			toast.success("Reflection deleted.");
-		} catch {
-			toast.error("We couldn't delete this reflection. Please try again.");
-		} finally {
-			setIsDeletingReflection(false);
-		}
+		},
+		onError: () =>
+			toast.error("We couldn't delete this reflection. Please try again."),
+	});
+	const isDeletingReflection = deleteReflectionMutation.isPending;
+
+	if (prayerQuery.isError) {
+		return (
+			<PrayerState
+				onRetry={() => void prayerQuery.refetch()}
+				title="Prayer unavailable"
+			/>
+		);
+	}
+	if (prayerQuery.isPending) return <PrayerState title="Loading prayer…" />;
+	const prayer = prayerQuery.data;
+	if (prayer === null) return <PrayerState title="Prayer not found" />;
+	const deleteReflection = () => {
+		if (reflectionToDelete !== null)
+			deleteReflectionMutation.mutate(reflectionToDelete);
 	};
 
 	return (

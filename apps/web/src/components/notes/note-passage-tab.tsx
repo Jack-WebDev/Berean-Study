@@ -106,7 +106,7 @@ function UnlinkedPassagePanel({
 				onSelect={(passage) => onLinkPassage(passage.id)}
 				passages={passages}
 			/>
-			{recent.status === "ready" && recent.value.length ? (
+			{recent.data?.length ? (
 				<section
 					aria-labelledby="note-recent-passages"
 					className="flex flex-col gap-1"
@@ -117,7 +117,7 @@ function UnlinkedPassagePanel({
 					>
 						Recent
 					</h3>
-					{recent.value.map((passage) => (
+					{recent.data.map((passage) => (
 						<PassageRow
 							key={passage.id}
 							label={`Link ${passage.label}`}
@@ -169,7 +169,7 @@ function LinkedPassagePanel({
 }) {
 	const [selection, setSelection] = useState<VerseSelection | null>(null);
 	const passageText = usePassageText(activePassageId, translationId);
-	const text = passageText.status === "ready" ? passageText.value : null;
+	const text = passageText.data ?? null;
 	const related = useRelatedPassages(activePassageId);
 	const label =
 		linkedPassages.find((passage) => passage.id === activePassageId)?.label ??
@@ -268,10 +268,10 @@ function LinkedPassagePanel({
 				>
 					Cross-references
 				</h3>
-				{related.status === "ready" ? (
-					related.value.filter((passage) => !linkedIds.includes(passage.id))
+				{related.isSuccess ? (
+					related.data.filter((passage) => !linkedIds.includes(passage.id))
 						.length ? (
-						related.value
+						related.data
 							.filter((passage) => !linkedIds.includes(passage.id))
 							.map((passage) => (
 								<PassageRow
@@ -295,7 +295,7 @@ function LinkedPassagePanel({
 					)
 				) : (
 					<p className="text-muted-foreground text-sm">
-						{related.status === "failed"
+						{related.isError
 							? "Cross-references are unavailable right now."
 							: "Loading cross-references…"}
 					</p>

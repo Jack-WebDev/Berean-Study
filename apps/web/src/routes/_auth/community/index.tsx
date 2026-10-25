@@ -5,21 +5,25 @@ import type {
 	CommunityFeedView,
 } from "@berean-study/db/community";
 import {
-	createFileRoute,
-	useNavigate,
-	useRouter,
-} from "@tanstack/react-router";
+	useMutation,
+	useQueryClient,
+	useSuspenseQuery,
+} from "@tanstack/react-query";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { z } from "zod";
 import {
 	CommunityPage,
 	type CommunityPageFeed,
 } from "@/components/community/community-page";
 import type { CommunityPostCardData } from "@/components/community/community-post-card";
+import { setCommunityPostBookmark } from "@/functions/community";
 import {
-	getCommunityFeed,
-	listSavedCommunityPosts,
-	setCommunityPostBookmark,
-} from "@/functions/community";
+	communityFeedQueryOptions,
+	savedCommunityPostsQueryOptions,
+} from "@/queries/community";
+import { communityKeys, libraryKeys } from "@/queries/keys";
+
+const savedPostsLimit = 2;
 
 const communitySearchSchema = z
 	.object({
@@ -38,23 +42,44 @@ const communitySearchSchema = z
 export const Route = createFileRoute("/_auth/community/")({
 	component: CommunityRoute,
 	loaderDeps: ({ search }) => search,
-	loader: async ({ deps }) => {
-		const [feed, savedPosts] = await Promise.all([
-			getCommunityFeed({ data: deps }),
-			listSavedCommunityPosts({ data: { limit: 2 } }),
-		]);
-		return { feed, savedPosts };
-	},
+	// "static" returns cached data at once; the page refreshes it if old.
+	loader: ({ context: { queryClient }, deps }) =>
+		Promise.all([
+			queryClient.query({
+				...communityFeedQueryOptions(deps),
+				staleTime: "static",
+			}),
+			queryClient.query({
+				...savedCommunityPostsQueryOptions(savedPostsLimit),
+				staleTime: "static",
+			}),
+		]),
 	validateSearch: communitySearchSchema,
 });
 
 function CommunityRoute() {
 	const { page, pageSize, view } = Route.useSearch();
-	const { feed: loadedFeed, savedPosts } = Route.useLoaderData();
-	const feed = toPageFeed(loadedFeed);
-	const navigate = useNavigate({ from: "/community/" });
-	const router = useRouter();
 	const selection: CommunityFeedSelection = { page, pageSize, view };
+	const { data: feed } = useSuspenseQuery({
+		...communityFeedQueryOptions(selection),
+		select: toPageFeed,
+	});
+	const { data: savedPosts } = useSuspenseQuery(
+		savedCommunityPostsQueryOptions(savedPostsLimit),
+	);
+	const navigate = useNavigate({ from: "/community/" });
+	const queryClient = useQueryClient();
+	const setBookmark = useMutation({
+		mutationFn: async (input: { isBookmarked: boolean; postId: number }) => {
+			const updated = await setCommunityPostBookmark({ data: input });
+			if (!updated) throw new Error("Unable to update bookmark.");
+		},
+		onSuccess: () =>
+			Promise.all([
+				queryClient.invalidateQueries({ queryKey: communityKeys.all }),
+				queryClient.invalidateQueries({ queryKey: libraryKeys.savedItems() }),
+			]),
+	});
 	const searchForView = (nextView: CommunityFeedView) => ({
 		page: 1,
 		pageSize,
@@ -66,13 +91,9 @@ function CommunityRoute() {
 			feed={feed}
 			savedPosts={savedPosts}
 			selection={selection}
-			onBookmarkChange={async (postId, isBookmarked) => {
-				const updated = await setCommunityPostBookmark({
-					data: { isBookmarked, postId: Number(postId) },
-				});
-				if (!updated) throw new Error("Unable to update bookmark.");
-				await router.invalidate();
-			}}
+			onBookmarkChange={(postId, isBookmarked) =>
+				setBookmark.mutateAsync({ isBookmarked, postId: Number(postId) })
+			}
 			onFilterChange={(nextView) =>
 				navigate({
 					to: ".",

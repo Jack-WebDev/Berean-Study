@@ -1,5 +1,11 @@
 import { getDocumentText } from "@berean-study/rich-text-editor";
 import { Button } from "@berean-study/ui/components/button";
+import {
+	keepPreviousData,
+	useMutation,
+	useQuery,
+	useQueryClient,
+} from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import {
 	BarChart3Icon,
@@ -12,26 +18,18 @@ import {
 	PlusIcon,
 	Trash2Icon,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { listCollectionsForNotes } from "@/functions/collections";
+import { addTagToNote, deleteNote, removeTagFromNote } from "@/functions/notes";
+import { collectionsForNotesQueryOptions } from "@/queries/collections";
+import { collectionKeys, libraryKeys, noteKeys } from "@/queries/keys";
 import {
-	addTagToNote,
-	deleteNote,
-	listNoteBooks,
-	listNotes,
-	listNoteTags,
-	removeTagFromNote,
-} from "@/functions/notes";
+	noteBooksQueryOptions,
+	notesQueryOptions,
+	noteTagsQueryOptions,
+} from "@/queries/notes";
 import { NoteDetail } from "./note-detail";
 import { NotesControls } from "./notes-controls";
 import { NotesList } from "./notes-list";
-import type {
-	Note,
-	NoteBook,
-	NoteCollection,
-	NoteFilters,
-	NoteTag,
-} from "./types";
+import type { Note, NoteFilters } from "./types";
 
 export function NotesPage({
 	filters,
@@ -49,140 +47,63 @@ export function NotesPage({
 	selectedNoteId?: number;
 }) {
 	const navigate = useNavigate();
-	const [notes, setNotes] = useState<Note[] | null>(null);
-	const [books, setBooks] = useState<NoteBook[] | null>(null);
-	const [collections, setCollections] = useState<NoteCollection[] | null>(null);
-	const [tags, setTags] = useState<NoteTag[] | null>(null);
-	const [hasLoadError, setHasLoadError] = useState(false);
-	const [hasBookLoadError, setHasBookLoadError] = useState(false);
-	const [hasCollectionLoadError, setHasCollectionLoadError] = useState(false);
-	const [hasTagLoadError, setHasTagLoadError] = useState(false);
-	const notesRequestId = useRef(0);
+	const queryClient = useQueryClient();
 	const { bookId, collectionId, passageId, query, sort, tagId } = filters;
-	const loadNotes = useCallback(async () => {
-		const requestId = ++notesRequestId.current;
-		setHasLoadError(false);
-
-		try {
-			const nextNotes = await listNotes({
-				data: { bookId, collectionId, passageId, query, sort, tagId },
-			});
-			if (requestId === notesRequestId.current) setNotes(nextNotes);
-		} catch {
-			if (requestId === notesRequestId.current) setHasLoadError(true);
-		}
-	}, [bookId, collectionId, passageId, query, sort, tagId]);
-
-	const loadBooks = useCallback(async () => {
-		setHasBookLoadError(false);
-
-		try {
-			setBooks(await listNoteBooks());
-		} catch {
-			setHasBookLoadError(true);
-		}
-	}, []);
-
-	const loadTags = useCallback(async () => {
-		setHasTagLoadError(false);
-
-		try {
-			setTags(await listNoteTags());
-		} catch {
-			setHasTagLoadError(true);
-		}
-	}, []);
-
-	const loadCollections = useCallback(async () => {
-		setHasCollectionLoadError(false);
-
-		try {
-			setCollections(await listCollectionsForNotes());
-		} catch {
-			setHasCollectionLoadError(true);
-		}
-	}, []);
-
-	useEffect(() => {
-		void loadNotes();
-	}, [loadNotes]);
-
-	useEffect(() => {
-		void loadBooks();
-	}, [loadBooks]);
-
-	useEffect(() => {
-		void loadTags();
-	}, [loadTags]);
-
-	useEffect(() => {
-		void loadCollections();
-	}, [loadCollections]);
+	const notesQuery = useQuery({
+		...notesQueryOptions({
+			bookId,
+			collectionId,
+			passageId,
+			query,
+			sort,
+			tagId,
+		}),
+		// Keep the current list on screen while a new filter loads.
+		placeholderData: keepPreviousData,
+	});
+	const booksQuery = useQuery(noteBooksQueryOptions());
+	const tagsQuery = useQuery(noteTagsQueryOptions());
+	const collectionsQuery = useQuery(collectionsForNotesQueryOptions());
+	const notes = notesQuery.data ?? null;
 
 	const selectedNote =
 		notes?.find((note) => note.id === selectedNoteId) ?? notes?.[0] ?? null;
 
-	const handleDelete = useCallback(
-		async (noteId: number) => {
+	const deleteNoteMutation = useMutation({
+		mutationFn: async (noteId: number) => {
 			const deleted = await deleteNote({ data: { id: noteId } });
 			if (!deleted) throw new Error("Note not found.");
-
-			if (!notes) return;
-			const deletedIndex = notes.findIndex((note) => note.id === noteId);
-			const remainingNotes = notes.filter((note) => note.id !== noteId);
-			const nextNote =
-				remainingNotes[deletedIndex] ?? remainingNotes[deletedIndex - 1];
-
-			setNotes(remainingNotes);
-			onSelectNote(nextNote?.id);
 		},
-		[notes, onSelectNote],
-	);
+		onSuccess: async (_result, noteId) => {
+			if (notes) onSelectNote(nextNoteAfterDelete(notes, noteId)?.id);
+			queryClient.removeQueries({ queryKey: noteKeys.detail(noteId) });
+			await Promise.all([
+				queryClient.invalidateQueries({ queryKey: noteKeys.all }),
+				queryClient.invalidateQueries({ queryKey: collectionKeys.all }),
+				queryClient.invalidateQueries({ queryKey: libraryKeys.all }),
+			]);
+		},
+	});
 
-	const handleAddTag = useCallback(async (noteId: number, name: string) => {
-		const tag = await addTagToNote({ data: { id: noteId, name } });
-		setNotes((currentNotes) =>
-			currentNotes
-				? currentNotes.map((note) =>
-						note.id === noteId &&
-						!note.tags.some((existingTag) => existingTag.id === tag.id)
-							? { ...note, tags: [...note.tags, tag] }
-							: note,
-					)
-				: null,
-		);
-		setTags((currentTags) => {
-			if (
-				!currentTags ||
-				currentTags.some((existingTag) => existingTag.id === tag.id)
-			) {
-				return currentTags;
-			}
+	const addTagMutation = useMutation({
+		mutationFn: ({ name, noteId }: { name: string; noteId: number }) =>
+			addTagToNote({ data: { id: noteId, name } }),
+		onSuccess: () => queryClient.invalidateQueries({ queryKey: noteKeys.all }),
+	});
 
-			return [...currentTags, tag].sort((left, right) =>
-				left.name.localeCompare(right.name),
-			);
-		});
-	}, []);
-
-	const handleRemoveTag = useCallback(
-		async (noteId: number, tagId: number) => {
+	const removeTagMutation = useMutation({
+		mutationFn: async ({
+			noteId,
+			tagId,
+		}: {
+			noteId: number;
+			tagId: number;
+		}) => {
 			const removed = await removeTagFromNote({ data: { id: noteId, tagId } });
 			if (!removed) throw new Error("Tag not found.");
-
-			setNotes((currentNotes) =>
-				currentNotes
-					? currentNotes.map((note) =>
-							note.id === noteId
-								? { ...note, tags: note.tags.filter((tag) => tag.id !== tagId) }
-								: note,
-						)
-					: null,
-			);
-			void loadTags();
 		},
-		[loadTags],
-	);
+		onSuccess: () => queryClient.invalidateQueries({ queryKey: noteKeys.all }),
+	});
 
 	return (
 		<div className="min-h-full bg-background px-4 py-5 text-foreground sm:px-6 lg:px-8">
@@ -208,19 +129,17 @@ export function NotesPage({
 
 				<section aria-label="Notes workspace" className="notes-library-surface">
 					<NotesControls
-						books={books ?? []}
-						collections={collections ?? []}
+						books={booksQuery.data ?? []}
+						collections={collectionsQuery.data ?? []}
 						filters={filters}
-						hasBookLoadError={hasBookLoadError}
-						hasCollectionLoadError={hasCollectionLoadError}
-						hasTagLoadError={hasTagLoadError}
-						isLoadingBooks={books === null && !hasBookLoadError}
-						isLoadingCollections={
-							collections === null && !hasCollectionLoadError
-						}
-						isLoadingTags={tags === null && !hasTagLoadError}
+						hasBookLoadError={booksQuery.isError}
+						hasCollectionLoadError={collectionsQuery.isError}
+						hasTagLoadError={tagsQuery.isError}
+						isLoadingBooks={booksQuery.isPending}
+						isLoadingCollections={collectionsQuery.isPending}
+						isLoadingTags={tagsQuery.isPending}
 						onFiltersChange={onFiltersChange}
-						tags={tags ?? []}
+						tags={tagsQuery.data ?? []}
 					/>
 					<div className="notes-library-grid">
 						<aside className="notes-list-pane">
@@ -232,10 +151,10 @@ export function NotesPage({
 										filters.query ||
 										filters.tagId,
 								)}
-								hasLoadError={hasLoadError}
-								isLoading={notes === null && !hasLoadError}
+								hasLoadError={notesQuery.isError}
+								isLoading={notesQuery.isPending}
 								notes={notes ?? []}
-								onRetry={() => void loadNotes()}
+								onRetry={() => void notesQuery.refetch()}
 								onSelect={onSelectNote}
 								selectedNoteId={selectedNote?.id ?? null}
 							/>
@@ -244,16 +163,20 @@ export function NotesPage({
 						<main aria-label="Selected note" className="notes-detail-pane">
 							<NoteDetail
 								note={selectedNote}
-								onAddTag={handleAddTag}
+								onAddTag={async (noteId, name) => {
+									await addTagMutation.mutateAsync({ name, noteId });
+								}}
 								openCollectionPicker={openCollectionPicker}
-								onDelete={handleDelete}
+								onDelete={deleteNoteMutation.mutateAsync}
 								onEdit={(noteId) =>
 									navigate({
 										to: "/library/notes/$noteId/edit",
 										params: { noteId },
 									})
 								}
-								onRemoveTag={handleRemoveTag}
+								onRemoveTag={(noteId, tagId) =>
+									removeTagMutation.mutateAsync({ noteId, tagId })
+								}
 								onReturnToScripture={
 									returnPassageId
 										? () =>
@@ -393,4 +316,10 @@ function NotesInsightsRail({
 			</div>
 		</aside>
 	);
+}
+
+function nextNoteAfterDelete(notes: readonly Note[], noteId: number) {
+	const deletedIndex = notes.findIndex((note) => note.id === noteId);
+	const remainingNotes = notes.filter((note) => note.id !== noteId);
+	return remainingNotes[deletedIndex] ?? remainingNotes[deletedIndex - 1];
 }

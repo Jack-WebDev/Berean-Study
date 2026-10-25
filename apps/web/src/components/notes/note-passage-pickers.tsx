@@ -186,7 +186,7 @@ export function VersePickerDialog({
 	const [translationId, setTranslationId] = useState<number | null>(null);
 	const [selection, setSelection] = useState<VerseSelection | null>(null);
 	const passageText = usePassageText(open ? passageId : null, translationId);
-	const text = passageText.status === "ready" ? passageText.value : null;
+	const text = passageText.data ?? null;
 
 	useEffect(() => {
 		if (!open) return;
@@ -282,7 +282,7 @@ export function TranslationSelect({
 	value: number | null;
 }) {
 	const translations = useTranslations();
-	const options = translations.status === "ready" ? translations.value : [];
+	const options = translations.data ?? [];
 
 	return (
 		<NativeSelect
@@ -320,17 +320,17 @@ export function PassageVerseList({
 	passageText: ReturnType<typeof usePassageText>;
 	selection: VerseSelection | null;
 }) {
-	if (passageText.status === "failed") {
+	if (passageText.isError) {
 		return (
 			<p className="text-destructive text-sm">
 				This passage couldn’t be loaded. Please try again.
 			</p>
 		);
 	}
-	if (passageText.status !== "ready") {
+	if (!passageText.isSuccess) {
 		return <p className="text-muted-foreground text-sm">Loading passage…</p>;
 	}
-	const verses = passageText.value?.verses ?? [];
+	const verses = passageText.data?.verses ?? [];
 	if (!verses.length) {
 		return (
 			<p className="text-muted-foreground text-sm">

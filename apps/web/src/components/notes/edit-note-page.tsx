@@ -6,39 +6,24 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from "@berean-study/ui/components/empty";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { FileTextIcon } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
-import { getNote } from "@/functions/notes";
+import { noteQueryOptions } from "@/queries/notes";
 
 import { NoteForm } from "./note-form";
-import type { Note } from "./types";
 
 export function EditNotePage({ noteId }: { noteId: number }) {
 	const navigate = useNavigate({ from: "/library/notes/$noteId/edit" });
-	const [note, setNote] = useState<Note | null | undefined>(undefined);
-	const [hasLoadError, setHasLoadError] = useState(false);
-
-	const loadNote = useCallback(async () => {
-		setHasLoadError(false);
-
-		try {
-			setNote(await getNote({ data: { id: noteId } }));
-		} catch {
-			setHasLoadError(true);
-		}
-	}, [noteId]);
-
-	useEffect(() => {
-		void loadNote();
-	}, [loadNote]);
+	const noteQuery = useQuery(noteQueryOptions(noteId));
+	const note = noteQuery.data;
 
 	return (
 		<div className="min-h-full bg-background text-foreground">
 			<h1 className="sr-only">Edit note</h1>
-			{note === undefined ? (
+			{noteQuery.isPending ? (
 				<p
 					aria-live="polite"
 					className="mx-auto mt-8 max-w-[1680px] px-4 text-muted-foreground text-sm sm:px-8"
@@ -46,13 +31,13 @@ export function EditNotePage({ noteId }: { noteId: number }) {
 				>
 					Loading note…
 				</p>
-			) : hasLoadError ? (
+			) : noteQuery.isError ? (
 				<NoteLoadState
 					description="Please try loading the note again."
-					onRetry={() => void loadNote()}
+					onRetry={() => void noteQuery.refetch()}
 					title="Note unavailable"
 				/>
-			) : note === null ? (
+			) : !note ? (
 				<NoteLoadState
 					description="It may have been deleted or is no longer available."
 					title="Note not found"

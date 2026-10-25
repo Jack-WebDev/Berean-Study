@@ -1,11 +1,5 @@
 import { defaultNotificationPreferences } from "@berean-study/db/notification-preferences";
-import {
-	cleanup,
-	fireEvent,
-	render,
-	screen,
-	waitFor,
-} from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const notificationPreferenceMocks = vi.hoisted(() => ({
@@ -19,8 +13,20 @@ vi.mock("../src/functions/notification-preferences", () => ({
 }));
 
 import { NotificationsPage } from "../src/components/account/notifications/notifications-page";
+import { renderWithQueryClient } from "./render-with-query-client";
 
 afterEach(cleanup);
+
+async function renderLoadedPage() {
+	renderWithQueryClient(<NotificationsPage />);
+	await waitFor(() => {
+		expect(
+			screen
+				.getByRole("button", { name: "Save preferences" })
+				.hasAttribute("disabled"),
+		).toBe(false);
+	});
+}
 
 beforeEach(() => {
 	notificationPreferenceMocks.get.mockReset();
@@ -35,12 +41,10 @@ beforeEach(() => {
 
 describe("NotificationsPage", () => {
 	it("keeps in-app and email topic preferences independent", async () => {
-		render(<NotificationsPage />);
+		await renderLoadedPage();
 
 		fireEvent.click(
-			await screen.findByRole("switch", {
-				name: "In-app Reading reminders",
-			}),
+			screen.getByRole("switch", { name: "In-app Reading reminders" }),
 		);
 		fireEvent.click(screen.getByRole("button", { name: "Save preferences" }));
 
@@ -77,9 +81,7 @@ describe("NotificationsPage", () => {
 	});
 
 	it("resets notification preferences before saving", async () => {
-		render(<NotificationsPage />);
-
-		await screen.findByRole("switch", { name: "In-app notifications" });
+		await renderLoadedPage();
 
 		fireEvent.click(screen.getByRole("button", { name: "Reset to default" }));
 		fireEvent.click(screen.getByRole("button", { name: "Save preferences" }));

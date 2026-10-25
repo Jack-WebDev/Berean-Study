@@ -1,7 +1,5 @@
-import {
-	listCollectionsForPassage,
-	setCollectionsForPassage,
-} from "@/functions/collections";
+import { setCollectionsForPassage } from "@/functions/collections";
+import { passageCollectionsQueryOptions } from "@/queries/collections";
 
 import { CollectionPickerDialog } from "./collection-picker-dialog";
 
@@ -17,9 +15,7 @@ export function AddPassageToCollectionDialog({
 	return (
 		<CollectionPickerDialog
 			emptyMessage="Create a collection first, then add this passage to it."
-			loadCollections={() =>
-				listCollectionsForPassage({ data: { id: passageId } })
-			}
+			collectionsQuery={passageCollectionsQueryOptions(passageId)}
 			onOpenChange={onOpenChange}
 			open={open}
 			saveCollections={(collectionIds) =>

@@ -35,6 +35,12 @@ import {
 } from "@berean-study/ui/components/empty";
 import { Input } from "@berean-study/ui/components/input";
 import { Separator } from "@berean-study/ui/components/separator";
+import {
+	keepPreviousData,
+	useMutation,
+	useQuery,
+	useQueryClient,
+} from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
 	BookOpenIcon,
@@ -47,12 +53,11 @@ import {
 	SearchIcon,
 	Trash2Icon,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import {
-	deletePrayerReflection,
-	listLibraryReflections,
-} from "@/functions/prayers";
+import { deletePrayerReflection } from "@/functions/prayers";
+import { libraryKeys, prayerKeys } from "@/queries/keys";
+import { libraryReflectionsQueryOptions } from "@/queries/prayers";
 import { PrayerLibraryTabs } from "./library-tabs";
 
 const pageSize = 20;
@@ -75,39 +80,44 @@ export function ReflectionsPage({
 	onSelectReflection: (id: number) => void;
 	selectedReflectionId?: number;
 }) {
-	const [result, setResult] = useState<Awaited<
-		ReturnType<typeof listLibraryReflections>
-	> | null>(null);
-	const [loadFailed, setLoadFailed] = useState(false);
+	const queryClient = useQueryClient();
 	const [showFilters, setShowFilters] = useState(false);
 	const [query, setQuery] = useState(filters.query ?? "");
 	const [offset, setOffset] = useState(0);
 	const [reflectionToDelete, setReflectionToDelete] =
 		useState<LibraryReflection | null>(null);
-	const [isDeleting, setIsDeleting] = useState(false);
-
-	const loadReflections = useCallback(async () => {
-		setLoadFailed(false);
-		try {
-			setResult(
-				await listLibraryReflections({
-					data: {
-						category: filters.category,
-						limit: pageSize,
-						offset,
-						query: filters.query,
-						sort: filters.sort,
-					},
-				}),
-			);
-		} catch {
-			setLoadFailed(true);
-		}
-	}, [filters.category, filters.query, filters.sort, offset]);
-
-	useEffect(() => {
-		void loadReflections();
-	}, [loadReflections]);
+	const reflectionsQuery = useQuery({
+		...libraryReflectionsQueryOptions({
+			category: filters.category,
+			limit: pageSize,
+			offset,
+			query: filters.query,
+			sort: filters.sort,
+		}),
+		// Keep the current page on screen while the next one loads.
+		placeholderData: keepPreviousData,
+	});
+	const result = reflectionsQuery.data ?? null;
+	const deleteReflectionMutation = useMutation({
+		mutationFn: async (reflection: LibraryReflection) => {
+			const deleted = await deletePrayerReflection({
+				data: { prayerId: reflection.prayerId, reflectionId: reflection.id },
+			});
+			if (!deleted) throw new Error("Reflection not found.");
+		},
+		onSuccess: async () => {
+			await Promise.all([
+				queryClient.invalidateQueries({ queryKey: prayerKeys.all }),
+				queryClient.invalidateQueries({ queryKey: libraryKeys.all }),
+			]);
+			setReflectionToDelete(null);
+			onClearSelection();
+			toast.success("Reflection deleted.");
+		},
+		onError: () =>
+			toast.error("We couldn't delete this reflection. Please try again."),
+	});
+	const isDeleting = deleteReflectionMutation.isPending;
 	useEffect(() => {
 		setQuery(filters.query ?? "");
 	}, [filters.query]);
@@ -137,36 +147,8 @@ export function ReflectionsPage({
 				.sort(),
 		[reflections],
 	);
-	const deleteReflection = async () => {
-		if (!reflectionToDelete) return;
-		setIsDeleting(true);
-		try {
-			const deleted = await deletePrayerReflection({
-				data: {
-					prayerId: reflectionToDelete.prayerId,
-					reflectionId: reflectionToDelete.id,
-				},
-			});
-			if (!deleted) throw new Error("Reflection not found.");
-			setResult((current) =>
-				current
-					? {
-							...current,
-							reflections: current.reflections.filter(
-								(reflection) => reflection.id !== reflectionToDelete.id,
-							),
-							total: current.total - 1,
-						}
-					: current,
-			);
-			setReflectionToDelete(null);
-			onClearSelection();
-			toast.success("Reflection deleted.");
-		} catch {
-			toast.error("We couldn't delete this reflection. Please try again.");
-		} finally {
-			setIsDeleting(false);
-		}
+	const deleteReflection = () => {
+		if (reflectionToDelete) deleteReflectionMutation.mutate(reflectionToDelete);
 	};
 
 	return (
@@ -189,8 +171,8 @@ export function ReflectionsPage({
 						<PrayerLibraryTabs active="reflections" />
 					</div>
 				</header>
-				{loadFailed ? (
-					<LoadError onRetry={loadReflections} />
+				{reflectionsQuery.isError ? (
+					<LoadError onRetry={() => void reflectionsQuery.refetch()} />
 				) : (
 					<div className="grid gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(23rem,.92fr)]">
 						<ReflectionList
