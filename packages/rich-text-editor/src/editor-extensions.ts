@@ -9,6 +9,8 @@ import {
 	TableRow,
 } from "@tiptap/extension-table";
 import TextAlign from "@tiptap/extension-text-align";
+import { Plugin, PluginKey } from "@tiptap/pm/state";
+import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import StarterKit from "@tiptap/starter-kit";
 
 import { BibleReference } from "./bible-reference";
@@ -54,6 +56,60 @@ const SectionHeadingVariant = Extension.create({
 	},
 });
 
+/**
+ * Lets a paragraph carry its own hint (from a template), shown while that
+ * line is empty. A new line made by pressing Enter doesn't inherit the hint.
+ */
+const ParagraphPrompts = Extension.create({
+	name: "paragraphPrompts",
+
+	addGlobalAttributes() {
+		return [
+			{
+				types: ["paragraph"],
+				attributes: {
+					prompt: {
+						// Undefined so ordinary paragraphs serialize without the key.
+						default: undefined,
+						keepOnSplit: false,
+						parseHTML: (element) => element.getAttribute("data-prompt"),
+						renderHTML: (attributes) =>
+							attributes.prompt ? { "data-prompt": attributes.prompt } : {},
+					},
+				},
+			},
+		];
+	},
+
+	addProseMirrorPlugins() {
+		const editor = this.editor;
+		return [
+			new Plugin({
+				key: new PluginKey("paragraphPrompts"),
+				props: {
+					decorations: ({ doc }) => {
+						if (!editor.isEditable) return null;
+						const decorations: Decoration[] = [];
+						doc.descendants((node, position) => {
+							if (
+								node.type.name === "paragraph" &&
+								node.attrs.prompt &&
+								node.childCount === 0
+							)
+								decorations.push(
+									Decoration.node(position, position + node.nodeSize, {
+										class: "is-prompt-empty",
+									}),
+								);
+						});
+						return DecorationSet.create(doc, decorations);
+					},
+				},
+			}),
+		];
+	},
+});
+
 /** Returns the deliberately constrained schema shared by edit and read-only use. */
 export function createRichTextExtensions(
 	placeholder = "Start writing…",
@@ -83,6 +139,7 @@ export function createRichTextExtensions(
 		TaskList,
 		TaskItem.configure({ nested: true }),
 		SectionHeadingVariant,
+		ParagraphPrompts,
 		BibleReference,
 		VerseBlock,
 		...(preset === "contributor" ? [Citation] : []),

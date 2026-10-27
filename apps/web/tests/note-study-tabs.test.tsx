@@ -220,6 +220,7 @@ describe("Passage tab", () => {
 		fireEvent.click(screen.getByRole("button", { name: "Quote v.12 in note" }));
 		expect(onQuote).toHaveBeenCalledWith({
 			...acts,
+			text: "Many believed.",
 			verseEnd: 12,
 			verseStart: 12,
 		});

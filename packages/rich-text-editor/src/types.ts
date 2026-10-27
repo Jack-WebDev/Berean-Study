@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
-
+import type { DockedToolbarItem } from "./docked-toolbar";
 import type { RichTextDocument, VerseBlockAttributes } from "./document-types";
 import type { EditorSession } from "./editor-session";
+import type { SlashCommandItem } from "./slash-commands";
 
 export type {
 	RichTextDocument,
@@ -29,6 +30,17 @@ export type CitationAttributes = {
 export type VerseText = { number: number; text: string };
 
 export type RichTextEditorPreset = "member" | "contributor";
+
+/**
+ * - `full`: every formatting control (the default).
+ * - `simple`: text style, bold, italic, underline, highlight, lists, quote,
+ *   link, verse, undo and redo. No tables, alignment or code.
+ * - `compact`: a short row for small inline composers; pair it with
+ *   `onExpand` to offer the full-screen editor.
+ * - `docked`: labelled buttons below the writing, pinned to the bottom of
+ *   the screen; choose them with `toolbarItems`.
+ */
+export type EditorToolbarVariant = "full" | "simple" | "compact" | "docked";
 
 export type DocumentReferences = {
 	bibleReferences: BibleReferenceAttributes[];
@@ -60,6 +72,20 @@ export type RichTextEditorProps = {
 		| null
 		| undefined
 		| Promise<BibleReferenceAttributes | null | undefined>;
+	/** Asks the host for a name and inserts it; enables the "Person" command. */
+	onRequestPerson?: () =>
+		| string
+		| null
+		| undefined
+		| Promise<string | null | undefined>;
+	/** Shows an "Open full-screen editor" button in the toolbar. */
+	onExpand?: () => void;
+	/** Limits and orders the `/` menu; every available command when omitted. */
+	slashCommands?: readonly SlashCommandItem[];
+	/** Which formatting controls to show; see `EditorToolbarVariant`. */
+	toolbar?: EditorToolbarVariant;
+	/** The docked toolbar's buttons, in order. Only used with `toolbar="docked"`. */
+	toolbarItems?: readonly DockedToolbarItem[];
 	/** Opens a host-owned verse picker and inserts the chosen range as a Verse block. */
 	onRequestVerse?: () =>
 		| VerseBlockAttributes

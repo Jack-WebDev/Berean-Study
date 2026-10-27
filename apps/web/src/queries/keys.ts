@@ -2,7 +2,7 @@ import type { getCommunityFeed } from "@/functions/community";
 import type { countNoteViews, listNotes } from "@/functions/notes";
 import type { getNotificationPage } from "@/functions/notifications";
 import type { getVerseRangeText } from "@/functions/passages";
-import type { listLibraryReflections } from "@/functions/prayers";
+import type { listReflections } from "@/functions/reflections";
 
 /*
  * Query keys for every server resource, kept apart from the query functions so
@@ -15,9 +15,7 @@ type ServerFnData<TFn extends (...args: never[]) => unknown> =
 export type NoteListFilters = ServerFnData<typeof listNotes>;
 export type NoteCountFilters = ServerFnData<typeof countNoteViews>;
 export type VerseRange = ServerFnData<typeof getVerseRangeText>;
-export type LibraryReflectionFilters = ServerFnData<
-	typeof listLibraryReflections
->;
+export type ReflectionFilters = ServerFnData<typeof listReflections>;
 export type NotificationPageParams = ServerFnData<typeof getNotificationPage>;
 export type CommunityFeedParams = ServerFnData<typeof getCommunityFeed>;
 
@@ -65,10 +63,23 @@ export const prayerKeys = {
 	all: ["prayers"] as const,
 	list: () => [...prayerKeys.all, "list"] as const,
 	detail: (id: number) => [...prayerKeys.all, "detail", id] as const,
-	reflection: (prayerId: number, reflectionId: number) =>
-		[...prayerKeys.detail(prayerId), "reflection", reflectionId] as const,
-	libraryReflections: (filters: LibraryReflectionFilters) =>
-		[...prayerKeys.all, "library-reflections", filters] as const,
+	readyForReflection: () =>
+		[...prayerKeys.all, "ready-for-reflection"] as const,
+};
+
+export const reflectionKeys = {
+	all: ["reflections"] as const,
+	list: (filters: ReflectionFilters) =>
+		[...reflectionKeys.all, "list", filters] as const,
+	detail: (id: number) => [...reflectionKeys.all, "detail", id] as const,
+};
+
+// Tab counts and settings that span prayers, testimonies and reflections.
+export const prayerJournalKeys = {
+	all: ["prayer-journal"] as const,
+	counts: () => [...prayerJournalKeys.all, "counts"] as const,
+	reflectionReminder: () =>
+		[...prayerJournalKeys.all, "reflection-reminder"] as const,
 };
 
 export const testimonyKeys = {

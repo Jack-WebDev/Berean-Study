@@ -5,20 +5,27 @@ export {
 	getDocumentReferences,
 } from "./bible-reference-utils";
 export { isValidCitation } from "./citation";
+export type { DockedToolbarItem, DockedToolbarProps } from "./docked-toolbar";
+export { DockedToolbar, defaultDockedToolbarItems } from "./docked-toolbar";
 export type {
 	DocumentHeading,
 	DocumentSection,
 	DocumentVerseBlock,
+	DocumentVerseReference,
 } from "./document-utils";
 export {
 	extractDocumentHeadings,
 	getCharacterCount,
 	getDocumentSections,
+	getDocumentSectionTexts,
 	getDocumentText,
 	getDocumentVerseBlocks,
+	getDocumentVerseReferences,
 	getEstimatedReadingTime,
+	getExcerpt,
 	getLinkedVerseCount,
 	getOpenTaskCount,
+	getPlainText,
 	getWordCount,
 	isSectionHeading,
 } from "./document-utils";
@@ -34,6 +41,7 @@ export type {
 	EditorCommandContext,
 	EditorCommandGroup,
 	EditorCommandId,
+	PersonRequest,
 } from "./editor-actions";
 export {
 	createEditorCommandCatalog,
@@ -56,11 +64,20 @@ export { sanitizePastedHtml } from "./paste-sanitization";
 export { RichTextEditor } from "./rich-text-editor";
 export { RichTextEditorWorkspace } from "./rich-text-editor-workspace";
 export { RichTextRenderer } from "./rich-text-renderer";
-export { getNextCommandIndex } from "./slash-commands";
+export type { SlashCommandItem } from "./slash-commands";
+export { getNextCommandIndex, journalSlashCommands } from "./slash-commands";
+export type { TemplateSection } from "./templates";
+export {
+	createReflectionTemplate,
+	createTemplateSection,
+	createTestimonyTemplate,
+	testimonyTemplateSections,
+} from "./templates";
 export type {
 	BibleReferenceAttributes,
 	CitationAttributes,
 	DocumentReferences,
+	EditorToolbarVariant,
 	PassageMentionSource,
 	RichTextDocument,
 	RichTextEditorPreset,

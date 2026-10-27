@@ -14,6 +14,7 @@ import {
 import { Link } from "@tanstack/react-router";
 import { BookmarkCheckIcon, BookmarkIcon, ImageIcon } from "lucide-react";
 import { useEffect, useState } from "react";
+import { formatPublishedAt, initialsFor } from "@/utils";
 
 export type CommunityPostType = "collection" | "note" | "testimony" | "prayer";
 
@@ -137,36 +138,4 @@ export function CommunityPostCard({
 			</CardFooter>
 		</Card>
 	);
-}
-
-function initialsFor(name: string) {
-	return name
-		.split(/\s+/)
-		.filter(Boolean)
-		.slice(0, 2)
-		.map((part) => part[0]?.toUpperCase())
-		.join("");
-}
-
-function formatPublishedAt(publishedAt: Date | string) {
-	if (typeof publishedAt === "string") {
-		const parsedDate = new Date(publishedAt);
-		if (Number.isNaN(parsedDate.getTime())) return publishedAt;
-		return relativeDate(parsedDate);
-	}
-
-	return relativeDate(publishedAt);
-}
-
-function relativeDate(date: Date) {
-	const days = Math.round((date.getTime() - Date.now()) / 86_400_000);
-	const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
-
-	if (Math.abs(days) < 7) return formatter.format(days, "day");
-
-	const weeks = Math.round(days / 7);
-	if (Math.abs(weeks) < 5) return formatter.format(weeks, "week");
-
-	const months = Math.round(days / 30);
-	return formatter.format(months, "month");
 }

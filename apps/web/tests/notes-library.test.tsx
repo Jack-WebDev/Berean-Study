@@ -31,11 +31,11 @@ import {
 	dateGroupLabel,
 	describeListItem,
 	formatEdited,
-	formatListTime,
 	groupNotes,
 } from "../src/components/notes/note-library";
 import { NotesList } from "../src/components/notes/notes-list";
 import type { Note } from "../src/components/notes/types";
+import { formatTimeOrDate } from "../src/utils/dates";
 
 beforeAll(() => {
 	// jsdom doesn't lay out pages, so it has no scrollIntoView.
@@ -134,11 +134,13 @@ describe("notes list helpers", () => {
 	});
 
 	it("shows a time for today's notes and a date for older ones", () => {
-		expect(formatListTime(new Date("2026-10-25T12:58:00"), now)).toMatch(
+		expect(formatTimeOrDate(new Date("2026-10-25T12:58:00"), now)).toMatch(
 			/12:58/,
 		);
-		expect(formatListTime(new Date("2026-10-03T12:58:00"), now)).toBe("Oct 3");
-		expect(formatListTime(new Date("2025-10-03T12:58:00"), now)).toBe(
+		expect(formatTimeOrDate(new Date("2026-10-03T12:58:00"), now)).toBe(
+			"Oct 3",
+		);
+		expect(formatTimeOrDate(new Date("2025-10-03T12:58:00"), now)).toBe(
 			"Oct 3, 2025",
 		);
 		expect(formatEdited(new Date("2026-10-24T09:15:00"), now)).toMatch(

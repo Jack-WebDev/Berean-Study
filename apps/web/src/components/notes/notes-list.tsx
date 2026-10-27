@@ -12,12 +12,9 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { FileTextIcon, PinIcon } from "lucide-react";
 import { type KeyboardEvent, type ReactNode, useEffect, useRef } from "react";
 
-import {
-	describeListItem,
-	formatListTime,
-	groupNotes,
-	sortLabels,
-} from "./note-library";
+import { formatTimeOrDate } from "@/utils/dates";
+
+import { describeListItem, groupNotes, sortLabels } from "./note-library";
 import type { Note, NoteSort, NotesSearch } from "./types";
 
 /**
@@ -175,7 +172,7 @@ function NotesListRow({
 					className="shrink-0 text-muted-foreground text-xs"
 					dateTime={new Date(shownAt).toISOString()}
 				>
-					{formatListTime(shownAt, now)}
+					{formatTimeOrDate(shownAt, now)}
 				</time>
 			</span>
 			{preview ? (

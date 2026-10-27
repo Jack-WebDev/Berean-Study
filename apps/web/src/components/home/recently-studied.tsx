@@ -6,6 +6,7 @@ import {
 	ChevronRightIcon,
 	Clock3Icon,
 } from "lucide-react";
+import { formatTimeAgo } from "@/utils/dates";
 
 export function RecentlyStudied({
 	overview,
@@ -88,7 +89,7 @@ function FeaturedRecentStudyCard({
 
 						<span className="inline-flex items-center gap-1.5 rounded-full bg-background/65 px-3 py-1 text-muted-foreground text-xs shadow-sm backdrop-blur-sm">
 							<Clock3Icon aria-hidden="true" className="size-3.5" />
-							{relativeTime(passage.visitedAt)}
+							{formatTimeAgo(passage.visitedAt)}
 						</span>
 					</div>
 
@@ -175,7 +176,7 @@ function RecentStudyMiniCard({
 					</p>
 
 					<p className="mt-1 text-muted-foreground text-xs">
-						{relativeTime(passage.visitedAt)}
+						{formatTimeAgo(passage.visitedAt)}
 					</p>
 				</div>
 
@@ -186,33 +187,4 @@ function RecentStudyMiniCard({
 			</div>
 		</a>
 	);
-}
-
-function relativeTime(value: Date) {
-	const milliseconds = Date.now() - new Date(value).getTime();
-	const hours = Math.max(0, Math.round(milliseconds / 3_600_000));
-
-	if (hours < 1) {
-		return "Just now";
-	}
-
-	if (hours < 24) {
-		return `${hours} hour${hours === 1 ? "" : "s"} ago`;
-	}
-
-	const days = Math.round(hours / 24);
-
-	if (days < 7) {
-		return `${days} day${days === 1 ? "" : "s"} ago`;
-	}
-
-	const weeks = Math.round(days / 7);
-
-	if (weeks < 5) {
-		return `${weeks} week${weeks === 1 ? "" : "s"} ago`;
-	}
-
-	const months = Math.round(days / 30);
-
-	return `${months} month${months === 1 ? "" : "s"} ago`;
 }

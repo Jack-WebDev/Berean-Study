@@ -28,7 +28,10 @@
 			"!**/.source",
 			"!**/convex/_generated",
 			"!**/.output",
-			"!**/.tanstack"
+			"!**/.tanstack",
+			"!**/.agents",
+			"!**/.claude",
+			"!skills-lock.json"
 		]
 	},
 	"formatter": {

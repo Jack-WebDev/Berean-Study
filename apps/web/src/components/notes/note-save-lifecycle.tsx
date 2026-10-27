@@ -8,6 +8,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { saveNote } from "@/functions/notes";
 import { invalidateNoteQueries } from "@/queries/notes";
+import { formatTime } from "@/utils/dates";
 
 export type SavedNote = NonNullable<Awaited<ReturnType<typeof saveNote>>>;
 
@@ -236,7 +237,7 @@ export function formatSavedAgo(savedAt: Date, now: Date) {
 	const minutes = Math.floor((now.getTime() - savedAt.getTime()) / 60_000);
 	if (minutes < 1) return "just now";
 	if (minutes < 60) return `${minutes} min ago`;
-	return `at ${savedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+	return `at ${formatTime(savedAt)}`;
 }
 
 function useNow(intervalMs: number) {

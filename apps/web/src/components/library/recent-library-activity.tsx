@@ -10,6 +10,7 @@ import {
 	FolderIcon,
 	HeartIcon,
 } from "lucide-react";
+import { formatTimeAgo } from "@/utils/dates";
 
 export type RecentLibraryActivityState =
 	| { status: "error" }
@@ -99,7 +100,7 @@ function RecentLibraryActivityLink({ item }: { item: RecentLibraryActivity }) {
 				className="hidden shrink-0 text-muted-foreground text-sm sm:block"
 				dateTime={item.updatedAt.toISOString()}
 			>
-				{formatActivityDate(item.updatedAt)}
+				{formatTimeAgo(item.updatedAt)}
 			</time>
 			<ArrowRightIcon
 				aria-hidden="true"
@@ -134,13 +135,21 @@ function RecentLibraryActivityLink({ item }: { item: RecentLibraryActivity }) {
 			);
 		case "prayer":
 			return (
-				<Link className={className} to="/library/prayers">
+				<Link
+					className={className}
+					search={{ prayer: item.id }}
+					to="/library/prayers"
+				>
 					{content}
 				</Link>
 			);
 		case "testimony":
 			return (
-				<Link className={className} to="/library/testimonies">
+				<Link
+					className={className}
+					search={{ testimony: item.id }}
+					to="/library/testimonies"
+				>
 					{content}
 				</Link>
 			);
@@ -205,22 +214,4 @@ function getActivityPresentation(kind: RecentLibraryActivity["kind"]) {
 				iconClassName: "library-saved-icon",
 			};
 	}
-}
-
-function formatActivityDate(value: Date) {
-	const elapsed = Math.max(0, Date.now() - new Date(value).getTime());
-	const hoursAgo = Math.floor(elapsed / 3_600_000);
-
-	if (hoursAgo < 1) return "Just now";
-	if (hoursAgo < 24) return `${hoursAgo}h ago`;
-
-	const daysAgo = Math.floor(hoursAgo / 24);
-	if (daysAgo === 1) return "Yesterday";
-	if (daysAgo < 7) return `${daysAgo} days ago`;
-
-	return new Intl.DateTimeFormat(undefined, {
-		day: "numeric",
-		month: "short",
-		year: "numeric",
-	}).format(new Date(value));
 }

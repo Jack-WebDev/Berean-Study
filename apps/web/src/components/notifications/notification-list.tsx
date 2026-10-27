@@ -15,12 +15,8 @@ import {
 } from "@berean-study/ui/components/empty";
 import { Skeleton } from "@berean-study/ui/components/skeleton";
 import { BellIcon, ChevronDownIcon } from "lucide-react";
-
-import {
-	groupNotifications,
-	iconForKind,
-	listTime,
-} from "./notification-utils";
+import { formatTimeOrDate } from "@/utils/dates";
+import { groupNotifications, iconForKind } from "./notification-utils";
 import type { Notification, NotificationFilter } from "./types";
 
 export function NotificationFilterBar({
@@ -199,7 +195,7 @@ function NotificationRow({
 						{notification.body}
 					</span>
 					<span className="mt-[3px] block text-[11px] text-muted-foreground">
-						{listTime(notification.createdAt)}
+						{formatTimeOrDate(notification.createdAt)}
 					</span>
 				</span>
 			</button>

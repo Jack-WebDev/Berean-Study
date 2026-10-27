@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
 	check,
+	date,
 	index,
 	integer,
 	pgTable,
@@ -26,6 +27,15 @@ export const testimonies = pgTable(
 
 		content: text("content").notNull(),
 
+		/** When the story happened, to the month; the day is always the 1st. */
+		happenedOn: date("happened_on"),
+
+		/**
+		 * The body's words without its JSON structure, for search and previews.
+		 * Rewritten on every save.
+		 */
+		searchText: text("search_text").notNull().default(""),
+
 		createdAt: timestamp("created_at", {
 			withTimezone: true,
 		})
@@ -36,7 +46,8 @@ export const testimonies = pgTable(
 			withTimezone: true,
 		})
 			.notNull()
-			.defaultNow(),
+			.defaultNow()
+			.$onUpdate(() => new Date()),
 	},
 	(table) => [
 		index("testimonies_user_id_idx").on(table.userId),

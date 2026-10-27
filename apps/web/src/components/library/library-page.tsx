@@ -3,6 +3,7 @@ import { Skeleton } from "@berean-study/ui/components/skeleton";
 import { Link } from "@tanstack/react-router";
 import { ArrowRightIcon, BookOpenIcon } from "lucide-react";
 import type { ComponentProps } from "react";
+import { calendarDaysAgo } from "@/utils/dates";
 import {
 	type LibraryDestinationCountsState,
 	LibraryDestinations,
@@ -125,21 +126,7 @@ function ContinueReading({ state }: { state: ContinueReadingState }) {
 }
 
 function formatLastStudied(value: Date) {
-	const studiedAt = new Date(value);
-	const today = new Date();
-	const startOfToday = new Date(
-		today.getFullYear(),
-		today.getMonth(),
-		today.getDate(),
-	);
-	const startOfStudiedDay = new Date(
-		studiedAt.getFullYear(),
-		studiedAt.getMonth(),
-		studiedAt.getDate(),
-	);
-	const daysAgo = Math.round(
-		(startOfToday.getTime() - startOfStudiedDay.getTime()) / 86_400_000,
-	);
+	const daysAgo = calendarDaysAgo(value);
 
 	if (daysAgo <= 0) return "Last studied today";
 	if (daysAgo === 1) return "Last studied yesterday";

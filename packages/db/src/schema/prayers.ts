@@ -26,7 +26,21 @@ export const prayers = pgTable(
 
 		content: text("content").notNull(),
 
+		/**
+		 * Free text for now (Request, Thanksgiving, or the member's own word).
+		 * TODO: move these into a table a superadmin manages in the app, so the
+		 * suggested list can change without a code release.
+		 */
 		category: text("category"),
+
+		/** Who the prayer is for; empty when the member is praying for themselves. */
+		prayingFor: text("praying_for"),
+
+		/**
+		 * The body's words without its JSON structure, for search and previews.
+		 * Rewritten on every save.
+		 */
+		searchText: text("search_text").notNull().default(""),
 
 		createdAt: timestamp("created_at", {
 			withTimezone: true,

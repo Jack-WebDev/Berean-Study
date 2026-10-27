@@ -202,6 +202,115 @@ describe("formatting toolbar", () => {
 		expect(window.document.activeElement).toBe(items[0]);
 	});
 
+	it("keeps the simple toolbar to everyday formatting", async () => {
+		const { container } = await mount({
+			onRequestVerse: () => verse,
+			toolbar: "simple",
+		});
+
+		for (const label of ["Bold", "Highlight", "Quote", "Link", "Undo"])
+			expect(button(container, label)).toBeDefined();
+		expect(button(container, "Insert verse")).toBeDefined();
+		expect(button(container, "More formatting")).toBeUndefined();
+		expect(button(container, "Checklist")).toBeUndefined();
+	});
+
+	it("offers the full-screen editor from the compact toolbar", async () => {
+		let expanded = 0;
+		const { container } = await mount({
+			onExpand: () => {
+				expanded += 1;
+			},
+			toolbar: "compact",
+		});
+
+		expect(button(container, "Undo")).toBeUndefined();
+		await click(button(container, "Open full-screen editor"));
+		expect(expanded).toBe(1);
+	});
+
+	it("docks four labelled buttons below the writing by default", async () => {
+		const { container } = await mount({
+			onRequestVerse: () => verse,
+			toolbar: "docked",
+		});
+		const toolbar = container.querySelector('[role="toolbar"]') as HTMLElement;
+		const labels = [...toolbar.querySelectorAll("button")].map((item) =>
+			item.textContent?.trim(),
+		);
+
+		expect(labels).toEqual(["Bold", "Italic", "List", "Add a verse"]);
+		// The toolbar comes after the writing, not between title and text.
+		const writing = container.querySelector(".ProseMirror") as HTMLElement;
+		expect(
+			writing.compareDocumentPosition(toolbar) &
+				Node.DOCUMENT_POSITION_FOLLOWING,
+		).toBeTruthy();
+	});
+
+	it("shows Bold and List as pressed while the cursor is in them", async () => {
+		const { container, getSession } = await mount({
+			document: {
+				content: [
+					{
+						content: [
+							{ text: "Plain ", type: "text" },
+							{ marks: [{ type: "bold" }], text: "Strong", type: "text" },
+						],
+						type: "paragraph",
+					},
+				],
+				type: "doc",
+			},
+			toolbar: "docked",
+		});
+		const pressed = (label: string) =>
+			button(container, label)?.getAttribute("aria-pressed");
+		const editor = (
+			container.querySelector(".ProseMirror") as HTMLElement & {
+				editor: Editor;
+			}
+		).editor;
+
+		await act(async () => {
+			editor.commands.setTextSelection(2);
+		});
+		expect(pressed("Bold")).toBe("false");
+		expect(pressed("List")).toBe("false");
+		await act(async () => {
+			editor.commands.setTextSelection(10);
+			getSession().applyCommand("bullet");
+		});
+		expect(pressed("Bold")).toBe("true");
+		expect(pressed("List")).toBe("true");
+		expect(pressed("Italic")).toBe("false");
+
+		await click(button(container, "Italic"));
+		expect(pressed("Italic")).toBe("true");
+	});
+
+	it("inserts a verse from the Add a verse button and lets hosts choose buttons", async () => {
+		const { container, getSession } = await mount({
+			onRequestVerse: () => verse,
+			toolbar: "docked",
+			toolbarItems: ["bold", "undo", "verse"],
+		});
+
+		expect(button(container, "Italic")).toBeUndefined();
+		expect(button(container, "Undo")?.hasAttribute("aria-pressed")).toBe(false);
+		await click(button(container, "Add a verse"));
+		expect(
+			getSession()
+				.getDocument()
+				.content?.some((node) => node.type === "verseBlock"),
+		).toBe(true);
+	});
+
+	it("leaves Add a verse out when the host has no verse picker", async () => {
+		const { container } = await mount({ toolbar: "docked" });
+		expect(button(container, "Add a verse")).toBeUndefined();
+	});
+
 	it("shows the empty state until the note has content", async () => {
 		const emptyState = <p>Pick a structure</p>;
 		const empty = await mount({ emptyState });

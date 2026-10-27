@@ -15,6 +15,10 @@ const taskListClassName =
 
 const contentClassName = `${sharedContentClassName} ${markClassName} ${sectionHeadingClassName} ${taskListClassName}`;
 
-export const richTextContentClassName = `${contentClassName} [&_.ProseMirror]:min-h-72 [&_.ProseMirror_.tableWrapper]:max-w-full [&_.ProseMirror_.tableWrapper]:overflow-x-auto [&_.ProseMirror_p.is-editor-empty:first-child::before]:pointer-events-none [&_.ProseMirror_p.is-editor-empty:first-child::before]:float-left [&_.ProseMirror_p.is-editor-empty:first-child::before]:h-0 [&_.ProseMirror_p.is-editor-empty:first-child::before]:text-muted-foreground [&_.ProseMirror_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]`;
+/** Template hints on empty lines, styled like the editor's placeholder. */
+const promptClassName =
+	"[&_.ProseMirror_p.is-prompt-empty::before]:pointer-events-none [&_.ProseMirror_p.is-prompt-empty::before]:float-left [&_.ProseMirror_p.is-prompt-empty::before]:h-0 [&_.ProseMirror_p.is-prompt-empty::before]:text-muted-foreground [&_.ProseMirror_p.is-prompt-empty::before]:content-[attr(data-prompt)]";
+
+export const richTextContentClassName = `${contentClassName} ${promptClassName} [&_.ProseMirror]:min-h-72 [&_.ProseMirror_.tableWrapper]:max-w-full [&_.ProseMirror_.tableWrapper]:overflow-x-auto [&_.ProseMirror_p.is-editor-empty:first-child::before]:pointer-events-none [&_.ProseMirror_p.is-editor-empty:first-child::before]:float-left [&_.ProseMirror_p.is-editor-empty:first-child::before]:h-0 [&_.ProseMirror_p.is-editor-empty:first-child::before]:text-muted-foreground [&_.ProseMirror_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]`;
 
 export const richTextReaderContentClassName = contentClassName;

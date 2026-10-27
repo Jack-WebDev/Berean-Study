@@ -20,7 +20,13 @@ declare module "@tiptap/core" {
 
 /** Host-owned Bible access for Verse blocks rendered anywhere below it. */
 export type VerseBlockSource = {
+	/** Where the reference links to, such as the passage in Browse Scripture. */
+	getHref?: (attributes: VerseBlockAttributes) => string | undefined;
 	loadVerses?: (attributes: VerseBlockAttributes) => Promise<VerseText[]>;
+	/**
+	 * Opens the verse in the host. With `getHref` too, a plain click runs this
+	 * instead of loading the page, while new-tab clicks still follow the link.
+	 */
 	onOpen?: (attributes: VerseBlockAttributes) => void;
 };
 
@@ -62,7 +68,7 @@ function VerseBlockView({ node, selected }: NodeViewProps) {
 		verseEnd,
 		verseStart,
 	} = attributes;
-	const { loadVerses, onOpen } = useContext(VerseBlockContext);
+	const { getHref, loadVerses, onOpen } = useContext(VerseBlockContext);
 	const isValid = isValidVerseBlock(attributes);
 	const key = isValid ? toVerseKey(attributes) : "";
 	const [state, setState] = useState<VerseState>({ key, status: "loading" });
@@ -106,7 +112,7 @@ function VerseBlockView({ node, selected }: NodeViewProps) {
 		return (
 			<NodeViewWrapper
 				as="figure"
-				className="my-1 rounded-[14px] border border-scripture-border bg-card px-5 py-4 font-sans text-muted-foreground text-sm"
+				className="my-1 rounded-[14px] border border-scripture-border bg-scripture px-5 py-4 font-sans text-muted-foreground text-sm"
 				data-invalid="true"
 			>
 				Quoted verse unavailable
@@ -114,17 +120,19 @@ function VerseBlockView({ node, selected }: NodeViewProps) {
 		);
 	}
 
-	const reference = formatVerseReference(attributes);
+	const reference = `${formatVerseReference(attributes)} · ${attributes.translation}`;
 	const current = state.key === key ? state : { status: "loading" as const };
+	const savedText = typeof attributes.text === "string" ? attributes.text : "";
+	const href = getHref?.(attributes);
 
 	return (
 		<NodeViewWrapper
 			as="figure"
-			className="my-1 flex flex-col gap-2.5 rounded-[14px] border border-scripture-border bg-card px-5 py-[18px] data-[selected=true]:ring-2 data-[selected=true]:ring-ring/50"
+			className="my-1 flex flex-col gap-2 rounded-[14px] border border-scripture-border bg-scripture px-5 py-4.5 data-[selected=true]:ring-2 data-[selected=true]:ring-ring/50"
 			data-selected={selected || undefined}
 			data-verse-block="true"
 		>
-			<blockquote className="m-0 font-serif text-[1em] text-foreground/90 italic leading-[1.6]">
+			<blockquote className="m-0 font-serif text-[1.05em] text-foreground/90 italic leading-[1.6]">
 				{current.status === "ready" && current.verses.length ? (
 					current.verses.map((verse) => (
 						<span key={verse.number}>
@@ -134,29 +142,45 @@ function VerseBlockView({ node, selected }: NodeViewProps) {
 							{verse.text}{" "}
 						</span>
 					))
+				) : current.status === "loading" && loadVerses ? (
+					<span className="font-sans text-muted-foreground text-sm not-italic">
+						Loading verse…
+					</span>
+				) : savedText ? (
+					savedText
 				) : (
 					<span className="font-sans text-muted-foreground text-sm not-italic">
-						{current.status === "loading" && loadVerses
-							? "Loading verse…"
-							: "Verse text unavailable."}
+						Verse text unavailable.
 					</span>
 				)}
 			</blockquote>
-			<figcaption className="font-sans text-[13px] text-scripture-foreground">
-				<button
-					className="inline-flex min-h-6 items-center gap-2 rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:no-underline"
-					contentEditable={false}
-					disabled={!onOpen}
-					onClick={() => onOpen?.(attributes)}
-					type="button"
-				>
-					<LinkIcon aria-hidden="true" className="size-3.5" />
-					{reference} · {attributes.translation} · linked
-				</button>
+			<figcaption className="font-sans font-semibold text-[13px] text-scripture-foreground">
+				{href ? (
+					<a className={referenceClassName} contentEditable={false} href={href}>
+						<LinkIcon aria-hidden="true" className="size-3.5" />
+						{reference}
+					</a>
+				) : (
+					<button
+						className={referenceClassName}
+						contentEditable={false}
+						disabled={!onOpen}
+						onClick={() => onOpen?.(attributes)}
+						type="button"
+					>
+						{onOpen ? (
+							<LinkIcon aria-hidden="true" className="size-3.5" />
+						) : null}
+						{reference}
+					</button>
+				)}
 			</figcaption>
 		</NodeViewWrapper>
 	);
 }
+
+const referenceClassName =
+	"inline-flex min-h-6 items-center gap-2 rounded-sm text-inherit no-underline hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:no-underline";
 
 /** A quoted Scripture range stored as a structured reference, not free text. */
 export const VerseBlock = Node.create({
@@ -167,9 +191,14 @@ export const VerseBlock = Node.create({
 	draggable: false,
 
 	addAttributes() {
-		return Object.fromEntries(
-			attributeNames.map((name) => [name, { default: null }]),
-		);
+		return {
+			...Object.fromEntries(
+				attributeNames.map((name) => [name, { default: null }]),
+			),
+			// Undefined rather than null, so documents saved before this
+			// attribute existed serialize exactly as they did.
+			text: { default: undefined },
+		};
 	},
 
 	parseHTML() {
@@ -187,7 +216,9 @@ export const VerseBlock = Node.create({
 							];
 						}),
 					);
-					return isValidVerseBlock(attributes) ? attributes : false;
+					if (!isValidVerseBlock(attributes)) return false;
+					const text = element.getAttribute("data-text");
+					return text ? { ...attributes, text } : attributes;
 				},
 			},
 		];
@@ -212,6 +243,7 @@ export const VerseBlock = Node.create({
 						attributes[name],
 					]),
 				),
+				attributes.text ? { "data-text": attributes.text } : {},
 			),
 			`${formatVerseReference(attributes)} · ${attributes.translation}`,
 		];

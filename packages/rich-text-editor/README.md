@@ -88,6 +88,67 @@ Render persisted content with the shared schema, not a separate HTML renderer:
 
 Malformed root documents normalize to an empty document. Use `RichTextRenderer` for reader pages and previews. Its schema is shared with both `RichTextEditor` and `RichTextEditorWorkspace`, so preview is structured content—not a second model.
 
+## Toolbar variants
+
+`toolbar` picks how many formatting controls to show:
+
+- `full` (default): every control, including tables, alignment and code.
+- `simple`: text style (Paragraph / Heading / Quote), bold, italic, underline, highlight, lists, quote, link, Insert verse, undo and redo.
+- `compact`: a short row for inline composers. Pass `onExpand` to add an "Open full-screen editor" button.
+- `docked`: labelled buttons (icon and word) in a pill below the writing, pinned to the bottom of the screen while scrolling. Every button shows its state with `aria-pressed`. Choose the buttons with `toolbarItems`; the default is Bold, Italic, List and Add a verse (shown only when `onRequestVerse` is set).
+
+On phones, the `simple`, `compact` and `docked` toolbars move to the top of the on-screen keyboard while the editor has focus.
+
+```tsx
+<RichTextEditor
+  onRequestVerse={openVersePicker}
+  toolbar="docked"
+  toolbarItems={["bold", "italic", "bullet", "verse"]}
+  …
+/>
+```
+
+`DockedToolbar` is also exported for hosts that place it themselves (pass the session from `onSessionReady`).
+
+```tsx
+<RichTextEditor onExpand={openFullScreen} toolbar="compact" … />
+```
+
+## The `/` menu
+
+Without `slashCommands`, the menu lists every available command. Pass a list to choose and order them, optionally with your own label and hint:
+
+```tsx
+import { journalSlashCommands } from "@berean-study/rich-text-editor";
+
+<RichTextEditor
+  onRequestPerson={askForName}
+  onRequestVerse={openVersePicker}
+  slashCommands={journalSlashCommands} // Verse, Person I'm praying for, Heading, Bulleted list
+  …
+/>
+```
+
+Commands that need a host picker ("Verse" needs `onRequestVerse`, "Person I'm praying for" needs `onRequestPerson`) are left out until the host provides it.
+
+## Verse blocks (Scripture)
+
+A verse block stores a structured reference (`book`, `chapter`, `verseStart`, `verseEnd`, `translation`, `passageId`) and, optionally, `text`: a copy of the words taken when it was inserted. The host loads the live text through `VerseBlockProvider`; the saved `text` is shown only when it can't. Give the provider `getHref` to make the reference a real link (for example to Browse Scripture), and `onOpen` to handle plain clicks inside the app.
+
+`getDocumentVerseBlocks(document)` lists the verses a document quotes, so a feature can store them in its own table. `getDocumentVerseReferences(document)` lists each verse once, with a ready-made label ("James 1:5"), its translation and passage, for showing "verses in this entry".
+
+## Templates and plain text
+
+From `@berean-study/rich-text-editor/document` (no React needed):
+
+- `createTestimonyTemplate()`: three headings, each followed by an empty line with its own hint.
+- `createReflectionTemplate(question)`: the guiding question as a heading.
+- `getPlainText(document, { skipHeadings })`: the writer's words, one line per block, without verse blocks. Store it beside the JSON for search and previews.
+- `getExcerpt(document, maxLength, { skipHeadings })`: a one-line preview cut at a word boundary.
+- `getDocumentSectionTexts(document)`: the text under each heading.
+
+A template's hint lives on the paragraph as `prompt` and shows only while that line is empty. It is never part of the text.
+
 ## Adding a custom extension
 
 Add the extension and its commands in this package, register it in `createRichTextExtensions`, include it in the shared reader path, and add schema/serialization tests. Keep data fetching, dialogs, and persistence in the feature that consumes the editor.

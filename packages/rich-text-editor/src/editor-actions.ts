@@ -18,6 +18,7 @@ export type EditorCommandId =
 	| "divider"
 	| "table"
 	| "verse"
+	| "person"
 	| "bible"
 	| "citation";
 
@@ -38,9 +39,17 @@ export type VerseRequest = () =>
 	| undefined
 	| Promise<VerseBlockAttributes | null | undefined>;
 
+/** Asks the host for a name, such as someone the writer is praying for. */
+export type PersonRequest = () =>
+	| string
+	| null
+	| undefined
+	| Promise<string | null | undefined>;
+
 export type EditorCommandContext = {
 	onRequestBibleReference?: ReferenceRequest;
 	onRequestCitation?: CitationRequest;
+	onRequestPerson?: PersonRequest;
 	onRequestVerse?: VerseRequest;
 	preset: RichTextEditorPreset;
 };
@@ -163,6 +172,18 @@ const commandDefinitions: readonly EditorCommandDefinition[] = [
 		isAvailable: (context) => Boolean(context.onRequestVerse),
 		keywords: ["scripture", "quote", "passage", "bible"],
 		label: "Verse",
+	},
+	{
+		description: "Name someone you're praying for.",
+		execute: async (target, context) => {
+			const name = (await context.onRequestPerson?.())?.trim();
+			return name && target.insertText ? target.insertText(name) : false;
+		},
+		group: "insert",
+		id: "person",
+		isAvailable: (context) => Boolean(context.onRequestPerson),
+		keywords: ["name", "someone", "praying", "for"],
+		label: "Person I’m praying for",
 	},
 	{
 		description: "Insert a Scripture reference.",

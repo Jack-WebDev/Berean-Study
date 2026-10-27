@@ -54,6 +54,8 @@ export type EditorCommandTarget = {
 	insertBibleReference: (reference: BibleReferenceAttributes) => boolean;
 	insertCitation: (citation: CitationAttributes) => boolean;
 	insertVerseBlock: (attributes: VerseBlockAttributes) => boolean;
+	/** Optional so command targets written before it was added still fit. */
+	insertText?: (text: string) => boolean;
 };
 
 export type EditorSection = { text: string; variant: SectionVariant };
@@ -330,6 +332,10 @@ export function createEditorSession(editor: Editor): EditorSession {
 					.run(),
 			);
 		},
+		insertText: (text) =>
+			resyncDomSelection(
+				focusedChain().insertContent({ text, type: "text" }).run(),
+			),
 		insertVerseBlock: (attributes) =>
 			resyncDomSelection(focusedChain().insertVerseBlock(attributes).run()),
 		registerKeyDownListener: (listener) => {

@@ -127,6 +127,13 @@
 			"when": 1792932487853,
 			"tag": "0017_note_purpose_pin_search_versions",
 			"breakpoints": true
+		},
+		{
+			"idx": 18,
+			"version": "7",
+			"when": 1792983490683,
+			"tag": "0018_prayer_journal",
+			"breakpoints": true
 		}
 	]
 }

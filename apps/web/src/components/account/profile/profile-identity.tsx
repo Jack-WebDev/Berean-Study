@@ -6,8 +6,8 @@ import {
 import { Separator } from "@berean-study/ui/components/separator";
 import { CameraIcon } from "lucide-react";
 
-import { formatDate, getInitials } from "@/lib/format";
-
+import { getInitials } from "@/lib/format";
+import { formatMonth } from "@/utils/dates";
 import type { ProfileUser } from "./types";
 
 export function ProfileIdentity({ user }: { user: ProfileUser }) {
@@ -31,7 +31,7 @@ export function ProfileIdentity({ user }: { user: ProfileUser }) {
 					</p>
 					{user.createdAt ? (
 						<p className="mt-1 text-muted-foreground text-xs">
-							Member since {formatDate(user.createdAt)}
+							Member since {formatMonth(user.createdAt)}
 						</p>
 					) : null}
 				</div>

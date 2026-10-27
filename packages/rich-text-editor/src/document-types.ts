@@ -7,14 +7,17 @@ export type RichTextDocument = JSONContent & { type: "doc" };
 export type RichTextNode = JSONContent;
 
 /**
- * A quoted Scripture range. Only the reference is stored; the host renders the
- * verse text from its Bible source so the quote follows translation changes.
+ * A quoted Scripture range. The host renders the verse text from its Bible
+ * source so the quote follows translation changes. `text` is an optional copy
+ * of the words taken when the verse was inserted; it is shown only when the
+ * host can't load the verse (for example, a read-only preview).
  */
 export type VerseBlockAttributes = {
 	book: string;
 	bookId: number;
 	chapter: number;
 	passageId: number;
+	text?: string | null;
 	translation: string;
 	verseEnd: number;
 	verseStart: number;

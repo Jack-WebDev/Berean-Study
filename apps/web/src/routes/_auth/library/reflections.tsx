@@ -1,43 +1,37 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useCallback } from "react";
 import { z } from "zod";
-import { ReflectionsPage } from "@/components/prayer/reflections-page";
+
+import {
+	type ReflectionsSearch,
+	ReflectionsTab,
+} from "@/components/journal/reflections-tab";
+import { prayerJournalCountsQueryOptions } from "@/queries/prayer-journal";
+import { reflectionsQueryOptions } from "@/queries/reflections";
 
 export const Route = createFileRoute("/_auth/library/reflections")({
 	component: ReflectionsRoute,
+	// "static" returns cached data at once; the page refreshes it if old.
+	loader: ({ context: { queryClient } }) =>
+		Promise.all([
+			queryClient.query({ ...reflectionsQueryOptions(), staleTime: "static" }),
+			queryClient.query({
+				...prayerJournalCountsQueryOptions(),
+				staleTime: "static",
+			}),
+		]),
 	validateSearch: z.object({
-		category: z.string().trim().min(1).max(50).optional(),
-		q: z.string().trim().max(200).optional(),
-		reflection: z.coerce.number().int().positive().optional(),
-		sort: z.enum(["oldest", "recent"]).default("recent"),
+		prayer: z.coerce.number().int().positive().optional(),
 	}),
 });
 
 function ReflectionsRoute() {
-	const { category, q, reflection, sort } = Route.useSearch();
+	const search = Route.useSearch();
 	const navigate = useNavigate({ from: "/library/reflections" });
-	return (
-		<ReflectionsPage
-			filters={{ category, query: q, sort }}
-			onClearSelection={() =>
-				navigate({ to: "/library/reflections", search: { category, q, sort } })
-			}
-			onFiltersChange={(filters) =>
-				navigate({
-					to: "/library/reflections",
-					search: {
-						category: filters.category,
-						q: filters.query,
-						sort: filters.sort,
-					},
-				})
-			}
-			onSelectReflection={(reflectionId) =>
-				navigate({
-					to: "/library/reflections",
-					search: { category, q, reflection: reflectionId, sort },
-				})
-			}
-			selectedReflectionId={reflection}
-		/>
+	const onSearchChange = useCallback(
+		(next: ReflectionsSearch, options: { replace?: boolean } = {}) =>
+			void navigate({ replace: options.replace, search: next, to: "." }),
+		[navigate],
 	);
+	return <ReflectionsTab onSearchChange={onSearchChange} search={search} />;
 }

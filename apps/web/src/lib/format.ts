@@ -9,22 +9,3 @@ export function getInitials(name: string) {
 			.toUpperCase() || "?"
 	);
 }
-
-type FormatDateOptions = Intl.DateTimeFormatOptions & {
-	locale?: string | string[];
-};
-
-export function formatDate(
-	value: string | Date,
-	{ locale = "en", ...options }: FormatDateOptions = {},
-) {
-	if (options.dateStyle || options.timeStyle) {
-		return new Intl.DateTimeFormat(locale, options).format(new Date(value));
-	}
-
-	return new Intl.DateTimeFormat(locale, {
-		month: "long",
-		year: "numeric",
-		...options,
-	}).format(new Date(value));
-}
