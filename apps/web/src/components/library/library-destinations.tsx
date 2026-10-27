@@ -37,10 +37,10 @@ const libraryDestinations = [
 	},
 	{
 		count: (counts: LibraryDestinationCounts) => counts.prayersAndTestimonies,
-		description: "Personal prayers and stories",
+		description: "Prayers, testimonies and reflections",
 		icon: HeartIcon,
 		iconClassName: "library-prayer-icon",
-		label: "Prayers & Testimonies",
+		label: "Prayer Journal",
 		to: "/library/prayers",
 	},
 ] as const;

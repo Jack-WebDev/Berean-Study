@@ -1,37 +1,29 @@
 import { db } from "@berean-study/db";
 import {
+	addPrayerUpdate as addPrayerUpdateInDb,
 	createPrayer as createPrayerInDb,
-	createPrayerReflection as createPrayerReflectionInDb,
-	deletePrayerReflection as deletePrayerReflectionInDb,
+	deletePrayer as deletePrayerInDb,
+	deletePrayerUpdate as deletePrayerUpdateInDb,
 	getPrayer as getPrayerFromDb,
-	getPrayerReflection as getPrayerReflectionFromDb,
-	listLibraryReflections as listLibraryReflectionsFromDb,
 	listPrayers as listPrayersFromDb,
+	listPrayersReadyForReflection as listPrayersReadyForReflectionFromDb,
 	updatePrayer as updatePrayerInDb,
-	updatePrayerReflection as updatePrayerReflectionInDb,
 } from "@berean-study/db/prayers";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { authMiddleware } from "@/middleware/auth";
+import { requireUserId } from "./prayer-journal";
 import { richTextDocumentSchema } from "./rich-text";
+
+const prayerId = z.number().int().positive();
 
 const prayerInputSchema = z.object({
 	category: z.string().trim().min(1).max(50).nullable().optional(),
 	content: richTextDocumentSchema,
-	passageId: z.number().int().positive().nullable().optional(),
+	prayingFor: z.string().trim().min(1).max(120).nullable().optional(),
 	title: z.string().trim().min(1).max(200),
 });
-
-const reflectionInputSchema = z.object({
-	content: richTextDocumentSchema,
-	prayerId: z.number().int().positive(),
-});
-
-function requireUserId(session: { user: { id: string } } | null) {
-	if (!session) throw new Error("Unauthorized");
-	return session.user.id;
-}
 
 export const listPrayers = createServerFn({ method: "GET" })
 	.middleware([authMiddleware])
@@ -39,19 +31,11 @@ export const listPrayers = createServerFn({ method: "GET" })
 		listPrayersFromDb(db, requireUserId(context.session)),
 	);
 
-export const listLibraryReflections = createServerFn({ method: "GET" })
+export const getPrayer = createServerFn({ method: "GET" })
 	.middleware([authMiddleware])
-	.validator(
-		z.object({
-			category: z.string().trim().min(1).max(50).optional(),
-			limit: z.number().int().min(1).max(50).default(20),
-			offset: z.number().int().min(0).default(0),
-			query: z.string().trim().max(200).optional(),
-			sort: z.enum(["oldest", "recent"]).default("recent"),
-		}),
-	)
+	.validator(z.object({ id: prayerId }))
 	.handler(({ context, data }) =>
-		listLibraryReflectionsFromDb(db, requireUserId(context.session), data),
+		getPrayerFromDb(db, requireUserId(context.session), data.id),
 	);
 
 export const createPrayer = createServerFn({ method: "POST" })
@@ -61,65 +45,36 @@ export const createPrayer = createServerFn({ method: "POST" })
 		createPrayerInDb(db, requireUserId(context.session), data),
 	);
 
-export const getPrayer = createServerFn({ method: "GET" })
-	.middleware([authMiddleware])
-	.validator(z.object({ id: z.number().int().positive() }))
-	.handler(({ context, data }) =>
-		getPrayerFromDb(db, requireUserId(context.session), data.id),
-	);
-
 export const updatePrayer = createServerFn({ method: "POST" })
 	.middleware([authMiddleware])
-	.validator(prayerInputSchema.extend({ id: z.number().int().positive() }))
+	.validator(prayerInputSchema.extend({ id: prayerId }))
 	.handler(({ context, data }) =>
 		updatePrayerInDb(db, requireUserId(context.session), data),
 	);
 
-export const getPrayerReflection = createServerFn({ method: "GET" })
+export const deletePrayer = createServerFn({ method: "POST" })
 	.middleware([authMiddleware])
-	.validator(
-		reflectionInputSchema.pick({ prayerId: true }).extend({
-			reflectionId: z.number().int().positive(),
-		}),
-	)
+	.validator(z.object({ id: prayerId }))
 	.handler(({ context, data }) =>
-		getPrayerReflectionFromDb(
-			db,
-			requireUserId(context.session),
-			data.prayerId,
-			data.reflectionId,
-		),
+		deletePrayerInDb(db, requireUserId(context.session), data.id),
 	);
 
-export const createPrayerReflection = createServerFn({ method: "POST" })
+export const addPrayerUpdate = createServerFn({ method: "POST" })
 	.middleware([authMiddleware])
-	.validator(reflectionInputSchema)
+	.validator(z.object({ prayerId, text: z.string().trim().min(1).max(1000) }))
 	.handler(({ context, data }) =>
-		createPrayerReflectionInDb(db, requireUserId(context.session), data),
+		addPrayerUpdateInDb(db, requireUserId(context.session), data),
 	);
 
-export const updatePrayerReflection = createServerFn({ method: "POST" })
+export const deletePrayerUpdate = createServerFn({ method: "POST" })
 	.middleware([authMiddleware])
-	.validator(
-		reflectionInputSchema.extend({ reflectionId: z.number().int().positive() }),
-	)
+	.validator(z.object({ id: z.number().int().positive(), prayerId }))
 	.handler(({ context, data }) =>
-		updatePrayerReflectionInDb(db, requireUserId(context.session), data),
+		deletePrayerUpdateInDb(db, requireUserId(context.session), data),
 	);
 
-export const deletePrayerReflection = createServerFn({ method: "POST" })
+export const listPrayersReadyForReflection = createServerFn({ method: "GET" })
 	.middleware([authMiddleware])
-	.validator(
-		z.object({
-			prayerId: z.number().int().positive(),
-			reflectionId: z.number().int().positive(),
-		}),
-	)
-	.handler(({ context, data }) =>
-		deletePrayerReflectionInDb(
-			db,
-			requireUserId(context.session),
-			data.prayerId,
-			data.reflectionId,
-		),
+	.handler(({ context }) =>
+		listPrayersReadyForReflectionFromDb(db, requireUserId(context.session)),
 	);

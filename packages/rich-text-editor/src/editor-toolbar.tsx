@@ -26,11 +26,13 @@ import {
 	ChevronDownIcon,
 	CodeIcon,
 	EllipsisIcon,
+	HeadingIcon,
 	ItalicIcon,
 	LinkIcon,
 	ListChecksIcon,
 	ListIcon,
 	ListOrderedIcon,
+	Maximize2Icon,
 	MinusIcon,
 	QuoteIcon,
 	Redo2Icon,
@@ -39,6 +41,7 @@ import {
 	Trash2Icon,
 	UnderlineIcon,
 	Undo2Icon,
+	UserRoundIcon,
 } from "lucide-react";
 import {
 	type FocusEvent,
@@ -50,7 +53,7 @@ import {
 	useRef,
 	useState,
 } from "react";
-
+import { keepEditorFocus } from "./docked-toolbar";
 import {
 	type CitationRequest,
 	createEditorCommandCatalog,
@@ -64,23 +67,29 @@ import {
 	type EditorToolbarSession,
 	useEditorSessionState,
 } from "./editor-session";
-import type { RichTextEditorPreset } from "./types";
+import type { EditorToolbarVariant, RichTextEditorPreset } from "./types";
+import { useKeyboardDock } from "./use-keyboard-dock";
 
 const toolbarItemClassName =
-	"inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg text-secondary-foreground outline-none transition-colors hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-40 aria-pressed:bg-secondary aria-pressed:text-foreground [&_svg]:size-4.5";
+	"inline-flex h-9 shrink-0 pointer-coarse:h-11 items-center justify-center gap-1.5 rounded-lg text-secondary-foreground outline-none transition-colors hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-40 aria-pressed:bg-secondary aria-pressed:text-foreground [&_svg]:size-4.5";
 
 export function EditorToolbar({
 	session,
+	onExpand,
 	onRequestBibleReference,
 	onRequestCitation,
 	onRequestVerse,
 	preset,
+	variant = "full",
 }: {
 	session: EditorToolbarSession;
+	/** Shows an "Open full-screen editor" button at the end of the toolbar. */
+	onExpand?: () => void;
 	onRequestBibleReference?: ReferenceRequest;
 	onRequestCitation?: CitationRequest;
 	onRequestVerse?: VerseRequest;
 	preset: RichTextEditorPreset;
+	variant?: EditorToolbarVariant;
 }) {
 	const catalog = useMemo(
 		() =>
@@ -94,24 +103,44 @@ export function EditorToolbar({
 	);
 	const listCommands = catalog
 		.commands("structure")
-		.filter((command) => command.id !== "quote");
+		.filter(
+			(command) =>
+				command.id !== "quote" &&
+				(variant === "full" || command.id !== "checklist"),
+		);
+	const quoteCommand = catalog.find("quote");
+	const headingCommand = catalog.find("heading2");
 	const verseCommand = catalog.find("verse");
 	const state = useEditorSessionState(session);
 	const roving = useRovingToolbar();
+	const dock = useKeyboardDock(roving.ref, variant !== "full");
 
 	return (
 		<div
 			aria-label="Formatting"
 			// Inline-size containment keeps the one-line toolbar from widening
-			// the page on narrow screens; it scrolls sideways instead.
-			className="sticky top-0 z-10 flex flex-nowrap items-center gap-0.5 overflow-x-auto border-border/70 border-b bg-card px-2 py-1.5 [contain:inline-size]"
+			// the page on narrow screens; it scrolls sideways instead. The
+			// simpler toolbars are short enough to wrap onto a second line.
+			className={`sticky top-0 z-10 flex items-center gap-0.5 border-border/70 border-b bg-card px-2 py-1.5 ${
+				variant === "full"
+					? "flex-nowrap overflow-x-auto [contain:inline-size]"
+					: "flex-wrap"
+			} ${dock.isDocked ? "!fixed inset-x-0 z-50 border-t shadow-md" : ""}`}
 			onFocus={roving.onFocus}
 			onKeyDown={roving.onKeyDown}
 			ref={roving.ref}
 			role="toolbar"
+			style={dock.style}
 		>
-			<BlockFormatMenu catalog={catalog} session={session} state={state} />
-			<ToolbarSeparator />
+			{variant === "compact" ? null : (
+				<BlockFormatMenu
+					catalog={catalog}
+					session={session}
+					simple={variant === "simple"}
+					state={state}
+				/>
+			)}
+			{variant === "compact" ? null : <ToolbarSeparator />}
 			<ToolbarButton
 				active={state.isBold}
 				label="Bold"
@@ -133,19 +162,30 @@ export function EditorToolbar({
 			>
 				<UnderlineIcon aria-hidden="true" />
 			</ToolbarButton>
-			<ToolbarButton
-				active={state.isHighlight}
-				label="Highlight"
-				onClick={() => session.toggleMark("highlight")}
-			>
-				<span
-					aria-hidden="true"
-					className="flex size-4.5 items-center justify-center rounded-[4px] bg-highlight font-semibold text-foreground text-xs"
+			{variant === "compact" ? null : (
+				<ToolbarButton
+					active={state.isHighlight}
+					label="Highlight"
+					onClick={() => session.toggleMark("highlight")}
 				>
-					A
-				</span>
-			</ToolbarButton>
+					<span
+						aria-hidden="true"
+						className="flex size-4.5 items-center justify-center rounded-lg bg-highlight font-semibold text-foreground text-xs"
+					>
+						A
+					</span>
+				</ToolbarButton>
+			)}
 			<ToolbarSeparator />
+			{variant === "compact" && headingCommand ? (
+				<ToolbarButton
+					active={state.activeHeading === 2}
+					label="Heading"
+					onClick={() => void headingCommand.execute(session)}
+				>
+					<HeadingIcon aria-hidden="true" />
+				</ToolbarButton>
+			) : null}
 			{listCommands.map((command) => {
 				const Icon = listCommandIcon(command.id);
 				return (
@@ -159,8 +199,23 @@ export function EditorToolbar({
 					</ToolbarButton>
 				);
 			})}
-			<ToolbarSeparator />
-			<LinkControl active={state.isLink} session={session} />
+			{variant !== "full" && quoteCommand ? (
+				<ToolbarButton
+					active={state.activeBlock === "blockquote"}
+					label="Quote"
+					onClick={() => void quoteCommand.execute(session)}
+				>
+					<QuoteIcon aria-hidden="true" />
+				</ToolbarButton>
+			) : null}
+			{variant === "simple" ? (
+				<LinkControl active={state.isLink} session={session} />
+			) : null}
+			{variant === "full" ? <ToolbarSeparator /> : null}
+			{variant === "full" ? (
+				<LinkControl active={state.isLink} session={session} />
+			) : null}
+			{variant === "full" ? null : <ToolbarSeparator />}
 			{verseCommand ? (
 				<button
 					className={`${toolbarItemClassName} bg-scripture px-2.5 font-medium text-scripture-foreground text-sm hover:bg-scripture/80 [&_svg]:size-4`}
@@ -169,25 +224,39 @@ export function EditorToolbar({
 					type="button"
 				>
 					<BookOpenIcon aria-hidden="true" />
-					Verse
+					{variant === "simple" ? "Insert verse" : "Verse"}
 				</button>
 			) : null}
-			<MoreMenu catalog={catalog} session={session} state={state} />
+			{variant === "compact" ? (
+				<LinkControl active={state.isLink} session={session} />
+			) : null}
+			{variant === "full" ? (
+				<MoreMenu catalog={catalog} session={session} state={state} />
+			) : null}
 			<span className="min-w-2 flex-1" />
-			<ToolbarButton
-				disabled={!state.canUndo}
-				label="Undo"
-				onClick={session.undo}
-			>
-				<Undo2Icon aria-hidden="true" />
-			</ToolbarButton>
-			<ToolbarButton
-				disabled={!state.canRedo}
-				label="Redo"
-				onClick={session.redo}
-			>
-				<Redo2Icon aria-hidden="true" />
-			</ToolbarButton>
+			{variant === "compact" ? null : (
+				<>
+					<ToolbarButton
+						disabled={!state.canUndo}
+						label="Undo"
+						onClick={session.undo}
+					>
+						<Undo2Icon aria-hidden="true" />
+					</ToolbarButton>
+					<ToolbarButton
+						disabled={!state.canRedo}
+						label="Redo"
+						onClick={session.redo}
+					>
+						<Redo2Icon aria-hidden="true" />
+					</ToolbarButton>
+				</>
+			)}
+			{onExpand ? (
+				<ToolbarButton label="Open full-screen editor" onClick={onExpand}>
+					<Maximize2Icon aria-hidden="true" />
+				</ToolbarButton>
+			) : null}
 		</div>
 	);
 }
@@ -245,15 +314,28 @@ function useRovingToolbar() {
 function BlockFormatMenu({
 	catalog,
 	session,
+	simple = false,
 	state,
 }: {
 	catalog: EditorCommandCatalog;
 	session: EditorToolbarSession;
+	/** Offers only Paragraph, Heading and Quote. */
+	simple?: boolean;
 	state: EditorSessionState;
 }) {
 	const quoteCommand = catalog.find("quote");
 	const commands = [
-		...catalog.commands("block"),
+		...catalog
+			.commands("block")
+			.filter(
+				(command) =>
+					!simple || command.id === "paragraph" || command.id === "heading2",
+			)
+			.map((command) =>
+				simple && command.id === "heading2"
+					? { ...command, label: "Heading" }
+					: command,
+			),
 		...(quoteCommand ? [quoteCommand] : []),
 	];
 	const activeId = activeBlockFormat(state);
@@ -530,10 +612,11 @@ function ToolbarButton({
 		<button
 			aria-label={label}
 			aria-pressed={active}
-			className={`${toolbarItemClassName} w-9`}
+			className={`${toolbarItemClassName} pointer-coarse:w-11 w-9`}
 			data-toolbar-item
 			disabled={disabled}
 			onClick={onClick}
+			onMouseDown={keepEditorFocus}
 			title={label}
 			type="button"
 		>
@@ -578,6 +661,8 @@ function insertCommandIcon(id: EditorCommand["id"]) {
 			return BookOpenIcon;
 		case "citation":
 			return QuoteIcon;
+		case "person":
+			return UserRoundIcon;
 		default:
 			return Table2Icon;
 	}

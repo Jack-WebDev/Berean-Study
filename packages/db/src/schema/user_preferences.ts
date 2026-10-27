@@ -19,6 +19,14 @@ export const userPreferences = pgTable("user_preferences", {
 		{ onDelete: "set null" },
 	),
 
+	/**
+	 * The member asked to be reminded to reflect on their prayers each month.
+	 * TODO: nothing sends this reminder yet; only the choice is saved.
+	 */
+	reflectionRemindersEnabled: boolean("reflection_reminders_enabled")
+		.default(false)
+		.notNull(),
+
 	emailNotificationsEnabled: boolean("email_notifications_enabled")
 		.default(false)
 		.notNull(),

@@ -12,7 +12,7 @@ import {
 	LaptopIcon,
 	MonitorIcon,
 } from "lucide-react";
-
+import { formatTimeAgo } from "@/utils/dates";
 import { SecurityPanelHeader } from "./security-panel";
 import type { SecuritySession } from "./types";
 
@@ -108,7 +108,7 @@ function SessionRow({
 				<p className="font-medium text-xs">{device}</p>
 				<p className="truncate text-muted-foreground text-xs">
 					{session.ipAddress ?? "Unknown location"} ·{" "}
-					{relativeTime(session.createdAt)}
+					{formatTimeAgo(session.createdAt)}
 				</p>
 			</div>
 			{current ? (
@@ -167,18 +167,4 @@ function describeDevice(userAgent: string | null | undefined) {
 					? "Safari"
 					: null;
 	return browser ? `${platform} · ${browser}` : platform;
-}
-
-function relativeTime(value: Date | string) {
-	const seconds = Math.max(
-		0,
-		Math.floor((Date.now() - new Date(value).getTime()) / 1000),
-	);
-	if (seconds < 60) return "Active now";
-	const minutes = Math.floor(seconds / 60);
-	if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
-	const hours = Math.floor(minutes / 60);
-	if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
-	const days = Math.floor(hours / 24);
-	return `${days} day${days === 1 ? "" : "s"} ago`;
 }

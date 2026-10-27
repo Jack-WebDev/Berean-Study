@@ -26,11 +26,10 @@ import {
 import { type ReactNode, useState } from "react";
 
 import { AddNoteToCollectionDialog } from "@/components/collections/add-note-to-collection-dialog";
-import { formatDate } from "@/lib/format";
 import { communityPublishingResourcesQueryOptions } from "@/queries/community";
 import { noteVersionsQueryOptions } from "@/queries/notes";
+import { calendarDaysAgo, formatDateTime, formatTime } from "@/utils/dates";
 
-import { dateGroupLabel, formatListTime } from "./note-library";
 import type { StoredNote } from "./note-save-lifecycle";
 import { type PassageOption, useNotesForPassage } from "./note-study-data";
 
@@ -99,11 +98,11 @@ export function NoteDetailsTab({
 				<dl className="mt-1 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-sm">
 					<DetailRow label="Created">
 						{storedNote
-							? formatTimestamp(storedNote.createdAt)
+							? formatDateTime(storedNote.createdAt)
 							: "Not saved yet"}
 					</DetailRow>
 					<DetailRow label="Last edited">
-						{storedNote ? formatTimestamp(storedNote.updatedAt) : "—"}
+						{storedNote ? formatDateTime(storedNote.updatedAt) : "—"}
 					</DetailRow>
 					<DetailRow label="Linked verses">
 						{getLinkedVerseCount(document)}
@@ -356,9 +355,7 @@ function VersionHistory({
 function formatVersionTime(value: Date | string) {
 	const date = new Date(value);
 	if (Date.now() - date.getTime() < 60_000) return "Just now";
-	return dateGroupLabel(date) === "Today"
-		? formatListTime(date)
-		: formatTimestamp(date);
+	return calendarDaysAgo(date) <= 0 ? formatTime(date) : formatDateTime(date);
 }
 
 /** Labels stored summaries the way the timeline reads: "Autosave · added Apply". */
@@ -439,8 +436,4 @@ function DetailRow({
 			<dd className="m-0 text-right">{children}</dd>
 		</>
 	);
-}
-
-function formatTimestamp(value: Date | string) {
-	return formatDate(value, { dateStyle: "medium", timeStyle: "short" });
 }

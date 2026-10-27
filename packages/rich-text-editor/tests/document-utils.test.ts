@@ -5,6 +5,7 @@ import {
 	getCharacterCount,
 	getDocumentSections,
 	getDocumentVerseBlocks,
+	getDocumentVerseReferences,
 	getEstimatedReadingTime,
 	getLinkedVerseCount,
 	getOpenTaskCount,
@@ -193,5 +194,57 @@ describe("study note structure", () => {
 		expect(
 			formatVerseReference({ ...verse, verseEnd: 11, verseStart: 11 }),
 		).toBe("Acts 17:11");
+	});
+});
+
+describe("getDocumentVerseReferences", () => {
+	const james = {
+		book: "James",
+		bookId: 59,
+		chapter: 1,
+		passageId: 4,
+		translation: "ESV",
+		verseEnd: 5,
+		verseStart: 5,
+	};
+
+	it("lists each quoted verse once, in order, with its label", () => {
+		const references = getDocumentVerseReferences({
+			content: [
+				{
+					attrs: { ...james, chapter: 3, verseEnd: 18, verseStart: 17 },
+					type: "verseBlock",
+				},
+				{ content: [{ text: "Between", type: "text" }], type: "paragraph" },
+				{ attrs: james, type: "verseBlock" },
+				{ attrs: james, type: "verseBlock" },
+				{ attrs: { ...james, translation: "KJV" }, type: "verseBlock" },
+			],
+			type: "doc",
+		});
+
+		expect(
+			references.map(({ label, passageId, translation }) => ({
+				label,
+				passageId,
+				translation,
+			})),
+		).toEqual([
+			{ label: "James 3:17–18", passageId: 4, translation: "ESV" },
+			{ label: "James 1:5", passageId: 4, translation: "ESV" },
+			{ label: "James 1:5", passageId: 4, translation: "KJV" },
+		]);
+	});
+
+	it("skips incomplete verse blocks and returns nothing for plain text", () => {
+		expect(
+			getDocumentVerseReferences({
+				content: [
+					{ attrs: { ...james, passageId: null }, type: "verseBlock" },
+					{ content: [{ text: "No verses", type: "text" }], type: "paragraph" },
+				],
+				type: "doc",
+			}),
+		).toEqual([]);
 	});
 });

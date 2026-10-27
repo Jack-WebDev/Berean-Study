@@ -4,14 +4,19 @@ import {
 	type RichTextDocument,
 } from "@berean-study/rich-text-editor";
 
+import {
+	calendarDaysAgo,
+	formatMonth,
+	formatShortDate,
+	formatTime,
+} from "@/utils/dates";
+
 import type { NotePurpose, NoteSort } from "./types";
 
 /** Untitled notes borrow this many opening words as their list title. */
 const BORROWED_TITLE_WORDS = 6;
 /** Fewer words than this aren't worth borrowing, so the note shows "Untitled". */
 const MIN_BORROWED_TITLE_WORDS = 3;
-
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Purposes in the order the editor offers them. */
 export const notePurposes: ReadonlyArray<{
@@ -108,46 +113,18 @@ export function groupNotes<Note extends GroupableNote>(
 }
 
 export function dateGroupLabel(date: Date, now = new Date()) {
-	const daysAgo = calendarDaysBetween(date, now);
+	const daysAgo = calendarDaysAgo(date, now);
 	if (daysAgo <= 0) return "Today";
 	if (daysAgo === 1) return "Yesterday";
 	if (daysAgo <= 7) return "Previous 7 days";
-	return new Intl.DateTimeFormat("en", {
-		month: "long",
-		year: date.getFullYear() === now.getFullYear() ? undefined : "numeric",
-	}).format(date);
-}
-
-/** The time of day for today's notes, otherwise a short date. */
-export function formatListTime(value: Date | string, now = new Date()) {
-	const date = new Date(value);
-	if (calendarDaysBetween(date, now) <= 0) return formatTime(date);
-	return new Intl.DateTimeFormat("en", {
-		day: "numeric",
-		month: "short",
-		year: date.getFullYear() === now.getFullYear() ? undefined : "numeric",
-	}).format(date);
+	return formatMonth(date, now);
 }
 
 /** "Edited today at 12:58", "Edited yesterday at 09:15" or "Edited Oct 3". */
 export function formatEdited(value: Date | string, now = new Date()) {
 	const date = new Date(value);
-	const daysAgo = calendarDaysBetween(date, now);
+	const daysAgo = calendarDaysAgo(date, now);
 	if (daysAgo <= 0) return `Edited today at ${formatTime(date)}`;
 	if (daysAgo === 1) return `Edited yesterday at ${formatTime(date)}`;
-	return `Edited ${formatListTime(date, now)}`;
-}
-
-function formatTime(date: Date) {
-	return new Intl.DateTimeFormat("en", {
-		hour: "numeric",
-		minute: "2-digit",
-	}).format(date);
-}
-
-/** Whole calendar days from `date` to `now`, ignoring the time of day. */
-function calendarDaysBetween(date: Date, now: Date) {
-	const startOfDay = (value: Date) =>
-		new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime();
-	return Math.round((startOfDay(now) - startOfDay(date)) / DAY_MS);
+	return `Edited ${formatShortDate(date, now)}`;
 }

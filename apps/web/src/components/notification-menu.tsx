@@ -19,11 +19,10 @@ import {
 } from "@/functions/notifications";
 import { notificationKeys } from "@/queries/keys";
 import { recentNotificationsQueryOptions } from "@/queries/notifications";
-
+import { formatTimeAgo } from "@/utils/dates";
 import {
 	categoryForKind,
 	presentationForKind,
-	relativeTime,
 } from "./notifications/notification-utils";
 
 type RecentNotifications = Awaited<ReturnType<typeof getRecentNotifications>>;
@@ -130,13 +129,9 @@ export function NotificationMenu() {
 					/>
 				}
 			>
-				<BellIcon
-					aria-hidden="true"
-					className="size-[19px]"
-					strokeWidth={1.8}
-				/>
+				<BellIcon aria-hidden="true" className="size-4.75" strokeWidth={1.8} />
 				{inbox && inbox.unreadCount > 0 ? (
-					<span className="absolute top-[7px] right-[7px] size-2 rounded-full border border-white bg-[#d9a646] dark:border-card" />
+					<span className="absolute top-1.75 right-1.75 size-2 rounded-full border border-white bg-[#d9a646] dark:border-card" />
 				) : null}
 			</DropdownMenuTrigger>
 			<DropdownMenuContent
@@ -273,7 +268,7 @@ function DropdownNotificationRow({
 					</span>
 				</span>
 				<span className="absolute top-5 right-0 flex items-center gap-3 text-[#71809a] text-[13px] dark:text-muted-foreground">
-					{relativeTime(notification.createdAt)}
+					{formatTimeAgo(notification.createdAt)}
 					{unread ? (
 						<span className="size-3 rounded-full bg-[#d9a646]" />
 					) : null}

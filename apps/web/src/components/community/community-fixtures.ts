@@ -29,7 +29,7 @@ export const communityRecommendations: CommunityRecommendation[] = [
 		type: "prayer",
 	},
 	{
-		href: "/library/testimonials",
+		href: "/library/testimonies",
 		id: "what-the-cross-means-to-me",
 		image:
 			"https://images.unsplash.com/photo-1528297506728-9533d2ac3fa4?auto=format&fit=crop&w=160&q=85",

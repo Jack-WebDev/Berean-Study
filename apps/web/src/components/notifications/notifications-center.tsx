@@ -32,12 +32,11 @@ import {
 } from "@/functions/notifications";
 import { notificationKeys } from "@/queries/keys";
 import { notificationPagesQueryOptions } from "@/queries/notifications";
-
+import { formatTimeAgo } from "@/utils/dates";
 import {
 	categoryForKind,
 	groupNotifications,
 	presentationForKind,
-	relativeTime,
 } from "./notification-utils";
 
 type NotificationPage = Awaited<ReturnType<typeof getNotificationPage>>;
@@ -415,7 +414,7 @@ function NotificationRow({
 				</div>
 				<div className="flex shrink-0 items-center gap-2 pt-1">
 					<time className="hidden text-[#71809a] text-[11px] sm:block dark:text-muted-foreground">
-						{relativeTime(notification.createdAt)}
+						{formatTimeAgo(notification.createdAt)}
 					</time>
 					{notification.destination ? (
 						<Button

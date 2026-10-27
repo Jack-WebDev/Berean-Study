@@ -19,9 +19,9 @@ import {
 	MonitorIcon,
 } from "lucide-react";
 import { toast } from "sonner";
-
+import { formatDateTime } from "@/utils/dates";
 import { NotificationOptions } from "./notification-options";
-import { fullDate, iconForKind, kindLabel } from "./notification-utils";
+import { iconForKind, kindLabel } from "./notification-utils";
 import type { Notification } from "./types";
 
 export function NotificationDetail({
@@ -75,7 +75,7 @@ export function NotificationDetail({
 							{notification.title}
 						</h2>
 						<p className="mt-[4px] text-[13px] text-muted-foreground">
-							{fullDate(notification.createdAt)}
+							{formatDateTime(notification.createdAt)}
 						</p>
 					</div>
 				</div>
@@ -131,7 +131,7 @@ function SecurityNotificationContent({
 					<DetailRow
 						icon={Clock3Icon}
 						label="Time"
-						value={`${fullDate(notification.createdAt)} (SAST)`}
+						value={`${formatDateTime(notification.createdAt)} (SAST)`}
 					/>
 					<DetailRow
 						icon={Globe2Icon}

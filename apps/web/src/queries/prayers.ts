@@ -2,14 +2,11 @@ import { queryOptions } from "@tanstack/react-query";
 
 import {
 	getPrayer,
-	getPrayerReflection,
-	listLibraryReflections,
 	listPrayers,
+	listPrayersReadyForReflection,
 } from "@/functions/prayers";
 
-import { type LibraryReflectionFilters, prayerKeys } from "./keys";
-
-export type { LibraryReflectionFilters } from "./keys";
+import { prayerKeys } from "./keys";
 
 export const prayersQueryOptions = () =>
 	queryOptions({
@@ -23,19 +20,8 @@ export const prayerQueryOptions = (id: number) =>
 		queryFn: () => getPrayer({ data: { id } }),
 	});
 
-export const prayerReflectionQueryOptions = (
-	prayerId: number,
-	reflectionId: number,
-) =>
+export const prayersReadyForReflectionQueryOptions = () =>
 	queryOptions({
-		queryKey: prayerKeys.reflection(prayerId, reflectionId),
-		queryFn: () => getPrayerReflection({ data: { prayerId, reflectionId } }),
-	});
-
-export const libraryReflectionsQueryOptions = (
-	filters: LibraryReflectionFilters,
-) =>
-	queryOptions({
-		queryKey: prayerKeys.libraryReflections(filters),
-		queryFn: () => listLibraryReflections({ data: filters }),
+		queryKey: prayerKeys.readyForReflection(),
+		queryFn: () => listPrayersReadyForReflection(),
 	});

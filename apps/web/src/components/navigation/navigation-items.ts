@@ -117,10 +117,14 @@ export const primaryNavigationItems = [
 			},
 			{ href: "/library/saved", icon: BookmarkIcon, label: "Saved" },
 			{
-				activePaths: ["/library/prayers", "/library/testimonies"],
+				activePaths: [
+					"/library/prayers",
+					"/library/testimonies",
+					"/library/reflections",
+				],
 				href: "/library/prayers",
 				icon: HeartIcon,
-				label: "Prayers & Testimonies",
+				label: "Prayer Journal",
 			},
 		],
 		href: "/library",

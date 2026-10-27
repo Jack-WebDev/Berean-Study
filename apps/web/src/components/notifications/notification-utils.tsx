@@ -9,6 +9,7 @@ import {
 	MessageCircleIcon,
 	ShieldIcon,
 } from "lucide-react";
+import { calendarDaysAgo } from "@/utils/dates";
 
 export type NotificationCategory =
 	| "account"
@@ -97,28 +98,6 @@ const notificationPresentations: Record<
 	},
 };
 
-const fullDateFormatter = new Intl.DateTimeFormat(undefined, {
-	month: "short",
-	day: "numeric",
-	year: "numeric",
-	hour: "numeric",
-	minute: "2-digit",
-});
-
-const timeFormatter = new Intl.DateTimeFormat(undefined, {
-	hour: "numeric",
-	minute: "2-digit",
-});
-
-const shortDateFormatter = new Intl.DateTimeFormat(undefined, {
-	month: "short",
-	day: "numeric",
-});
-
-export function fullDate(date: Date) {
-	return fullDateFormatter.format(date);
-}
-
 export function groupNotifications<T extends { createdAt: Date }>(
 	notifications: T[],
 ) {
@@ -166,30 +145,8 @@ export function categoryForKind(kind: string): NotificationCategory {
 	return "account";
 }
 
-export function listTime(date: Date) {
-	return relativeDateGroup(date) === "Today"
-		? timeFormatter.format(date)
-		: shortDateFormatter.format(date);
-}
-
-export function relativeTime(date: Date) {
-	const difference = Date.now() - date.getTime();
-	const minutes = Math.max(0, Math.floor(difference / 60_000));
-	if (minutes < 60) return `${Math.max(minutes, 1)}m ago`;
-	const hours = Math.floor(minutes / 60);
-	if (hours < 24) return `${hours}h ago`;
-	const days = Math.floor(hours / 24);
-	if (days < 7) return `${days}d ago`;
-	return shortDateFormatter.format(date);
-}
-
 function relativeDateGroup(date: Date) {
-	const now = new Date();
-	const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-	const itemDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-	const ageInDays = Math.floor(
-		(today.getTime() - itemDay.getTime()) / 86_400_000,
-	);
+	const ageInDays = calendarDaysAgo(date);
 
 	if (ageInDays === 0) return "Today";
 	if (ageInDays === 1) return "Yesterday";

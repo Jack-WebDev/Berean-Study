@@ -2,6 +2,7 @@ import type { RecentPassage } from "@berean-study/db/reader-home";
 import { Separator } from "@berean-study/ui/components/separator";
 import { Skeleton } from "@berean-study/ui/components/skeleton";
 import { Link } from "@tanstack/react-router";
+import { formatRelativeDay } from "@/utils/dates";
 
 export type RecentlyStudiedState =
 	| { status: "error" }
@@ -54,7 +55,7 @@ function RecentlyStudiedList({ items }: { items: RecentPassage[] }) {
 							className="shrink-0 text-muted-foreground text-sm"
 							dateTime={passage.visitedAt.toISOString()}
 						>
-							{formatStudiedDate(passage.visitedAt)}
+							{formatRelativeDay(passage.visitedAt)}
 						</time>
 					</Link>
 				</div>
@@ -89,32 +90,4 @@ function RecentlyStudiedUnavailable() {
 			Your recent study history is unavailable right now.
 		</p>
 	);
-}
-
-function formatStudiedDate(value: Date) {
-	const studiedAt = new Date(value);
-	const today = new Date();
-	const startOfToday = new Date(
-		today.getFullYear(),
-		today.getMonth(),
-		today.getDate(),
-	);
-	const startOfStudiedDay = new Date(
-		studiedAt.getFullYear(),
-		studiedAt.getMonth(),
-		studiedAt.getDate(),
-	);
-	const daysAgo = Math.round(
-		(startOfToday.getTime() - startOfStudiedDay.getTime()) / 86_400_000,
-	);
-
-	if (daysAgo <= 0) return "Today";
-	if (daysAgo === 1) return "Yesterday";
-
-	return new Intl.DateTimeFormat(undefined, {
-		day: "numeric",
-		month: "short",
-		year:
-			studiedAt.getFullYear() === today.getFullYear() ? undefined : "numeric",
-	}).format(studiedAt);
 }

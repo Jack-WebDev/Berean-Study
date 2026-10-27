@@ -53,6 +53,7 @@ export function RichTextEditorWorkspace({
 	onSessionReady,
 	onRequestBibleReference,
 	onRequestCitation,
+	onRequestVerse,
 	presentation = "default",
 	preset = "member",
 	slots,
@@ -109,8 +110,13 @@ export function RichTextEditorWorkspace({
 		[onSessionReady],
 	);
 	const commandContext = useMemo(
-		() => ({ onRequestBibleReference, onRequestCitation, preset }),
-		[onRequestBibleReference, onRequestCitation, preset],
+		() => ({
+			onRequestBibleReference,
+			onRequestCitation,
+			onRequestVerse,
+			preset,
+		}),
+		[onRequestBibleReference, onRequestCitation, onRequestVerse, preset],
 	);
 	const enterFocus = useCallback(() => {
 		setFocusedInspectorOpen(false);
@@ -259,6 +265,7 @@ export function RichTextEditorWorkspace({
 						onSessionReady={handleSessionReady}
 						onRequestBibleReference={onRequestBibleReference}
 						onRequestCitation={onRequestCitation}
+						onRequestVerse={onRequestVerse}
 						preset={preset}
 						value={value}
 					/>

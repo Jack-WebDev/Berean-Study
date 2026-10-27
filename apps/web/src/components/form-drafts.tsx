@@ -9,6 +9,7 @@ import {
 } from "react";
 import type { Tradition, Translation } from "./account/preferences/types";
 import type { ReadingSettings } from "./account/reading/types";
+import type { PrayerDraft, TestimonyDraft } from "./journal/journal-drafts";
 
 export type FormDraftSchema = {
 	"account.preferences.tradition": Tradition;
@@ -30,6 +31,8 @@ export type FormDraftSchema = {
 	};
 	"auth.two-factor": { code: string };
 	"auth.verify-email": { code: string };
+	"journal.prayer.new": PrayerDraft;
+	"journal.testimony.new": TestimonyDraft;
 };
 
 type FormDraftsContextValue = {

@@ -383,11 +383,22 @@ export function toVerseBlock(
 	passageId: number,
 	selection: VerseSelection,
 ): VerseBlockAttributes {
+	const quoted = text.verses
+		.filter(
+			(verse) =>
+				verse.chapter === selection.chapter &&
+				verse.number >= selection.start &&
+				verse.number <= selection.end,
+		)
+		.map((verse) => verse.text)
+		.join(" ");
 	return {
 		book: text.bookName,
 		bookId: text.bookId,
 		chapter: selection.chapter,
 		passageId,
+		// A copy of the words, shown wherever the live Bible text can't load.
+		...(quoted ? { text: quoted } : {}),
 		translation: text.translation.abbreviation,
 		verseEnd: selection.end,
 		verseStart: selection.start,

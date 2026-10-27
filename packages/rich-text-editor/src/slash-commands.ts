@@ -1,7 +1,28 @@
 import { Extension } from "@tiptap/core";
 import { type EditorState, Plugin, PluginKey } from "@tiptap/pm/state";
 
+import type { EditorCommandId } from "./editor-actions";
+
 export type SlashCommandState = { from: number; query: string } | null;
+
+/**
+ * One entry in a host-chosen `/` menu: a command id, optionally with a label
+ * and a short hint that fit the host's wording better than the defaults.
+ */
+export type SlashCommandItem =
+	| EditorCommandId
+	| { hint?: string; id: EditorCommandId; label?: string };
+
+/**
+ * The short `/` menu for prayer journal entries. "Verse" and "Person I'm
+ * praying for" only appear when the host supplies their pickers.
+ */
+export const journalSlashCommands = [
+	{ hint: "e.g. John 3:16", id: "verse" },
+	"person",
+	{ id: "heading2", label: "Heading" },
+	"bullet",
+] as const satisfies readonly SlashCommandItem[];
 
 export const slashCommandPluginKey = new PluginKey<SlashCommandState>(
 	"slashCommands",
@@ -16,7 +37,11 @@ export const SlashCommands = Extension.create({
 				key: slashCommandPluginKey,
 				state: {
 					init: (): SlashCommandState => null,
-					apply: (_transaction, _value, state) => getSlashCommandState(state),
+					// The fourth argument is the state after this change; the
+					// third is the one before it, which left the menu a keystroke
+					// behind (typing just "/" never opened it).
+					apply: (_transaction, _value, _oldState, state) =>
+						getSlashCommandState(state),
 				},
 			}),
 		];
