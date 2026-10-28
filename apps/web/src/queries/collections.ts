@@ -2,7 +2,7 @@ import { queryOptions } from "@tanstack/react-query";
 
 import {
 	getCollectionDetail,
-	listCollections,
+	getCollectionLibrary,
 	listCollectionsForNote,
 	listCollectionsForNotes,
 	listCollectionsForPassage,
@@ -10,10 +10,11 @@ import {
 
 import { collectionKeys } from "./keys";
 
-export const collectionsQueryOptions = () =>
+/** Every collection's card, plus the study project to continue. */
+export const collectionLibraryQueryOptions = () =>
 	queryOptions({
 		queryKey: collectionKeys.list(),
-		queryFn: () => listCollections(),
+		queryFn: () => getCollectionLibrary(),
 	});
 
 export const collectionsForNotesQueryOptions = () =>

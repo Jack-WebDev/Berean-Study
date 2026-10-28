@@ -134,6 +134,13 @@
 			"when": 1792983490683,
 			"tag": "0018_prayer_journal",
 			"breakpoints": true
+		},
+		{
+			"idx": 19,
+			"version": "7",
+			"when": 1793154479030,
+			"tag": "0019_collections_redesign",
+			"breakpoints": true
 		}
 	]
 }

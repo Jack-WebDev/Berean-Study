@@ -6,14 +6,19 @@ import { NewNotePage } from "@/components/notes/new-note-page";
 export const Route = createFileRoute("/_auth/library/notes/new")({
 	component: NewNoteRoute,
 	validateSearch: z.object({
+		collection: z.coerce.number().int().positive().optional(),
 		passage: z.coerce.number().int().positive().optional(),
 		return: z.coerce.number().int().positive().optional(),
 	}),
 });
 
 function NewNoteRoute() {
-	const { passage, return: returnPassageId } = Route.useSearch();
+	const { collection, passage, return: returnPassageId } = Route.useSearch();
 	return (
-		<NewNotePage initialPassageId={passage} returnPassageId={returnPassageId} />
+		<NewNotePage
+			collectionId={collection}
+			initialPassageId={passage}
+			returnPassageId={returnPassageId}
+		/>
 	);
 }

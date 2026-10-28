@@ -1,135 +1,71 @@
 "use client";
 
-import { getDocumentText } from "@berean-study/rich-text-editor";
-import {
-	AlertDialog,
-	AlertDialogAction,
-	AlertDialogCancel,
-	AlertDialogContent,
-	AlertDialogDescription,
-	AlertDialogFooter,
-	AlertDialogHeader,
-	AlertDialogTitle,
-} from "@berean-study/ui/components/alert-dialog";
 import { Button } from "@berean-study/ui/components/button";
+import { Dialog } from "@berean-study/ui/components/dialog";
 import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuSeparator,
-	DropdownMenuTrigger,
-} from "@berean-study/ui/components/dropdown-menu";
-import {
-	Empty,
-	EmptyContent,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyMedia,
-	EmptyTitle,
-} from "@berean-study/ui/components/empty";
-import { Sheet } from "@berean-study/ui/components/sheet";
-import { Skeleton } from "@berean-study/ui/components/skeleton";
-import {
-	ToggleGroup,
-	ToggleGroupItem,
-} from "@berean-study/ui/components/toggle-group";
-import {
-	type QueryKey,
-	useMutation,
-	useQuery,
-	useQueryClient,
-} from "@tanstack/react-query";
-import { Link, useNavigate } from "@tanstack/react-router";
-import {
-	ArrowLeftIcon,
-	BookOpenIcon,
-	Clock3Icon,
-	EllipsisIcon,
-	FileTextIcon,
-	HighlighterIcon,
-	ImageIcon,
-	LockKeyholeIcon,
-	PencilIcon,
-	PlusCircleIcon,
-	Trash2Icon,
-} from "lucide-react";
-import { useState } from "react";
-import {
-	deleteCollection,
-	type getCollectionDetail,
-	removeNoteFromCollection,
-} from "@/functions/collections";
-import { deleteNote } from "@/functions/notes";
+	Tabs,
+	TabsContent,
+	TabsList,
+	TabsTrigger,
+} from "@berean-study/ui/components/tabs";
+import { useQuery } from "@tanstack/react-query";
+import { Link, useLocation } from "@tanstack/react-router";
+import { ArrowLeftIcon, ListPlusIcon, PlusIcon } from "lucide-react";
+import { useEffect, useState } from "react";
+
 import { collectionDetailQueryOptions } from "@/queries/collections";
-import { collectionKeys, libraryKeys, noteKeys } from "@/queries/keys";
-import { CollectionCover } from "./collection-cover";
-import { toCollectionSummary } from "./collection-data";
-import { EditCollectionSheet } from "./new-collection-sheet";
 
-const collectionViews = [
-	{ label: "All", value: "all" },
-	{ label: "Passages", value: "passages" },
-	{ label: "Notes", value: "notes" },
-	{ label: "Highlights", value: "highlights" },
-	{ label: "Themes", value: "themes" },
-] as const;
+import {
+	AddPassageDialog,
+	SectionNameDialog,
+} from "./collection-detail-dialogs";
+import { LatestNotesPanel, OutlinePanel } from "./collection-detail-panels";
+import {
+	CollectionDetailSkeleton,
+	CollectionDetailState,
+	NoPassagesState,
+} from "./collection-detail-states";
+import { CollectionFormDialog } from "./collection-form-dialog";
+import { CollectionHero } from "./collection-hero";
+import { CollectionNotes } from "./collection-notes-tab";
+import { CollectionOverview } from "./collection-overview";
+import { CollectionPassageList } from "./collection-passage-list";
+import { findUpNext } from "./collection-passage-model";
+import { DeleteCollectionDialog } from "./delete-collection-dialog";
+import {
+	type CollectionDetail,
+	type CollectionSection,
+	useCollectionActions,
+} from "./use-collection-actions";
 
-type CollectionView = (typeof collectionViews)[number]["value"];
-type CollectionDetail = Awaited<ReturnType<typeof getCollectionDetail>>;
-type LoadedCollectionDetail = NonNullable<CollectionDetail>;
-type CollectionNote = LoadedCollectionDetail["notes"][number];
-type CollectionPassage = LoadedCollectionDetail["passages"][number];
+export type CollectionTab = "passages" | "notes" | "overview";
 
 export function CollectionDetailPage({
 	collectionId,
+	onTabChange,
+	tab,
 }: {
 	collectionId: number;
+	onTabChange: (tab: CollectionTab) => void;
+	tab: CollectionTab;
 }) {
-	const [activeView, setActiveView] = useState<CollectionView>("all");
-	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-	const [isEditSheetOpen, setIsEditSheetOpen] = useState(false);
-	const navigate = useNavigate();
-	const queryClient = useQueryClient();
 	const detailQuery = useQuery(collectionDetailQueryOptions(collectionId));
-	const invalidateAffectedQueries = (...queryKeys: QueryKey[]) =>
-		Promise.all(
-			[collectionKeys.all, libraryKeys.all, ...queryKeys].map((queryKey) =>
-				queryClient.invalidateQueries({ queryKey }),
-			),
-		);
-	const removeNoteMutation = useMutation({
-		mutationFn: async (noteId: number) => {
-			const removed = await removeNoteFromCollection({
-				data: { id: collectionId, noteId },
-			});
-			if (!removed) throw new Error("Note membership not found.");
-		},
-		onSuccess: () => invalidateAffectedQueries(noteKeys.lists()),
-	});
-	const deleteNoteMutation = useMutation({
-		mutationFn: async (noteId: number) => {
-			const deleted = await deleteNote({ data: { id: noteId } });
-			if (!deleted) throw new Error("Note not found.");
-		},
-		onSuccess: () => invalidateAffectedQueries(noteKeys.all),
-	});
-	const deleteCollectionMutation = useMutation({
-		mutationFn: async () => {
-			const deleted = await deleteCollection({ data: { id: collectionId } });
-			if (!deleted) throw new Error("Collection not found.");
-		},
-		onSuccess: async () => {
-			await navigate({ to: "/library/collections" });
-			queryClient.removeQueries({
-				queryKey: collectionKeys.detail(collectionId),
-			});
-			await invalidateAffectedQueries(noteKeys.lists());
-		},
-	});
-	const isDeletingCollection = deleteCollectionMutation.isPending;
-	const deleteCollectionError = deleteCollectionMutation.isError
-		? "We couldn't delete this collection. Please try again."
-		: null;
+	const actions = useCollectionActions(collectionId);
+	const hash = useLocation({ select: (location) => location.hash });
+	const hasData = Boolean(detailQuery.data);
+
+	// Each visit counts as opening the collection, for "Continue studying".
+	const { mutate: markOpened } = actions.markOpened;
+	useEffect(() => {
+		markOpened();
+	}, [markOpened]);
+
+	// "Resume" links here with #passage-<id>; the list only exists once loaded.
+	useEffect(() => {
+		if (hasData && hash) {
+			document.getElementById(hash)?.scrollIntoView({ block: "center" });
+		}
+	}, [hasData, hash]);
 
 	if (detailQuery.isError) {
 		return (
@@ -140,13 +76,8 @@ export function CollectionDetailPage({
 			/>
 		);
 	}
-
-	if (detailQuery.isPending) {
-		return <CollectionDetailSkeleton />;
-	}
-
-	const detail = detailQuery.data;
-	if (detail === null) {
+	if (detailQuery.isPending) return <CollectionDetailSkeleton />;
+	if (detailQuery.data === null) {
 		return (
 			<CollectionDetailState
 				description="It may have been deleted or is no longer available."
@@ -155,482 +86,211 @@ export function CollectionDetailPage({
 		);
 	}
 
-	const { collection, notes, passages } = detail;
-	const summary = toCollectionSummary(collection);
-	const activeViewLabel = collectionViews.find(
-		(view) => view.value === activeView,
-	)?.label;
-	const showNotes = activeView === "all" || activeView === "notes";
-	const showPassages = activeView === "all" || activeView === "passages";
-	const isEmpty =
-		activeView === "all"
-			? notes.length === 0 && passages.length === 0
-			: activeView === "notes"
-				? notes.length === 0
-				: activeView === "passages"
-					? passages.length === 0
-					: true;
 	return (
-		<Sheet onOpenChange={setIsEditSheetOpen} open={isEditSheetOpen}>
-			<div className="min-h-full bg-background px-5 py-7 text-foreground sm:px-8 sm:py-8 lg:px-10 lg:pb-12">
-				<main className="mx-auto w-full max-w-310">
-					<Link
-						className="inline-flex items-center gap-2 font-medium text-primary text-xs hover:underline"
-						to="/library/collections"
-					>
-						<ArrowLeftIcon aria-hidden="true" className="size-3.5" />
-						Collections
-					</Link>
+		<LoadedCollectionDetail
+			actions={actions}
+			detail={detailQuery.data}
+			onTabChange={onTabChange}
+			tab={tab}
+		/>
+	);
+}
 
-					<header className="mt-6">
-						<div className="relative overflow-hidden rounded-2xl">
-							<CollectionCover
-								className="h-64 w-full object-cover sm:h-72 lg:h-80"
-								src={summary.image}
-							/>
-							<div
-								aria-hidden="true"
-								className="absolute inset-0 bg-linear-to-t from-black/50 via-black/5 to-transparent"
-							/>
-							<div className="absolute top-4 right-4 flex items-center gap-2 sm:top-5 sm:right-5">
-								<Button
-									className="bg-primary/80 text-primary-foreground shadow-none hover:bg-primary"
-									onClick={() => setIsEditSheetOpen(true)}
-									type="button"
-									variant="secondary"
-								>
-									<ImageIcon aria-hidden="true" data-icon="inline-start" />
-									<span className="hidden sm:inline">Change Cover</span>
-									<span className="sm:hidden">Cover</span>
-								</Button>
-								<DropdownMenu>
-									<DropdownMenuTrigger
-										render={
-											<Button
-												className="bg-primary/80 text-primary-foreground shadow-none hover:bg-primary"
-												size="icon"
-												type="button"
-												variant="secondary"
-											/>
-										}
-									>
-										<EllipsisIcon aria-hidden="true" />
-										<span className="sr-only">Collection actions</span>
-									</DropdownMenuTrigger>
-									<CollectionActionItems
-										onDelete={() => setIsDeleteDialogOpen(true)}
-										onEdit={() => setIsEditSheetOpen(true)}
-									/>
-								</DropdownMenu>
-							</div>
-						</div>
+function LoadedCollectionDetail({
+	actions,
+	detail,
+	onTabChange,
+	tab,
+}: {
+	actions: ReturnType<typeof useCollectionActions>;
+	detail: CollectionDetail;
+	onTabChange: (tab: CollectionTab) => void;
+	tab: CollectionTab;
+}) {
+	const { collection, notes, passages, sections } = detail;
+	const [isEditOpen, setIsEditOpen] = useState(false);
+	const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+	const [isAddPassageOpen, setIsAddPassageOpen] = useState(false);
+	const [sectionDialog, setSectionDialog] = useState<{
+		open: boolean;
+		section?: CollectionSection;
+	}>({ open: false });
+	const upNext = findUpNext(passages);
 
-						<div className="mt-5 flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-							<div>
-								<h1 className="font-serif text-4xl leading-none tracking-[-0.035em] sm:text-5xl">
-									{collection.name}
-								</h1>
-								{collection.description ? (
-									<p className="mt-2 max-w-3xl text-muted-foreground text-sm leading-6 sm:text-base">
-										{collection.description}
-									</p>
-								) : null}
-							</div>
-							<div className="flex flex-wrap items-center gap-2 lg:shrink-0">
-								<Button onClick={() => setIsEditSheetOpen(true)} type="button">
-									<PencilIcon aria-hidden="true" data-icon="inline-start" />
-									Edit Collection
-								</Button>
-								<Button disabled type="button" variant="outline">
-									<PlusCircleIcon aria-hidden="true" data-icon="inline-start" />
-									Add Content
-								</Button>
-								<DropdownMenu>
-									<DropdownMenuTrigger
-										render={
-											<Button size="icon" type="button" variant="outline" />
-										}
-									>
-										<EllipsisIcon aria-hidden="true" />
-										<span className="sr-only">More collection actions</span>
-									</DropdownMenuTrigger>
-									<CollectionActionItems
-										onDelete={() => setIsDeleteDialogOpen(true)}
-										onEdit={() => setIsEditSheetOpen(true)}
-									/>
-								</DropdownMenu>
-							</div>
-						</div>
+	const openAddSection = () => setSectionDialog({ open: true });
 
-						<div className="mt-5 flex flex-wrap items-center gap-x-0 gap-y-2 text-muted-foreground text-sm">
-							<CollectionMetadata icon={LockKeyholeIcon} label="Private" />
-							<CollectionMetadata icon={Clock3Icon} label={summary.updatedAt} />
-							<CollectionMetadata
-								icon={BookOpenIcon}
-								label={`${passages.length} passages`}
-							/>
-							<CollectionMetadata
-								icon={FileTextIcon}
-								label={`${notes.length} ${notes.length === 1 ? "note" : "notes"}`}
-							/>
-							<CollectionMetadata icon={HighlighterIcon} label="0 highlights" />
-						</div>
-					</header>
+	return (
+		<div className="min-h-full bg-background px-4 py-8 text-foreground sm:px-8">
+			<main className="mx-auto flex w-full max-w-295 flex-col gap-8">
+				<nav aria-label="Breadcrumb">
+					<ol className="flex flex-wrap items-center gap-2 text-muted-foreground text-sm">
+						<li>
+							<Link
+								className="inline-flex min-h-11 items-center gap-1.5 font-semibold hover:text-foreground"
+								to="/library/collections"
+							>
+								<ArrowLeftIcon aria-hidden="true" className="size-4" />
+								Collections
+							</Link>
+						</li>
+						<li aria-hidden="true">/</li>
+						<li aria-current="page" className="font-semibold text-foreground">
+							{collection.name}
+						</li>
+					</ol>
+				</nav>
 
-					<section className="mt-5 border-border/70 border-t pt-4">
-						<ToggleGroup
-							aria-label="Collection content view"
-							className="flex-wrap gap-2"
-							onValueChange={(values) =>
-								setActiveView(
-									(values[0] as CollectionView | undefined) ?? "all",
-								)
-							}
-							value={[activeView]}
-							variant="outline"
-						>
-							{collectionViews.map((view) => (
-								<ToggleGroupItem
-									className="h-9 rounded-full px-4 data-pressed:bg-primary data-pressed:text-primary-foreground"
-									key={view.value}
-									value={view.value}
-								>
-									{view.label}
-								</ToggleGroupItem>
-							))}
-						</ToggleGroup>
-
-						{showNotes && notes.length > 0 ? (
-							<CollectionNotes
-								notes={notes}
-								onDelete={deleteNoteMutation.mutateAsync}
-								onRemove={removeNoteMutation.mutateAsync}
-							/>
-						) : null}
-						{showPassages && passages.length > 0 ? (
-							<CollectionPassages passages={passages} />
-						) : null}
-						{isEmpty ? (
-							<Empty className="mt-5 min-h-64 rounded-xl border border-border/70 bg-card py-12">
-								<EmptyHeader>
-									<EmptyMedia
-										className="size-16 rounded-full bg-secondary text-primary"
-										variant="icon"
-									>
-										<BookOpenIcon aria-hidden="true" />
-									</EmptyMedia>
-									<EmptyTitle className="font-serif text-xl tracking-[-0.02em]">
-										{activeView === "all"
-											? "No study material yet"
-											: `No ${activeViewLabel?.toLowerCase()} yet`}
-									</EmptyTitle>
-									<EmptyDescription className="max-w-xl text-center text-sm leading-5">
-										Add passages, notes, highlights, or themes to start building
-										this collection. Your content will appear here in a study
-										timeline.
-									</EmptyDescription>
-								</EmptyHeader>
-								<EmptyContent className="flex-row gap-3">
-									<Button disabled type="button">
-										<BookOpenIcon aria-hidden="true" data-icon="inline-start" />
-										Add Passages
-									</Button>
-									<Button disabled type="button" variant="outline">
-										<FileTextIcon aria-hidden="true" data-icon="inline-start" />
-										Add Notes
-									</Button>
-								</EmptyContent>
-							</Empty>
-						) : null}
-					</section>
-				</main>
-			</div>
-			{isEditSheetOpen ? (
-				<EditCollectionSheet
+				<CollectionHero
 					collection={collection}
-					key={collection.id}
-					onUpdated={() => setIsEditSheetOpen(false)}
+					isPinning={actions.setPinned.isPending}
+					onContinue={() => onTabChange("passages")}
+					onDelete={() => setIsDeleteOpen(true)}
+					onEdit={() => setIsEditOpen(true)}
+					onTogglePin={() => actions.setPinned.mutate(!collection.pinned)}
+					upNext={upNext}
 				/>
-			) : null}
-			<AlertDialog
-				onOpenChange={(open) => {
-					if (!open && !isDeletingCollection) {
-						deleteCollectionMutation.reset();
-						setIsDeleteDialogOpen(false);
-					}
-				}}
-				open={isDeleteDialogOpen}
-			>
-				<AlertDialogContent>
-					<AlertDialogHeader>
-						<AlertDialogTitle>Delete "{collection.name}"?</AlertDialogTitle>
-						<AlertDialogDescription>
-							The collection will be deleted, but its passages, notes, and
-							highlights will remain in your Library.
-						</AlertDialogDescription>
-						{deleteCollectionError ? (
-							<p className="text-destructive text-xs" role="alert">
-								{deleteCollectionError}
-							</p>
-						) : null}
-					</AlertDialogHeader>
-					<AlertDialogFooter>
-						<AlertDialogCancel disabled={isDeletingCollection}>
-							Cancel
-						</AlertDialogCancel>
-						<AlertDialogAction
-							disabled={isDeletingCollection}
-							onClick={() => deleteCollectionMutation.mutate()}
-							variant="destructive"
-						>
-							{isDeletingCollection ? "Deleting…" : "Delete Collection"}
-						</AlertDialogAction>
-					</AlertDialogFooter>
-				</AlertDialogContent>
-			</AlertDialog>
-		</Sheet>
-	);
-}
 
-function CollectionActionItems({
-	onDelete,
-	onEdit,
-}: {
-	onDelete: () => void;
-	onEdit: () => void;
-}) {
-	return (
-		<DropdownMenuContent align="end">
-			<DropdownMenuItem onClick={onEdit}>Edit Collection</DropdownMenuItem>
-			<DropdownMenuSeparator />
-			<DropdownMenuItem onClick={onDelete} variant="destructive">
-				<Trash2Icon aria-hidden="true" />
-				Delete Collection
-			</DropdownMenuItem>
-		</DropdownMenuContent>
-	);
-}
-
-function CollectionMetadata({
-	icon: Icon,
-	label,
-}: {
-	icon: typeof BookOpenIcon;
-	label: string;
-}) {
-	return (
-		<span className="mr-4 flex items-center gap-2 border-border/70 border-r pr-4 last:mr-0 last:border-r-0 last:pr-0">
-			<Icon aria-hidden="true" className="size-4" />
-			{label}
-		</span>
-	);
-}
-
-function CollectionPassages({ passages }: { passages: CollectionPassage[] }) {
-	return (
-		<div className="mt-6 overflow-hidden rounded-xl border border-border/70 bg-card">
-			<ul aria-label="Passages in this collection">
-				{passages.map((passage) => (
-					<li
-						className="border-border/70 border-b px-4 py-4 text-sm last:border-b-0"
-						key={passage.id}
-					>
-						<BookOpenIcon
-							aria-hidden="true"
-							className="mr-2 inline-block size-4 text-primary"
-						/>
-						{passage.title}
-					</li>
-				))}
-			</ul>
-		</div>
-	);
-}
-
-function CollectionNotes({
-	notes,
-	onDelete,
-	onRemove,
-}: {
-	notes: CollectionNote[];
-	onDelete: (noteId: number) => Promise<void>;
-	onRemove: (noteId: number) => Promise<void>;
-}) {
-	const [deleteNoteId, setDeleteNoteId] = useState<number | null>(null);
-	const [error, setError] = useState<string | null>(null);
-	const [isDeleting, setIsDeleting] = useState(false);
-	const [removingNoteId, setRemovingNoteId] = useState<number | null>(null);
-
-	const remove = (noteId: number) => {
-		setError(null);
-		setRemovingNoteId(noteId);
-		void onRemove(noteId)
-			.catch(() =>
-				setError("We couldn't remove this note from the collection."),
-			)
-			.finally(() => setRemovingNoteId(null));
-	};
-	const deleteNoteFromCollection = () => {
-		if (!deleteNoteId) return;
-		setError(null);
-		setIsDeleting(true);
-		void onDelete(deleteNoteId)
-			.then(() => setDeleteNoteId(null))
-			.catch(() => setError("We couldn't delete this note. Please try again."))
-			.finally(() => setIsDeleting(false));
-	};
-
-	return (
-		<div className="mt-6 overflow-hidden rounded-xl border border-border/70 bg-card">
-			{error ? (
-				<p
-					className="border-border/70 border-b px-4 py-3 text-destructive text-sm"
-					role="alert"
+				<Tabs
+					className="gap-0"
+					onValueChange={(value) => onTabChange(value as CollectionTab)}
+					value={tab}
 				>
-					{error}
-				</p>
-			) : null}
-			<ul aria-label="Notes in this collection">
-				{notes.map((note) => (
-					<li
-						className="flex items-start justify-between gap-4 border-border/70 border-b px-4 py-4 last:border-b-0"
-						key={note.id}
-					>
-						<div className="min-w-0">
-							<p className="font-medium text-sm">
-								{note.passageTitle ?? note.bookName ?? "Unlinked note"}
-							</p>
-							<p className="mt-1 line-clamp-3 whitespace-pre-wrap text-muted-foreground text-sm leading-6">
-								{getDocumentText(note.content)}
-							</p>
+					<div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2 border-border border-b">
+						<TabsList
+							aria-label="Collection sections"
+							className="gap-1 p-0 group-data-horizontal/tabs:h-auto"
+							variant="line"
+						>
+							<CollectionTabTrigger
+								count={passages.length}
+								label="Passages"
+								value="passages"
+							/>
+							<CollectionTabTrigger
+								count={notes.length}
+								label="Notes"
+								value="notes"
+							/>
+							<CollectionTabTrigger label="Overview" value="overview" />
+						</TabsList>
+						{tab === "passages" ? (
+							<div className="flex gap-2 pb-2">
+								<Button
+									className="h-11 rounded-[9px] border-border-strong px-3 text-sm"
+									onClick={() => setIsAddPassageOpen(true)}
+									type="button"
+									variant="outline"
+								>
+									<PlusIcon aria-hidden="true" data-icon="inline-start" />
+									Add passage
+								</Button>
+								<Button
+									className="h-11 rounded-[9px] border-border-strong px-3 text-sm"
+									onClick={openAddSection}
+									type="button"
+									variant="outline"
+								>
+									<ListPlusIcon aria-hidden="true" data-icon="inline-start" />
+									Add section
+								</Button>
+							</div>
+						) : null}
+					</div>
+
+					<TabsContent className="pt-8 text-sm" value="passages">
+						<div className="flex flex-wrap items-start gap-8">
+							<div className="min-w-0 flex-[999_1_35rem]">
+								{passages.length || sections.length ? (
+									<CollectionPassageList
+										actions={actions}
+										collectionId={collection.id}
+										notes={notes}
+										onRenameSection={(section) =>
+											setSectionDialog({ open: true, section })
+										}
+										passages={passages}
+										sections={sections}
+									/>
+								) : (
+									<NoPassagesState onAdd={() => setIsAddPassageOpen(true)} />
+								)}
+							</div>
+							<aside
+								aria-label="About this collection"
+								className="flex flex-[1_1_18.75rem] flex-col gap-4"
+							>
+								<OutlinePanel passages={passages} sections={sections} />
+								<LatestNotesPanel
+									notes={notes}
+									onShowAll={() => onTabChange("notes")}
+								/>
+								{/* TODO(collections): "Suggested to add" needs passage suggestions from the backend. */}
+							</aside>
 						</div>
-						<DropdownMenu>
-							<DropdownMenuTrigger
-								render={<Button size="icon-sm" type="button" variant="ghost" />}
-							>
-								<EllipsisIcon aria-hidden="true" />
-								<span className="sr-only">Note actions</span>
-							</DropdownMenuTrigger>
-							<DropdownMenuContent align="end">
-								<DropdownMenuItem
-									disabled={removingNoteId === note.id}
-									onClick={() => remove(note.id)}
-								>
-									<Trash2Icon aria-hidden="true" />
-									Remove from Collection
-								</DropdownMenuItem>
-								<DropdownMenuItem
-									render={
-										<Link to="/library/notes" search={{ note: note.id }} />
-									}
-								>
-									Open Note
-								</DropdownMenuItem>
-								<DropdownMenuItem
-									className="text-destructive focus:text-destructive"
-									onClick={() => setDeleteNoteId(note.id)}
-								>
-									<Trash2Icon aria-hidden="true" />
-									Delete Note
-								</DropdownMenuItem>
-							</DropdownMenuContent>
-						</DropdownMenu>
-					</li>
-				))}
-			</ul>
-			<AlertDialog
-				onOpenChange={(open) => {
-					if (!open && !isDeleting) setDeleteNoteId(null);
-				}}
-				open={deleteNoteId !== null}
-			>
-				<AlertDialogContent>
-					<AlertDialogHeader>
-						<AlertDialogTitle>Delete this note?</AlertDialogTitle>
-						<AlertDialogDescription>
-							This permanently deletes the note from all of its collections.
-						</AlertDialogDescription>
-					</AlertDialogHeader>
-					<AlertDialogFooter>
-						<AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-						<AlertDialogAction
-							disabled={isDeleting}
-							onClick={deleteNoteFromCollection}
-							variant="destructive"
-						>
-							{isDeleting ? "Deleting…" : "Delete note"}
-						</AlertDialogAction>
-					</AlertDialogFooter>
-				</AlertDialogContent>
-			</AlertDialog>
+					</TabsContent>
+
+					<TabsContent className="pt-8 text-sm" value="notes">
+						<CollectionNotes collectionId={collection.id} notes={notes} />
+					</TabsContent>
+
+					<TabsContent className="pt-8 text-sm" value="overview">
+						<CollectionOverview
+							detail={detail}
+							onEdit={() => setIsEditOpen(true)}
+						/>
+					</TabsContent>
+				</Tabs>
+			</main>
+
+			<Dialog onOpenChange={setIsEditOpen} open={isEditOpen}>
+				{isEditOpen ? (
+					<CollectionFormDialog
+						collection={collection}
+						onSaved={() => setIsEditOpen(false)}
+					/>
+				) : null}
+			</Dialog>
+			<AddPassageDialog
+				actions={actions}
+				existingIds={passages.map((passage) => passage.passageId)}
+				onOpenChange={setIsAddPassageOpen}
+				open={isAddPassageOpen}
+				sections={sections}
+			/>
+			<SectionNameDialog
+				actions={actions}
+				onOpenChange={(open) => setSectionDialog({ open })}
+				open={sectionDialog.open}
+				section={sectionDialog.section}
+			/>
+			<DeleteCollectionDialog
+				collectionId={collection.id}
+				name={collection.name}
+				onOpenChange={setIsDeleteOpen}
+				open={isDeleteOpen}
+			/>
 		</div>
 	);
 }
 
-function CollectionDetailState({
-	description,
-	onRetry,
-	title,
+function CollectionTabTrigger({
+	count,
+	label,
+	value,
 }: {
-	description: string;
-	onRetry?: () => void;
-	title?: string;
+	count?: number;
+	label: string;
+	value: CollectionTab;
 }) {
 	return (
-		<div className="min-h-full bg-background px-5 py-8 text-foreground sm:px-8 sm:py-10 lg:px-10">
-			<main className="mx-auto w-full max-w-310">
-				<Link
-					className="inline-flex items-center gap-2 font-medium text-primary text-xs hover:underline"
-					to="/library/collections"
-				>
-					<ArrowLeftIcon aria-hidden="true" className="size-3.5" />
-					Collections
-				</Link>
-				<Empty className="mt-8 border border-border/70 bg-card py-12">
-					<EmptyHeader>
-						<EmptyMedia variant="icon">
-							<BookOpenIcon aria-hidden="true" />
-						</EmptyMedia>
-						<EmptyTitle>{title ?? "Loading collection"}</EmptyTitle>
-						<EmptyDescription>{description}</EmptyDescription>
-						{onRetry ? (
-							<button
-								className="mt-2 font-medium text-primary text-xs hover:underline"
-								onClick={onRetry}
-								type="button"
-							>
-								Try again
-							</button>
-						) : null}
-					</EmptyHeader>
-				</Empty>
-			</main>
-		</div>
-	);
-}
-
-function CollectionDetailSkeleton() {
-	return (
-		<div
-			aria-busy="true"
-			aria-live="polite"
-			className="min-h-full bg-background px-5 py-8 sm:px-8 sm:py-10 lg:px-10"
+		<TabsTrigger
+			className="h-12 flex-none px-3.5 font-semibold text-muted-foreground text-sm after:bg-primary data-active:font-bold data-active:text-primary group-data-horizontal/tabs:after:-bottom-px"
+			value={value}
 		>
-			<span className="sr-only">Loading collection</span>
-			<main
-				aria-hidden="true"
-				className="mx-auto flex w-full max-w-310 flex-col gap-6"
-			>
-				<Skeleton className="h-4 w-24 rounded-md" />
-				<Skeleton className="h-64 w-full rounded-2xl sm:h-72 lg:h-80" />
-				<div className="flex flex-col gap-3">
-					<Skeleton className="h-12 w-3/5 rounded-md" />
-					<Skeleton className="h-5 w-full rounded-md" />
-					<Skeleton className="h-5 w-2/3 rounded-md" />
-				</div>
-				<Skeleton className="h-9 w-full rounded-full sm:w-96" />
-				<Skeleton className="h-44 rounded-xl" />
-			</main>
-		</div>
+			{label}
+			{count === undefined ? null : (
+				<span className="font-normal text-muted-foreground">{count}</span>
+			)}
+		</TabsTrigger>
 	);
 }

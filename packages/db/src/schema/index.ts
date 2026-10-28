@@ -16,6 +16,7 @@ export * from "./claim_usages";
 export * from "./claims";
 export * from "./collection_notes";
 export * from "./collection_passages";
+export * from "./collection_sections";
 export * from "./collections";
 export * from "./commentaries";
 export * from "./commentary_sections";

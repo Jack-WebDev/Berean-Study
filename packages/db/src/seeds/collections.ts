@@ -13,8 +13,6 @@ export async function seedCollections(
 				name: `Seed Collection ${i + 1}`,
 				normalizedName: `seed-collection-${i + 1}`,
 				description: "",
-				coverId: "seed-cover",
-				allowedContent: ["notes"],
 				tags: [],
 			})),
 		)

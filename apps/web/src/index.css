@@ -45,6 +45,22 @@ html[data-reading-width="wide"] {
 	color: oklch(0.61 0.19 25deg);
 }
 
+/*
+ * Collection covers: one member-chosen colour, with its text colour and dark
+ * shade worked out in collection-colors.ts and passed in as variables.
+ */
+.collection-cover {
+	--cover-current: var(--cover);
+	--cover-ink-current: var(--cover-ink);
+	background: var(--cover-current);
+	color: var(--cover-ink-current);
+}
+
+.dark .collection-cover {
+	--cover-current: var(--cover-dark);
+	--cover-ink-current: var(--cover-ink-dark);
+}
+
 .reading-preferences {
 	font-size: var(--reading-text-size);
 }
