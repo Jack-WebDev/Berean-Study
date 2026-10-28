@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, between, desc, eq, inArray, lte, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import type { db } from "./index";
@@ -310,6 +310,181 @@ export async function getVerseRangeText(
 		versificationSystemId: translation.versificationSystemId,
 	});
 	return rangeVerses.map(({ number, text }) => ({ number, text }));
+}
+
+export type PassageExcerpt = {
+	passageId: number;
+	/** Where the passage sits, such as "Psalm 88:1–3"; its title if unmapped. */
+	reference: string;
+	title: string | null;
+	/** The passage's opening verses, empty when the translation lacks them. */
+	verses: PassageVerse[];
+};
+
+/**
+ * Writes a verse range the way readers do: "Psalm 88:1–3", "John 3:16",
+ * "Romans 7:24–8:2". A single psalm is "Psalm", not "Psalms".
+ */
+export function formatPassageReference(
+	bookName: string,
+	start: [chapter: number, verse: number],
+	end: [chapter: number, verse: number],
+) {
+	const [startChapter, startVerse] = start;
+	const [endChapter, endVerse] = end;
+	const sameChapter = startChapter === endChapter;
+	const book = bookName === "Psalms" && sameChapter ? "Psalm" : bookName;
+	if (!sameChapter) {
+		return `${book} ${startChapter}:${startVerse}–${endChapter}:${endVerse}`;
+	}
+	if (startVerse === endVerse) return `${book} ${startChapter}:${startVerse}`;
+	return `${book} ${startChapter}:${startVerse}–${endVerse}`;
+}
+
+/**
+ * Returns each passage's reference and up to `maxVerses` opening verses in one
+ * translation, for previews such as collection covers. Everything is fetched
+ * in two queries however many passages are asked for.
+ */
+export async function getPassageExcerpts(
+	db: DbClient,
+	passageIds: readonly number[],
+	translationId: number | null,
+	maxVerses: number,
+): Promise<Map<number, PassageExcerpt>> {
+	const ids = [...new Set(passageIds)];
+	if (ids.length === 0) return new Map();
+
+	const [translation] = translationId
+		? await db
+				.select({ versificationSystemId: translations.versificationSystemId })
+				.from(translations)
+				.where(eq(translations.id, translationId))
+				.limit(1)
+		: [];
+	const versificationSystemId = translation?.versificationSystemId ?? null;
+
+	const startVerse = alias(verses, "start_verse");
+	const startChapter = alias(chapters, "start_chapter");
+	const endVerse = alias(verses, "end_verse");
+	const endChapter = alias(chapters, "end_chapter");
+	const rangeJoin = versificationSystemId
+		? and(
+				eq(passageRanges.passageId, passages.id),
+				eq(passageRanges.versificationSystemId, versificationSystemId),
+			)
+		: sql`false`;
+	const ranges = await db
+		.select({
+			bookName: books.name,
+			endChapter: endChapter.number,
+			endVerse: endVerse.number,
+			id: passages.id,
+			startChapter: startChapter.number,
+			startVerse: startVerse.number,
+			title: passages.title,
+		})
+		.from(passages)
+		.innerJoin(books, eq(books.id, passages.bookId))
+		.leftJoin(passageRanges, rangeJoin)
+		.leftJoin(startVerse, eq(startVerse.id, passageRanges.startVerseId))
+		.leftJoin(startChapter, eq(startChapter.id, startVerse.chapterId))
+		.leftJoin(endVerse, eq(endVerse.id, passageRanges.endVerseId))
+		.leftJoin(endChapter, eq(endChapter.id, endVerse.chapterId))
+		.where(inArray(passages.id, ids));
+
+	const versesByPassage = new Map<number, PassageVerse[]>();
+	if (translationId && versificationSystemId && maxVerses > 0) {
+		const verseChapter = alias(chapters, "verse_chapter");
+		const numbered = db
+			.select({
+				chapter: sql<number>`${verseChapter.number}`.as("chapter"),
+				number: sql<number>`${verses.number}`.as("number"),
+				passageId: sql<number>`${passageRanges.passageId}`.as("passage_id"),
+				rank: sql<number>`row_number() OVER (PARTITION BY ${passageRanges.passageId} ORDER BY ${verseChapter.number}, ${verses.number})`.as(
+					"rank",
+				),
+				text: sql<string>`${verseTexts.text}`.as("text"),
+			})
+			.from(passageRanges)
+			.innerJoin(startVerse, eq(startVerse.id, passageRanges.startVerseId))
+			.innerJoin(startChapter, eq(startChapter.id, startVerse.chapterId))
+			.innerJoin(endVerse, eq(endVerse.id, passageRanges.endVerseId))
+			.innerJoin(endChapter, eq(endChapter.id, endVerse.chapterId))
+			.innerJoin(
+				verseChapter,
+				and(
+					eq(verseChapter.bookId, startChapter.bookId),
+					eq(
+						verseChapter.versificationSystemId,
+						passageRanges.versificationSystemId,
+					),
+					between(verseChapter.number, startChapter.number, endChapter.number),
+				),
+			)
+			.innerJoin(
+				verses,
+				and(
+					eq(verses.chapterId, verseChapter.id),
+					sql`(${verseChapter.number}, ${verses.number}) BETWEEN (${startChapter.number}, ${startVerse.number}) AND (${endChapter.number}, ${endVerse.number})`,
+				),
+			)
+			.innerJoin(
+				verseTexts,
+				and(
+					eq(verseTexts.verseId, verses.id),
+					eq(verseTexts.translationId, translationId),
+				),
+			)
+			.where(
+				and(
+					inArray(passageRanges.passageId, ids),
+					eq(passageRanges.versificationSystemId, versificationSystemId),
+				),
+			)
+			.as("numbered");
+		const rows = await db
+			.select({
+				chapter: numbered.chapter,
+				number: numbered.number,
+				passageId: numbered.passageId,
+				text: numbered.text,
+			})
+			.from(numbered)
+			.where(lte(numbered.rank, maxVerses))
+			.orderBy(asc(numbered.passageId), asc(numbered.rank));
+		for (const { passageId, ...verse } of rows) {
+			const list = versesByPassage.get(passageId) ?? [];
+			list.push(verse);
+			versesByPassage.set(passageId, list);
+		}
+	}
+
+	return new Map(
+		ranges.map((range) => {
+			const { endChapter, endVerse, startChapter, startVerse } = range;
+			const reference =
+				startChapter !== null &&
+				startVerse !== null &&
+				endChapter !== null &&
+				endVerse !== null
+					? formatPassageReference(
+							range.bookName,
+							[startChapter, startVerse],
+							[endChapter, endVerse],
+						)
+					: (range.title ?? range.bookName);
+			return [
+				range.id,
+				{
+					passageId: range.id,
+					reference,
+					title: range.title,
+					verses: versesByPassage.get(range.id) ?? [],
+				},
+			];
+		}),
+	);
 }
 
 async function selectVerseTexts(

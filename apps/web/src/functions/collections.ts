@@ -1,16 +1,23 @@
 import { db } from "@berean-study/db";
 import {
+	addPassageToCollection as addPassageToCollectionInDb,
+	arrangeCollectionPassages as arrangeCollectionPassagesInDb,
 	createCollection as createCollectionInDb,
+	createCollectionSection as createCollectionSectionInDb,
 	deleteCollection as deleteCollectionInDb,
+	deleteCollectionSection as deleteCollectionSectionInDb,
 	getCollectionDetail as getCollectionDetailFromDb,
-	getCollection as getCollectionFromDb,
-	listCollectionNotes as listCollectionNotesFromDb,
-	listCollectionPassages as listCollectionPassagesFromDb,
+	getCollectionLibrary as getCollectionLibraryFromDb,
 	listCollectionsForNote as listCollectionsForNoteFromDb,
 	listCollectionsForNotes as listCollectionsForNotesFromDb,
 	listCollectionsForPassage as listCollectionsForPassageFromDb,
-	listCollections as listCollectionsFromDb,
+	markCollectionOpened as markCollectionOpenedInDb,
+	moveCollectionSection as moveCollectionSectionInDb,
 	removeNoteFromCollection as removeNoteFromCollectionInDb,
+	removePassageFromCollection as removePassageFromCollectionInDb,
+	renameCollectionSection as renameCollectionSectionInDb,
+	setCollectionPassageRead as setCollectionPassageReadInDb,
+	setCollectionPinned as setCollectionPinnedInDb,
 	setCollectionsForNote as setCollectionsForNoteInDb,
 	setCollectionsForPassage as setCollectionsForPassageInDb,
 	updateCollection as updateCollectionInDb,
@@ -20,30 +27,32 @@ import { z } from "zod";
 
 import { authMiddleware } from "@/middleware/auth";
 
-const collectionContentTypeSchema = z.enum([
-	"passages",
-	"notes",
-	"highlights",
-	"study-themes",
-]);
+const idSchema = z.number().int().positive();
 
 const collectionInputSchema = z.object({
-	allowedContent: z.array(collectionContentTypeSchema).max(4),
-	coverId: z.enum(["mountains", "lake", "open-bible", "coastline"]),
+	color: z
+		.string()
+		.regex(/^#[0-9a-f]{6}$/i)
+		.transform((color) => color.toLowerCase()),
 	description: z.string().trim().max(280),
 	name: z.string().trim().min(1).max(100),
 	tags: z.array(z.string().trim().min(1).max(50)).max(20),
+	type: z.enum(["list", "project", "teaching"]),
+	visibility: z.enum(["private", "shared", "public"]),
 });
+
+const sectionTitleSchema = z.string().trim().min(1).max(100);
 
 function requireUserId(session: { user: { id: string } } | null) {
 	if (!session) throw new Error("Unauthorized");
 	return session.user.id;
 }
 
-export const listCollections = createServerFn({ method: "GET" })
+/** Every collection's card, plus the study project to continue. */
+export const getCollectionLibrary = createServerFn({ method: "GET" })
 	.middleware([authMiddleware])
 	.handler(({ context }) =>
-		listCollectionsFromDb(db, requireUserId(context.session)),
+		getCollectionLibraryFromDb(db, requireUserId(context.session)),
 	);
 
 export const listCollectionsForNotes = createServerFn({ method: "GET" })
@@ -52,16 +61,9 @@ export const listCollectionsForNotes = createServerFn({ method: "GET" })
 		listCollectionsForNotesFromDb(db, requireUserId(context.session)),
 	);
 
-export const getCollection = createServerFn({ method: "GET" })
-	.middleware([authMiddleware])
-	.validator(z.object({ id: z.number().int().positive() }))
-	.handler(({ context, data }) =>
-		getCollectionFromDb(db, requireUserId(context.session), data.id),
-	);
-
 export const getCollectionDetail = createServerFn({ method: "GET" })
 	.middleware([authMiddleware])
-	.validator(z.object({ id: z.number().int().positive() }))
+	.validator(z.object({ id: idSchema }))
 	.handler(({ context, data }) =>
 		getCollectionDetailFromDb(db, requireUserId(context.session), data.id),
 	);
@@ -75,7 +77,7 @@ export const createCollection = createServerFn({ method: "POST" })
 
 export const updateCollection = createServerFn({ method: "POST" })
 	.middleware([authMiddleware])
-	.validator(collectionInputSchema.extend({ id: z.number().int().positive() }))
+	.validator(collectionInputSchema.extend({ id: idSchema }))
 	.handler(({ context, data }) => {
 		const { id, ...input } = data;
 		return updateCollectionInDb(db, requireUserId(context.session), id, input);
@@ -83,12 +85,157 @@ export const updateCollection = createServerFn({ method: "POST" })
 
 export const deleteCollection = createServerFn({ method: "POST" })
 	.middleware([authMiddleware])
-	.validator(z.object({ id: z.number().int().positive() }))
+	.validator(z.object({ id: idSchema }))
 	.handler(({ context, data }) =>
 		deleteCollectionInDb(db, requireUserId(context.session), data.id),
 	);
 
-const noteIdSchema = z.object({ id: z.number().int().positive() });
+export const setCollectionPinned = createServerFn({ method: "POST" })
+	.middleware([authMiddleware])
+	.validator(z.object({ id: idSchema, pinned: z.boolean() }))
+	.handler(({ context, data }) =>
+		setCollectionPinnedInDb(
+			db,
+			requireUserId(context.session),
+			data.id,
+			data.pinned,
+		),
+	);
+
+export const markCollectionOpened = createServerFn({ method: "POST" })
+	.middleware([authMiddleware])
+	.validator(z.object({ id: idSchema }))
+	.handler(({ context, data }) =>
+		markCollectionOpenedInDb(db, requireUserId(context.session), data.id),
+	);
+
+export const addPassageToCollection = createServerFn({ method: "POST" })
+	.middleware([authMiddleware])
+	.validator(
+		z.object({
+			id: idSchema,
+			passageId: idSchema,
+			sectionId: idSchema.nullable(),
+		}),
+	)
+	.handler(({ context, data }) =>
+		addPassageToCollectionInDb(
+			db,
+			requireUserId(context.session),
+			data.id,
+			data.passageId,
+			data.sectionId,
+		),
+	);
+
+export const removePassageFromCollection = createServerFn({ method: "POST" })
+	.middleware([authMiddleware])
+	.validator(z.object({ id: idSchema, passageId: idSchema }))
+	.handler(({ context, data }) =>
+		removePassageFromCollectionInDb(
+			db,
+			requireUserId(context.session),
+			data.id,
+			data.passageId,
+		),
+	);
+
+export const arrangeCollectionPassages = createServerFn({ method: "POST" })
+	.middleware([authMiddleware])
+	.validator(
+		z.object({
+			groups: z
+				.array(
+					z.object({
+						passageIds: z.array(idSchema).max(500),
+						sectionId: idSchema.nullable(),
+					}),
+				)
+				.max(100),
+			id: idSchema,
+		}),
+	)
+	.handler(({ context, data }) =>
+		arrangeCollectionPassagesInDb(
+			db,
+			requireUserId(context.session),
+			data.id,
+			data.groups,
+		),
+	);
+
+export const setCollectionPassageRead = createServerFn({ method: "POST" })
+	.middleware([authMiddleware])
+	.validator(z.object({ id: idSchema, passageId: idSchema, read: z.boolean() }))
+	.handler(({ context, data }) =>
+		setCollectionPassageReadInDb(
+			db,
+			requireUserId(context.session),
+			data.id,
+			data.passageId,
+			data.read,
+		),
+	);
+
+export const createCollectionSection = createServerFn({ method: "POST" })
+	.middleware([authMiddleware])
+	.validator(z.object({ id: idSchema, title: sectionTitleSchema }))
+	.handler(({ context, data }) =>
+		createCollectionSectionInDb(
+			db,
+			requireUserId(context.session),
+			data.id,
+			data.title,
+		),
+	);
+
+export const renameCollectionSection = createServerFn({ method: "POST" })
+	.middleware([authMiddleware])
+	.validator(
+		z.object({ id: idSchema, sectionId: idSchema, title: sectionTitleSchema }),
+	)
+	.handler(({ context, data }) =>
+		renameCollectionSectionInDb(
+			db,
+			requireUserId(context.session),
+			data.id,
+			data.sectionId,
+			data.title,
+		),
+	);
+
+export const moveCollectionSection = createServerFn({ method: "POST" })
+	.middleware([authMiddleware])
+	.validator(
+		z.object({
+			id: idSchema,
+			sectionId: idSchema,
+			toIndex: z.number().int().min(0),
+		}),
+	)
+	.handler(({ context, data }) =>
+		moveCollectionSectionInDb(
+			db,
+			requireUserId(context.session),
+			data.id,
+			data.sectionId,
+			data.toIndex,
+		),
+	);
+
+export const deleteCollectionSection = createServerFn({ method: "POST" })
+	.middleware([authMiddleware])
+	.validator(z.object({ id: idSchema, sectionId: idSchema }))
+	.handler(({ context, data }) =>
+		deleteCollectionSectionInDb(
+			db,
+			requireUserId(context.session),
+			data.id,
+			data.sectionId,
+		),
+	);
+
+const noteIdSchema = z.object({ id: idSchema });
 
 export const listCollectionsForNote = createServerFn({ method: "GET" })
 	.middleware([authMiddleware])
@@ -101,7 +248,7 @@ export const setCollectionsForNote = createServerFn({ method: "POST" })
 	.middleware([authMiddleware])
 	.validator(
 		noteIdSchema.extend({
-			collectionIds: z.array(z.number().int().positive()).max(100),
+			collectionIds: z.array(idSchema).max(100),
 		}),
 	)
 	.handler(({ context, data }) =>
@@ -128,7 +275,7 @@ export const setCollectionsForPassage = createServerFn({ method: "POST" })
 	.middleware([authMiddleware])
 	.validator(
 		noteIdSchema.extend({
-			collectionIds: z.array(z.number().int().positive()).max(100),
+			collectionIds: z.array(idSchema).max(100),
 		}),
 	)
 	.handler(({ context, data }) =>
@@ -140,23 +287,9 @@ export const setCollectionsForPassage = createServerFn({ method: "POST" })
 		),
 	);
 
-export const listCollectionNotes = createServerFn({ method: "GET" })
-	.middleware([authMiddleware])
-	.validator(noteIdSchema)
-	.handler(({ context, data }) =>
-		listCollectionNotesFromDb(db, requireUserId(context.session), data.id),
-	);
-
-export const listCollectionPassages = createServerFn({ method: "GET" })
-	.middleware([authMiddleware])
-	.validator(noteIdSchema)
-	.handler(({ context, data }) =>
-		listCollectionPassagesFromDb(db, requireUserId(context.session), data.id),
-	);
-
 export const removeNoteFromCollection = createServerFn({ method: "POST" })
 	.middleware([authMiddleware])
-	.validator(noteIdSchema.extend({ noteId: z.number().int().positive() }))
+	.validator(noteIdSchema.extend({ noteId: idSchema }))
 	.handler(({ context, data }) =>
 		removeNoteFromCollectionInDb(
 			db,
