@@ -27,6 +27,8 @@ function visibleEntries(viewer: AuditViewer, filter: AuditFilter) {
 
 export type AuditDetails = {
 	decision?: string;
+	/** Readable name of what changed, when it isn't a person. */
+	name?: string;
 	note?: string;
 	permission?: string;
 	reason?: string;
@@ -39,6 +41,7 @@ export function readAuditDetails(details: unknown): AuditDetails {
 	const read: AuditDetails = {};
 	for (const key of [
 		"decision",
+		"name",
 		"note",
 		"permission",
 		"reason",

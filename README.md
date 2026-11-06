@@ -274,6 +274,14 @@ Permissions and starting roles are defined in `packages/db/src/access-catalogue.
 pnpm db:access:sync
 ```
 
+### Bible reference data
+
+The books, canons and six translations are defined in `packages/db/src/scripture-catalogue.ts`. After running migrations, add them to the database. This only ever adds what's missing, so corrections made in the app are never overwritten:
+
+```bash
+pnpm db:scripture:sync
+```
+
 ### First Superadmins
 
 Changes to the foundations of Berean Study need a second Superadmin to confirm them, so every environment needs two. Register both accounts in the app, then run this once for each:

@@ -178,6 +178,7 @@ export function AuditPage({
 									const isRole = entry.targetType === "role";
 									const target =
 										entry.targetName ??
+										entry.details.name ??
 										(isRole ? entry.details.role : undefined) ??
 										`${entry.targetType} #${entry.targetId}`;
 									const detail = [

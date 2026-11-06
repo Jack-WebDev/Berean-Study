@@ -5,6 +5,7 @@ import type { getNotificationPage } from "@/functions/notifications";
 import type { getVerseRangeText } from "@/functions/passages";
 import type { listPeople } from "@/functions/people";
 import type { listReflections } from "@/functions/reflections";
+import type { getBookStructure } from "@/functions/scripture-data";
 
 /*
  * Query keys for every server resource, kept apart from the query functions so
@@ -14,6 +15,7 @@ import type { listReflections } from "@/functions/reflections";
 type ServerFnData<TFn extends (...args: never[]) => unknown> =
 	NonNullable<Parameters<TFn>[0]> extends { data: infer TData } ? TData : never;
 
+export type BookStructureInput = ServerFnData<typeof getBookStructure>;
 export type PeopleListFilters = ServerFnData<typeof listPeople>;
 export type AuditListFilters = ServerFnData<typeof listAuditEntries>;
 export type NoteListFilters = ServerFnData<typeof listNotes>;
@@ -60,6 +62,16 @@ export const auditKeys = {
 	all: ["audit"] as const,
 	list: (filters: AuditListFilters) =>
 		[...auditKeys.all, "list", filters] as const,
+};
+
+export const scriptureDataKeys = {
+	all: ["scripture-data"] as const,
+	books: () => [...scriptureDataKeys.all, "books"] as const,
+	book: (slug: string) => [...scriptureDataKeys.all, "book", slug] as const,
+	structure: (input: BookStructureInput) =>
+		[...scriptureDataKeys.all, "structure", input] as const,
+	translations: (abbreviation?: string) =>
+		[...scriptureDataKeys.all, "translations", { abbreviation }] as const,
 };
 
 export const passageKeys = {

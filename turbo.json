@@ -38,6 +38,9 @@
 		"db:access:sync": {
 			"cache": false
 		},
+		"db:scripture:sync": {
+			"cache": false
+		},
 		"db:superadmin:grant": {
 			"cache": false
 		},
