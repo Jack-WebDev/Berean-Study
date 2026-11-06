@@ -1,3 +1,4 @@
+export * from "./account_suspensions";
 export * from "./audit_log";
 export * from "./auth";
 export * from "./biblical_people";
@@ -9,6 +10,7 @@ export * from "./books";
 export * from "./canon_books";
 export * from "./canon_traditions";
 export * from "./canonical_relationships";
+export * from "./change_proposals";
 export * from "./chapters";
 export * from "./citations";
 export * from "./claim_sources";

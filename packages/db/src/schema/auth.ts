@@ -22,6 +22,12 @@ export const user = pgTable("user", {
 		.$onUpdate(() => /* @__PURE__ */ new Date())
 		.notNull(),
 	twoFactorEnabled: boolean("two_factor_enabled").default(false).notNull(),
+	/**
+	 * Set when someone with a record of editorial or moderation work deletes their
+	 * account. The row stays so that record still has an owner, but its personal
+	 * details are replaced and it can no longer sign in.
+	 */
+	deletedAt: timestamp("deleted_at"),
 });
 
 export const session = pgTable(

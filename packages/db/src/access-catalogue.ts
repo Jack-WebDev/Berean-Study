@@ -220,6 +220,28 @@ const adminGrants = [
 	"audit.view",
 ] as const satisfies readonly PermissionKey[];
 
+/**
+ * Any role holding one of these is protected: granting or removing it needs a
+ * second person. Deciding this from the permissions, not the role's name, means
+ * a custom role can't be used to get around the rule.
+ */
+export const elevatedPermissions: ReadonlySet<PermissionKey> = new Set([
+	"editorial.assign",
+	"publication.publish",
+	"publication.withdraw",
+	"issues.manage",
+	"community.moderate",
+	"contributors.manage",
+	"admins.manage",
+	"roles.manage",
+	"scripture.manage",
+	"canon.manage",
+	"translations.manage",
+	"settings.manage",
+	"audit.view",
+	"audit.view_all",
+]);
+
 export type RoleDefinition = {
 	name: string;
 	description: string;

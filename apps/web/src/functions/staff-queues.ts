@@ -5,7 +5,12 @@ import { createServerFn } from "@tanstack/react-start";
 import { requirePermission } from "@/middleware/auth";
 
 export const getStaffQueueCounts = createServerFn({ method: "GET" })
-	.middleware([requirePermission("issues.manage", "community.moderate")])
+	.middleware([
+		requirePermission("issues.manage", "community.moderate", "admins.manage"),
+	])
 	.handler(({ context }) =>
-		getStaffQueueCountsFromDb(db, context.permissionKeys),
+		getStaffQueueCountsFromDb(db, {
+			permissionKeys: context.permissionKeys,
+			userId: context.userId,
+		}),
 	);

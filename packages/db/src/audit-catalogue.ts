@@ -14,6 +14,12 @@ export const auditDomains = [
 
 export type AuditDomain = (typeof auditDomains)[number];
 
+/** Without full access, people see these areas plus their own actions. */
+export const editorialAuditDomains = [
+	"editorial",
+	"publication",
+] as const satisfies readonly AuditDomain[];
+
 const auditActionDomains = {
 	"revision.submitted": "editorial",
 	"revision.approved": "editorial",
@@ -32,6 +38,7 @@ const auditActionDomains = {
 	"canon_change.confirmed": "scripture",
 	"translation.details_changed": "scripture",
 	"translation.permission_recorded": "scripture",
+	"role.created": "authorization",
 	"role_permission.added": "authorization",
 	"role_permission.removed": "authorization",
 	"role.granted": "authorization",
@@ -40,16 +47,72 @@ const auditActionDomains = {
 	"promotion.decided": "authorization",
 	"access_case.opened": "authorization",
 	"access_case.approved": "authorization",
+	"access_case.declined": "authorization",
 	"community_post.removed": "community",
 	"community_post.restored": "community",
 	"user.warned": "community",
 	"user.restricted": "community",
 	"user.suspended": "users",
+	"user.suspension_lifted": "users",
+	"user.account_retired": "users",
 	"source.merged": "editorial",
 	"source.retired": "editorial",
 } as const satisfies Record<string, AuditDomain>;
 
 export type AuditAction = keyof typeof auditActionDomains;
+
+export const auditDomainLabels: Record<AuditDomain, string> = {
+	editorial: "Editorial",
+	publication: "Publication",
+	scripture: "Scripture data",
+	authorization: "Authorization",
+	community: "Community",
+	users: "Users",
+};
+
+/** What readers of the audit log see for each action. */
+export const auditActionLabels: Record<AuditAction, string> = {
+	"revision.submitted": "Submitted a revision",
+	"revision.approved": "Approved a revision",
+	"revision.changes_requested": "Requested changes to a revision",
+	"revision.published": "Published a revision",
+	"revision.withdrawn": "Withdrew a revision",
+	"verse_text.entered": "Entered verse text",
+	"verse_text.proofread": "Proofread verse text",
+	"verse_text.sent_back": "Sent verse text back",
+	"verse_text.published": "Published verse text",
+	"verse_text.corrected": "Corrected verse text",
+	"structure_change.proposed": "Proposed a structure change",
+	"structure_change.confirmed": "Confirmed a structure change",
+	"structure_change.rejected": "Rejected a structure change",
+	"canon_change.proposed": "Proposed a canon change",
+	"canon_change.confirmed": "Confirmed a canon change",
+	"translation.details_changed": "Changed translation details",
+	"translation.permission_recorded": "Recorded translation permission",
+	"role.created": "Created a role",
+	"role_permission.added": "Added a permission to a role",
+	"role_permission.removed": "Removed a permission from a role",
+	"role.granted": "Granted a role",
+	"role.revoked": "Removed a role",
+	"promotion.requested": "Requested a role change",
+	"promotion.decided": "Decided a role change",
+	"access_case.opened": "Opened an access case",
+	"access_case.approved": "Approved an access case",
+	"access_case.declined": "Declined an access case",
+	"community_post.removed": "Removed a Community post",
+	"community_post.restored": "Restored a Community post",
+	"user.warned": "Warned a member",
+	"user.restricted": "Restricted a member",
+	"user.suspended": "Suspended an account",
+	"user.suspension_lifted": "Lifted a suspension",
+	"user.account_retired": "Deleted their account",
+	"source.merged": "Merged sources",
+	"source.retired": "Retired a source",
+};
+
+export function isAuditAction(value: string): value is AuditAction {
+	return value in auditActionLabels;
+}
 
 export function auditDomainFor(action: AuditAction): AuditDomain {
 	return auditActionDomains[action];

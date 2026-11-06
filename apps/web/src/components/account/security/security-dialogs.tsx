@@ -10,6 +10,7 @@ import {
 } from "@berean-study/ui/components/dialog";
 import { Input } from "@berean-study/ui/components/input";
 import { Label } from "@berean-study/ui/components/label";
+import { useMutation } from "@tanstack/react-query";
 import {
 	Check,
 	Copy,
@@ -25,6 +26,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { type FormEvent, type ReactNode, useId, useState } from "react";
 import { toast } from "sonner";
 
+import { deleteMyAccount } from "@/functions/account-deletion";
 import { authClient } from "@/lib/auth-client";
 
 type DialogState = {
@@ -257,7 +259,16 @@ export function DeleteAccountDialog({ open, onOpenChange }: DialogState) {
 
 	const [password, setPassword] = useState("");
 	const [confirmation, setConfirmation] = useState("");
-	const [isDeleting, setIsDeleting] = useState(false);
+	const deletion = useMutation({
+		mutationFn: () => deleteMyAccount({ data: { password } }),
+		onSuccess: () => {
+			window.location.assign("/");
+		},
+		onError: (error) => {
+			toast.error(error.message || "Unable to delete your account.");
+		},
+	});
+	const isDeleting = deletion.isPending;
 
 	const canDelete =
 		Boolean(password) && confirmation === "DELETE" && !isDeleting;
@@ -272,23 +283,12 @@ export function DeleteAccountDialog({ open, onOpenChange }: DialogState) {
 		onOpenChange(nextOpen);
 	}
 
-	async function submit(event: FormEvent<HTMLFormElement>) {
+	function submit(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
 
 		if (!canDelete) return;
 
-		setIsDeleting(true);
-
-		const { error } = await authClient.deleteUser({ password });
-
-		setIsDeleting(false);
-
-		if (error) {
-			toast.error(error.message || "Unable to delete your account.");
-			return;
-		}
-
-		window.location.assign("/");
+		deletion.mutate();
 	}
 
 	return (
@@ -307,7 +307,8 @@ export function DeleteAccountDialog({ open, onOpenChange }: DialogState) {
 
 							<DialogDescription className="mx-auto max-w-md leading-6">
 								This permanently removes your account, notes, bookmarks,
-								settings, and active sessions.
+								settings, and active sessions. If you've reviewed, moderated or
+								published anything, that record stays under "Deleted member".
 							</DialogDescription>
 						</div>
 					</DialogHeader>

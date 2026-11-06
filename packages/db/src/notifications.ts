@@ -10,6 +10,7 @@ import {
 	type SQL,
 	sql,
 } from "drizzle-orm";
+import type { DbExecutor } from "./db-executor";
 import type { db } from "./index";
 import type { NotificationPreferenceKey } from "./notification-preferences";
 import { getNotificationPreferences } from "./notification-settings";
@@ -54,7 +55,7 @@ function assertInternalDestination(destination: string | undefined) {
  * available.
  */
 export async function createNotification(
-	db: DbClient,
+	db: DbExecutor,
 	input: CreateNotificationInput,
 ) {
 	assertInternalDestination(input.destination);
