@@ -6,6 +6,7 @@ export type StatusTone =
 	| "attention"
 	| "info"
 	| "danger"
+	| "authority"
 	| "neutral"
 	| "accent";
 
@@ -14,6 +15,7 @@ const toneClassNames: Record<StatusTone, string> = {
 	attention: "bg-status-attention text-status-attention-foreground",
 	info: "bg-status-info text-status-info-foreground",
 	danger: "bg-status-danger text-status-danger-foreground",
+	authority: "bg-status-authority text-status-authority-foreground",
 	neutral: "bg-status-neutral text-status-neutral-foreground",
 	accent: "bg-sidebar-accent text-sidebar-accent-foreground",
 };

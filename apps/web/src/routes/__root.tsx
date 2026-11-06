@@ -105,7 +105,7 @@ function RootDocument() {
 				</Link>
 				<FormDraftsProvider>
 					<div className="grid min-h-svh grid-rows-[auto_1fr]">
-						<main id="main-content" className="min-h-0" tabIndex={-1}>
+						<main id="main-content" className="min-h-0 min-w-0" tabIndex={-1}>
 							<Outlet />
 						</main>
 					</div>

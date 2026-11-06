@@ -261,6 +261,7 @@ const managementNavigationItems = [
 		href: "/admin/users",
 		icon: UsersRoundIcon,
 		label: "Users",
+		queue: "pendingConfirmations",
 		requiredPermissions: ["admins.manage"],
 	},
 	{

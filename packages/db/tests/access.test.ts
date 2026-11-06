@@ -1,5 +1,3 @@
-import { randomUUID } from "node:crypto";
-
 import { and, eq, inArray } from "drizzle-orm";
 import { afterAll, describe, expect, it } from "vitest";
 
@@ -17,50 +15,15 @@ import {
 import { recordAudit } from "../src/audit";
 import type { DbExecutor } from "../src/db-executor";
 import { auditLog } from "../src/schema/audit_log";
-import { user } from "../src/schema/auth";
 import { permissions } from "../src/schema/permissions";
 import { rolePermissions } from "../src/schema/role_permissions";
-import { roles } from "../src/schema/roles";
 import { userRoles } from "../src/schema/user_roles";
 
-const describeWithDatabase = process.env.DATABASE_URL
-	? describe
-	: describe.skip;
-
-class RollBack extends Error {}
-
-/** Runs a test inside a transaction that is always undone, leaving the database as it was. */
-async function inRolledBackTransaction(
-	test: (tx: DbExecutor) => Promise<void>,
-) {
-	await expect(
-		db.transaction(async (tx) => {
-			await test(tx);
-			throw new RollBack();
-		}),
-	).rejects.toBeInstanceOf(RollBack);
-}
-
-async function createAccount(tx: DbExecutor) {
-	const id = randomUUID();
-	const email = `${id}@example.org`;
-	await tx.insert(user).values({
-		id,
-		name: "Test Person",
-		email,
-		emailVerified: true,
-	});
-	return { email, id };
-}
-
-async function roleIdNamed(tx: DbExecutor, name: string) {
-	const [role] = await tx
-		.select({ id: roles.id })
-		.from(roles)
-		.where(eq(roles.name, name));
-	if (!role) throw new Error(`No role named ${name}`);
-	return role.id;
-}
+import {
+	createAccount,
+	inRolledBackTransaction,
+	roleIdNamed,
+} from "./governance-helpers";
 
 /** Removes existing Superadmins inside the transaction, so limits start from zero. */
 async function clearSuperadmins(tx: DbExecutor) {
@@ -69,7 +32,7 @@ async function clearSuperadmins(tx: DbExecutor) {
 		.where(eq(userRoles.roleId, await roleIdNamed(tx, "Superadmin")));
 }
 
-describeWithDatabase("access", () => {
+describe.runIf(process.env.DATABASE_URL)("access", () => {
 	afterAll(async () => {
 		await pool.end();
 	});

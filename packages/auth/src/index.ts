@@ -1,15 +1,16 @@
 import { db } from "@berean-study/db";
 import { assignSignUpRoles } from "@berean-study/db/access";
+import { isAccountSuspended } from "@berean-study/db/people";
 import * as schema from "@berean-study/db/schema/auth";
 import { sendPasswordResetEmail } from "@berean-study/emailkit";
 import { env } from "@berean-study/env/server";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { APIError } from "better-auth/api";
 import { emailOTP } from "better-auth/plugins/email-otp";
 import { twoFactor } from "better-auth/plugins/two-factor";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
 import {
-	sendAccountDeletedEmailSafely,
 	sendEmailVerificationOtp,
 	sendWelcomeEmailSafely,
 } from "./lifecycle-emails";
@@ -53,14 +54,6 @@ export function createAuth() {
 		},
 		secret: env.BETTER_AUTH_SECRET,
 		baseURL: env.BETTER_AUTH_URL,
-		user: {
-			deleteUser: {
-				enabled: true,
-				afterDelete: async (user) => {
-					await sendAccountDeletedEmailSafely(user);
-				},
-			},
-		},
 		emailVerification: {
 			sendOnSignUp: true,
 			afterEmailVerification: async (user) => {
@@ -78,6 +71,14 @@ export function createAuth() {
 			},
 			session: {
 				create: {
+					before: async (session) => {
+						if (await isAccountSuspended(db, session.userId)) {
+							throw new APIError("FORBIDDEN", {
+								message:
+									"This account is suspended. Contact Berean Study if you think this is a mistake.",
+							});
+						}
+					},
 					after: async (session, context) => {
 						if (
 							context?.path === "/change-password" ||

@@ -1,7 +1,9 @@
+import type { listAuditEntries } from "@/functions/audit";
 import type { getCommunityFeed } from "@/functions/community";
 import type { countNoteViews, listNotes } from "@/functions/notes";
 import type { getNotificationPage } from "@/functions/notifications";
 import type { getVerseRangeText } from "@/functions/passages";
+import type { listPeople } from "@/functions/people";
 import type { listReflections } from "@/functions/reflections";
 
 /*
@@ -12,6 +14,8 @@ import type { listReflections } from "@/functions/reflections";
 type ServerFnData<TFn extends (...args: never[]) => unknown> =
 	NonNullable<Parameters<TFn>[0]> extends { data: infer TData } ? TData : never;
 
+export type PeopleListFilters = ServerFnData<typeof listPeople>;
+export type AuditListFilters = ServerFnData<typeof listAuditEntries>;
 export type NoteListFilters = ServerFnData<typeof listNotes>;
 export type NoteCountFilters = ServerFnData<typeof countNoteViews>;
 export type VerseRange = ServerFnData<typeof getVerseRangeText>;
@@ -36,6 +40,26 @@ export const noteKeys = {
 export const staffQueueKeys = {
 	all: ["staff-queues"] as const,
 	counts: () => [...staffQueueKeys.all, "counts"] as const,
+};
+
+export const peopleKeys = {
+	all: ["people"] as const,
+	list: (filters: PeopleListFilters) =>
+		[...peopleKeys.all, "list", filters] as const,
+	profile: (userId: string) => [...peopleKeys.all, "profile", userId] as const,
+	assignableRoles: () => [...peopleKeys.all, "assignable-roles"] as const,
+	pendingChanges: () => [...peopleKeys.all, "pending-changes"] as const,
+};
+
+export const roleKeys = {
+	all: ["roles"] as const,
+	matrix: () => [...roleKeys.all, "matrix"] as const,
+};
+
+export const auditKeys = {
+	all: ["audit"] as const,
+	list: (filters: AuditListFilters) =>
+		[...auditKeys.all, "list", filters] as const,
 };
 
 export const passageKeys = {

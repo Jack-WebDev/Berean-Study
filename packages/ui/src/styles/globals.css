@@ -95,6 +95,8 @@
 	--status-info-foreground: oklch(0.403 0.085 253);
 	--status-danger: oklch(0.927 0.026 32);
 	--status-danger-foreground: oklch(0.444 0.132 32);
+	--status-authority: oklch(0.926 0.022 312);
+	--status-authority-foreground: oklch(0.39 0.09 314);
 	--status-neutral: oklch(0.941 0.013 87);
 	--status-neutral-foreground: oklch(0.428 0.022 269);
 
@@ -181,6 +183,8 @@
 	--status-info-foreground: oklch(0.84 0.06 250);
 	--status-danger: oklch(0.31 0.055 30);
 	--status-danger-foreground: oklch(0.85 0.08 30);
+	--status-authority: oklch(0.3 0.04 312);
+	--status-authority-foreground: oklch(0.85 0.06 312);
 	--status-neutral: oklch(0.29 0.018 255);
 	--status-neutral-foreground: oklch(0.84 0.015 85);
 
@@ -219,6 +223,8 @@
 	--color-status-info-foreground: var(--status-info-foreground);
 	--color-status-danger: var(--status-danger);
 	--color-status-danger-foreground: var(--status-danger-foreground);
+	--color-status-authority: var(--status-authority);
+	--color-status-authority-foreground: var(--status-authority-foreground);
 	--color-status-neutral: var(--status-neutral);
 	--color-status-neutral-foreground: var(--status-neutral-foreground);
 	--color-queue-count: var(--queue-count);
