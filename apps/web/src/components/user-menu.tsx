@@ -18,14 +18,20 @@ import {
 	UserIcon,
 } from "lucide-react";
 
+import { StatusChip } from "@/components/staff/status-chip";
 import { authClient } from "@/lib/auth-client";
 import { getInitials } from "@/lib/format";
 
 type UserMenuProps = {
 	sidebar?: boolean;
+	/** Shown beside the name for staff; members have no chip. */
+	staffRoleLabel?: string | null;
 };
 
-export default function UserMenu({ sidebar = false }: UserMenuProps) {
+export default function UserMenu({
+	sidebar = false,
+	staffRoleLabel,
+}: UserMenuProps) {
 	const navigate = useNavigate();
 	const { data: session, isPending } = authClient.useSession();
 
@@ -70,9 +76,16 @@ export default function UserMenu({ sidebar = false }: UserMenuProps) {
 							<p className="truncate font-medium text-sm">
 								{session.user.name}
 							</p>
-							<p className="truncate text-muted-foreground text-xs">
-								{session.user.email}
-							</p>
+							<div className="flex min-w-0 items-center gap-1.5">
+								{staffRoleLabel ? (
+									<StatusChip className="shrink-0" tone="accent">
+										{staffRoleLabel}
+									</StatusChip>
+								) : null}
+								<p className="truncate text-muted-foreground text-xs">
+									{session.user.email}
+								</p>
+							</div>
 						</div>
 
 						<ChevronsUpDownIcon

@@ -35,6 +35,12 @@
 		"db:rollback": {
 			"cache": false
 		},
+		"db:access:sync": {
+			"cache": false
+		},
+		"db:superadmin:grant": {
+			"cache": false
+		},
 		"db:seed": {
 			"cache": false
 		},

@@ -18,6 +18,12 @@ export const roles = pgTable(
 		description: text("description"),
 
 		autoAssign: boolean("auto_assign").notNull().default(false),
+
+		/**
+		 * A locked role always holds every permission and can't be edited, so the
+		 * platform can never lock itself out.
+		 */
+		locked: boolean("locked").notNull().default(false),
 	},
 	(table) => [
 		uniqueIndex("roles_name_unique").on(sql`lower(${table.name})`),

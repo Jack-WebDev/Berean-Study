@@ -20,7 +20,10 @@ function AuthLayout() {
 	const { viewer } = Route.useRouteContext();
 
 	return (
-		<AppShell permissionKeys={viewer.permissionKeys}>
+		<AppShell
+			permissionKeys={viewer.permissionKeys}
+			staffRoleLabel={viewer.staffRoleLabel}
+		>
 			<Outlet />
 		</AppShell>
 	);

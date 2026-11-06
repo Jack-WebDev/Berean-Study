@@ -33,6 +33,11 @@ export const noteKeys = {
 		[...noteKeys.all, "passage-count", passageId] as const,
 };
 
+export const staffQueueKeys = {
+	all: ["staff-queues"] as const,
+	counts: () => [...staffQueueKeys.all, "counts"] as const,
+};
+
 export const passageKeys = {
 	all: ["passages"] as const,
 	options: () => [...passageKeys.all, "options"] as const,

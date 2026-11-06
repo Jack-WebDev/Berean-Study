@@ -1,3 +1,4 @@
+import type { PermissionKey } from "@berean-study/db/access-catalogue";
 import {
 	Drawer,
 	DrawerContent,
@@ -13,15 +14,14 @@ import { MoreHorizontalIcon, SearchIcon } from "lucide-react";
 import { useState } from "react";
 import { isCurrentLocation } from "./is-current-location";
 import {
-	accessibleNavigationItems,
-	administrationNavigationItems,
-	editorialNavigationItems,
+	accessibleStaffSections,
 	isSecondaryLocation,
 	type NavigationItem,
 	primaryNavigationItems,
 	publicNavigationItems,
 	secondaryNavigationItems,
 } from "./navigation-items";
+import { NavigationQueueCount } from "./navigation-queue-count";
 
 export function PublicMobileNavigation() {
 	return (
@@ -54,20 +54,13 @@ export function MobileNavigation({
 	permissionKeys,
 }: {
 	onOpenSearch: () => void;
-	permissionKeys: readonly string[];
+	permissionKeys: readonly PermissionKey[];
 }) {
 	const pathname = useRouterState({
 		select: (state) => state.location.pathname,
 	});
 	const [moreOpen, setMoreOpen] = useState(false);
-	const editorialItems = accessibleNavigationItems(
-		editorialNavigationItems,
-		permissionKeys,
-	);
-	const administrationItems = accessibleNavigationItems(
-		administrationNavigationItems,
-		permissionKeys,
-	);
+	const staffSections = accessibleStaffSections(permissionKeys);
 	const libraryItem = primaryNavigationItems.find(
 		(item) => item.href === "/library",
 	);
@@ -83,7 +76,7 @@ export function MobileNavigation({
 				aria-label="Mobile navigation"
 				className="fixed inset-x-0 bottom-0 z-40 border-border/70 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden"
 			>
-				<div className="grid h-16 grid-cols-5">
+				<div className="grid h-16 grid-cols-6">
 					{primaryNavigationItems.map((item) => (
 						<MobileNavigationLink
 							item={item}
@@ -133,22 +126,15 @@ export function MobileNavigation({
 						onNavigate={() => setMoreOpen(false)}
 						pathname={pathname}
 					/>
-					{editorialItems.length > 0 && (
+					{staffSections.map((section) => (
 						<MoreNavigationSection
-							items={editorialItems}
-							label="Editorial"
+							items={section.items}
+							key={section.label}
+							label={section.label}
 							onNavigate={() => setMoreOpen(false)}
 							pathname={pathname}
 						/>
-					)}
-					{administrationItems.length > 0 && (
-						<MoreNavigationSection
-							items={administrationItems}
-							label="Administration"
-							onNavigate={() => setMoreOpen(false)}
-							pathname={pathname}
-						/>
-					)}
+					))}
 				</div>
 			</DrawerContent>
 		</Drawer>
@@ -218,6 +204,7 @@ function MoreNavigationItem({
 			>
 				<Icon aria-hidden="true" className="size-4 text-muted-foreground" />
 				<span className="min-w-0 flex-1">{item.label}</span>
+				{item.queue ? <NavigationQueueCount queue={item.queue} /> : null}
 				<span aria-hidden="true" className="text-muted-foreground">
 					›
 				</span>

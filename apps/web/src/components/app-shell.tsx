@@ -1,3 +1,4 @@
+import type { PermissionKey } from "@berean-study/db/access-catalogue";
 import { Button } from "@berean-study/ui/components/button";
 import {
 	Collapsible,
@@ -27,7 +28,7 @@ import {
 import { cn } from "@berean-study/ui/lib/utils";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { ChevronRightIcon, MoonIcon, SearchIcon, SunIcon } from "lucide-react";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 
 import {
 	applyDisplaySettings,
@@ -38,31 +39,33 @@ import {
 import { isCurrentLocation } from "./navigation/is-current-location";
 import { MobileNavigation } from "./navigation/mobile-navigation";
 import {
-	accessibleNavigationItems,
-	administrationNavigationItems,
-	editorialNavigationItems,
+	accessibleStaffSections,
 	type NavigationItem,
+	type NavigationSection,
 	primaryNavigationItems,
 	secondaryNavigationItems,
 } from "./navigation/navigation-items";
+import { NavigationQueueCount } from "./navigation/navigation-queue-count";
 import { NotificationMenu } from "./notification-menu";
 import { GlobalSearchDialog } from "./search/global-search-dialog";
 import UserMenu from "./user-menu";
 
 type AppShellProps = {
 	children: ReactNode;
-	permissionKeys: readonly string[];
+	permissionKeys: readonly PermissionKey[];
+	staffRoleLabel: string | null;
 };
 
-export function AppShell({ children, permissionKeys }: AppShellProps) {
+export function AppShell({
+	children,
+	permissionKeys,
+	staffRoleLabel,
+}: AppShellProps) {
 	const [searchOpen, setSearchOpen] = useState(false);
 	const location = useRouterState({
 		select: (state) => state.location,
 	});
-	const editorialItems = useMemo(
-		() => accessibleNavigationItems(editorialNavigationItems, permissionKeys),
-		[permissionKeys],
-	);
+	const staffSections = accessibleStaffSections(permissionKeys);
 
 	useEffect(() => {
 		const handleKeyDown = (event: KeyboardEvent) => {
@@ -75,19 +78,14 @@ export function AppShell({ children, permissionKeys }: AppShellProps) {
 		window.addEventListener("keydown", handleKeyDown);
 		return () => window.removeEventListener("keydown", handleKeyDown);
 	}, []);
-	const administrationItems = useMemo(
-		() =>
-			accessibleNavigationItems(administrationNavigationItems, permissionKeys),
-		[permissionKeys],
-	);
 
 	return (
 		<SidebarProvider>
 			<AppSidebar
-				administrationItems={administrationItems}
-				editorialItems={editorialItems}
 				hash={location.hash}
 				pathname={location.pathname}
+				staffRoleLabel={staffRoleLabel}
+				staffSections={staffSections}
 			/>
 			<SidebarInset className="min-w-0">
 				<ApplicationToolbar onOpenSearch={() => setSearchOpen(true)} />
@@ -103,15 +101,15 @@ export function AppShell({ children, permissionKeys }: AppShellProps) {
 }
 
 function AppSidebar({
-	administrationItems,
-	editorialItems,
 	hash,
 	pathname,
+	staffRoleLabel,
+	staffSections,
 }: {
-	administrationItems: NavigationItem[];
-	editorialItems: NavigationItem[];
 	hash: string;
 	pathname: string;
+	staffRoleLabel: string | null;
+	staffSections: readonly NavigationSection[];
 }) {
 	return (
 		<Sidebar collapsible="offcanvas" className="border-sidebar-border border-r">
@@ -144,27 +142,20 @@ function AppSidebar({
 						/>
 					</SidebarGroupContent>
 				</SidebarGroup>
-				{editorialItems.length > 0 && (
+				{staffSections.map((section) => (
 					<NavigationGroup
-						label="Editorial"
-						items={editorialItems}
 						hash={hash}
+						items={section.items}
+						key={section.label}
+						label={section.label}
 						pathname={pathname}
 					/>
-				)}
-				{administrationItems.length > 0 && (
-					<NavigationGroup
-						label="Administration"
-						items={administrationItems}
-						hash={hash}
-						pathname={pathname}
-					/>
-				)}
+				))}
 			</SidebarContent>
 			<SidebarFooter className="px-3 pb-4">
 				<SidebarSeparator className="mx-0 mt-auto" />
 				<div className="pt-2">
-					<UserMenu sidebar />
+					<UserMenu sidebar staffRoleLabel={staffRoleLabel} />
 				</div>
 			</SidebarFooter>
 		</Sidebar>
@@ -184,7 +175,10 @@ function NavigationGroup({
 }) {
 	return (
 		<SidebarGroup>
-			<SidebarGroupLabel>{label}</SidebarGroupLabel>
+			<SidebarGroupLabel className="gap-2.5 font-bold text-[0.6875rem] text-muted-foreground uppercase tracking-[0.16em]">
+				{label}
+				<span aria-hidden="true" className="h-px flex-1 bg-sidebar-border" />
+			</SidebarGroupLabel>
 			<SidebarGroupContent>
 				<NavigationMenu hash={hash} items={items} pathname={pathname} />
 			</SidebarGroupContent>
@@ -306,6 +300,9 @@ function NavigationLink({
 			>
 				<Icon aria-hidden="true" />
 				<span>{item.label}</span>
+				{item.queue ? (
+					<NavigationQueueCount className="ml-auto" queue={item.queue} />
+				) : null}
 			</SidebarMenuButton>
 		</SidebarMenuItem>
 	);
