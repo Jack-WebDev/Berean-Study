@@ -1,17 +1,15 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { DestinationPage } from "@/components/application/destination-page";
-import { administrationNavigationItems } from "@/components/navigation/navigation-items";
+import { accessibleStaffItem } from "@/components/navigation/navigation-items";
+import { StaffSectionPage } from "@/components/staff/staff-section-page";
 
 export const Route = createFileRoute("/_auth/admin/$section")({
 	beforeLoad: ({ context, params }) => {
-		const item = administrationNavigationItems.find(
-			(candidate) => candidate.href === `/admin/${params.section}`,
-		);
 		if (
-			!item ||
-			(item.requiredPermission &&
-				!context.viewer.permissionKeys.includes(item.requiredPermission))
+			!accessibleStaffItem(
+				`/admin/${params.section}`,
+				context.viewer.permissionKeys,
+			)
 		) {
 			throw redirect({ to: "/home" });
 		}
@@ -20,20 +18,11 @@ export const Route = createFileRoute("/_auth/admin/$section")({
 });
 
 function AdministrationSectionPage() {
-	const { section } = Route.useParams();
-	const item = administrationNavigationItems.find(
-		(candidate) => candidate.href === `/admin/${section}`,
+	const { viewer } = Route.useRouteContext();
+	const item = accessibleStaffItem(
+		`/admin/${Route.useParams().section}`,
+		viewer.permissionKeys,
 	);
 
-	if (!item) {
-		return null;
-	}
-
-	return (
-		<DestinationPage
-			description="Administrative capabilities are available only to people granted the relevant permission."
-			icon={item.icon}
-			title={item.label}
-		/>
-	);
+	return item ? <StaffSectionPage item={item} /> : null;
 }

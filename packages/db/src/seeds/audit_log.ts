@@ -18,6 +18,7 @@ export async function seedAuditLog(
 			rows(count, (i) => ({
 				actorUserId: textId(context, "users", i),
 				action: "seeded",
+				domain: "editorial" as const,
 				targetType: "seed",
 				targetId: faker.string.uuid(),
 				details: { seed: true, index: i },

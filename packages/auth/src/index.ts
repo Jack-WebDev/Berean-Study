@@ -1,4 +1,5 @@
 import { db } from "@berean-study/db";
+import { assignSignUpRoles } from "@berean-study/db/access";
 import * as schema from "@berean-study/db/schema/auth";
 import { sendPasswordResetEmail } from "@berean-study/emailkit";
 import { env } from "@berean-study/env/server";
@@ -96,6 +97,11 @@ export function createAuth() {
 				},
 			},
 			user: {
+				create: {
+					after: async (user) => {
+						await assignSignUpRoles(db, user.id);
+					},
+				},
 				update: {
 					after: async (user, context) => {
 						const event =

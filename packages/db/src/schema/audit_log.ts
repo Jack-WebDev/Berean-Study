@@ -9,8 +9,13 @@ import {
 	timestamp,
 } from "drizzle-orm/pg-core";
 
+import type { AuditDomain } from "../audit-catalogue";
 import { user } from "./auth";
 
+/**
+ * Append-only: a database trigger rejects every update and delete, for everyone
+ * including Superadmins.
+ */
 export const auditLog = pgTable(
 	"audit_log",
 	{
@@ -22,7 +27,15 @@ export const auditLog = pgTable(
 				onDelete: "restrict",
 			}),
 
+		/**
+		 * The actor's role at the time, because roles change and the log must
+		 * still show what authority someone was acting under.
+		 */
+		actorRole: text("actor_role"),
+
 		action: text().notNull(),
+
+		domain: text().$type<AuditDomain>().notNull(),
 
 		targetType: text("target_type").notNull(),
 
@@ -53,6 +66,23 @@ export const auditLog = pgTable(
 		),
 
 		check(
+			"audit_log_domain_check",
+			sql`${table.domain} IN (
+				'editorial',
+				'publication',
+				'scripture',
+				'authorization',
+				'community',
+				'users'
+			)`,
+		),
+
+		check(
+			"audit_log_actor_role_not_blank_check",
+			sql`${table.actorRole} IS NULL OR btrim(${table.actorRole}) <> ''`,
+		),
+
+		check(
 			"audit_log_details_object_check",
 			sql`
 				${table.details} IS NULL
@@ -72,5 +102,7 @@ export const auditLog = pgTable(
 		),
 
 		index("audit_log_occurred_at_idx").on(table.occurredAt),
+
+		index("audit_log_domain_history_idx").on(table.domain, table.occurredAt),
 	],
 );

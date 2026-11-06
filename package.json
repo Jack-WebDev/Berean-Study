@@ -17,6 +17,8 @@
 		"db:generate": "turbo run db:generate -F @berean-study/db --",
 		"db:migrate": "turbo run db:migrate -F @berean-study/db --",
 		"db:rollback": "turbo run db:rollback -F @berean-study/db --",
+		"db:access:sync": "turbo run db:access:sync -F @berean-study/db --",
+		"db:superadmin:grant": "turbo run db:superadmin:grant -F @berean-study/db --",
 		"db:seed": "turbo run db:seed -F @berean-study/db --",
 		"db:seed:reset": "turbo run db:seed:reset -F @berean-study/db --",
 		"db:start": "turbo run db:start -F @berean-study/db --",

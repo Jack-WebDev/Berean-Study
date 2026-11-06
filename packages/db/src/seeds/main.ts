@@ -9,9 +9,7 @@ type Seed = (
 ) => Promise<void>;
 
 const orderedSeeds: Seed[] = [
-	seeds.seedRoles,
-	seeds.seedPermissions,
-	seeds.seedRolePermissions,
+	seeds.seedAccessCatalogue,
 	seeds.seedAuth,
 	seeds.seedUserRoles,
 	seeds.seedCanonTraditions,

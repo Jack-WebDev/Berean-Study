@@ -266,6 +266,24 @@ pnpm db:seed --specific=auth.ts -- count=10
 
 `--reset` can also be combined with `--specific`, for example `pnpm db:seed --reset --specific=auth`.
 
+### Roles and permissions
+
+Permissions and starting roles are defined in `packages/db/src/access-catalogue.ts`. After running migrations, copy them into the database. This is safe to repeat, and it keeps changes made on the Roles screen:
+
+```bash
+pnpm db:access:sync
+```
+
+### First Superadmins
+
+Changes to the foundations of Berean Study need a second Superadmin to confirm them, so every environment needs two. Register both accounts in the app, then run this once for each:
+
+```bash
+pnpm db:superadmin:grant person@example.org
+```
+
+The command stops working once two Superadmins exist. After that, new ones are proposed in the app and confirmed by a second Superadmin.
+
 ---
 
 ## Development
