@@ -26,6 +26,7 @@ import { communityPosts } from "../src/schema/community_posts";
 import { communityReports } from "../src/schema/community_reports";
 import { notes } from "../src/schema/notes";
 import { userRoles } from "../src/schema/user_roles";
+import { decideChange, listProposals } from "../src/two-person";
 import {
 	createPerson,
 	inRolledBackTransaction,
@@ -268,6 +269,78 @@ describe.runIf(process.env.DATABASE_URL)("people", () => {
 						expect.objectContaining({ action: "role_permission.removed" }),
 					]),
 				);
+			});
+		});
+
+		it("holds an Admin-level permission until a second Superadmin confirms it", async () => {
+			await inRolledBackTransaction(async (tx) => {
+				await withFreshCatalogue(tx);
+				const proposer = await createPerson(tx, "Superadmin");
+				const confirmer = await createPerson(tx, "Superadmin");
+				const roleId = await roleIdNamed(tx, "Contributor");
+				const grantsOfContributor = async () =>
+					(await getRoleMatrix(tx)).roles.find(({ id }) => id === roleId)
+						?.grants;
+
+				const result = await saveRolePermissions(tx, {
+					actorUserId: proposer.id,
+					reason: "Contributors should publish",
+					changes: [
+						{ roleId, permission: "publication.publish", granted: true },
+						{ roleId, permission: "research.manage", granted: false },
+					],
+				});
+
+				expect(result).toEqual({ applied: 1, proposed: 1 });
+				expect(await grantsOfContributor()).not.toContain(
+					"publication.publish",
+				);
+				expect(await grantsOfContributor()).not.toContain("research.manage");
+
+				const [proposal] = await listProposals(tx, {
+					status: "proposed",
+					target: { type: "role", id: String(roleId) },
+				});
+				if (!proposal) throw new Error("No proposal");
+				expect(proposal.destination).toBe("/admin/roles");
+
+				await expect(
+					decideChange(tx, {
+						proposalId: proposal.id,
+						deciderUserId: proposer.id,
+						decision: "confirm",
+						note: "Looks fine",
+					}),
+				).rejects.toThrow("You proposed this change");
+
+				await decideChange(tx, {
+					proposalId: proposal.id,
+					deciderUserId: confirmer.id,
+					decision: "confirm",
+					note: "Agreed",
+				});
+				expect(await grantsOfContributor()).toContain("publication.publish");
+			});
+		});
+
+		it("doesn't propose a permission the role already has", async () => {
+			await inRolledBackTransaction(async (tx) => {
+				await withFreshCatalogue(tx);
+				const superadmin = await createPerson(tx, "Superadmin");
+
+				const result = await saveRolePermissions(tx, {
+					actorUserId: superadmin.id,
+					reason: "Nothing to do",
+					changes: [
+						{
+							roleId: await roleIdNamed(tx, "Admin"),
+							permission: "publication.publish",
+							granted: true,
+						},
+					],
+				});
+
+				expect(result).toEqual({ applied: 0, proposed: 0 });
 			});
 		});
 

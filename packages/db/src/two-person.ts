@@ -13,6 +13,10 @@ import {
 	type RoleChangePayload,
 	roleChangeKind,
 } from "./change-kinds/role-change";
+import {
+	type RolePermissionPayload,
+	rolePermissionKind,
+} from "./change-kinds/role-permission";
 import type { DbExecutor } from "./db-executor";
 import { GovernanceError } from "./governance-error";
 import { createNotification } from "./notifications";
@@ -79,6 +83,7 @@ function changeKind<TPayload>(definition: ChangeKindDefinition<TPayload>) {
 const changeKinds = {
 	role_change: changeKind(roleChangeKind),
 	access_case: changeKind(accessCaseKind),
+	role_permission: changeKind(rolePermissionKind),
 };
 
 export type ChangeKindName = keyof typeof changeKinds;
@@ -86,6 +91,7 @@ export type ChangeKindName = keyof typeof changeKinds;
 type ChangePayloads = {
 	role_change: RoleChangePayload;
 	access_case: AccessCasePayload;
+	role_permission: RolePermissionPayload;
 };
 
 function kindNamed(name: string) {
@@ -93,7 +99,8 @@ function kindNamed(name: string) {
 	throw new Error(`Unknown change kind: ${name}`);
 }
 
-async function holdersOf(client: DbExecutor, permission: PermissionKey) {
+/** Everyone holding a permission through any of their roles. */
+export async function holdersOf(client: DbExecutor, permission: PermissionKey) {
 	const rows = await client
 		.selectDistinct({ userId: userRoles.userId })
 		.from(userRoles)

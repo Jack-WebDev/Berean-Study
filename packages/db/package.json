@@ -18,6 +18,7 @@
 		"db:studio": "drizzle-kit studio",
 		"db:migrate": "drizzle-kit migrate",
 		"db:access:sync": "tsx src/scripts/sync-access.ts",
+		"db:scripture:sync": "tsx src/scripts/sync-scripture.ts",
 		"db:superadmin:grant": "tsx src/scripts/grant-founding-superadmin.ts",
 		"db:seed": "tsx src/seeds/main.ts",
 		"db:seed:reset": "tsx src/seeds/main.ts --reset",

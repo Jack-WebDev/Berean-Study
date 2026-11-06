@@ -1,17 +1,25 @@
 import { and, asc, count, eq } from "drizzle-orm";
 
 import {
+	elevatedPermissions,
 	isPermissionKey,
 	type PermissionKey,
 	permissionCatalogue,
 } from "./access-catalogue";
 import { recordAudit } from "./audit";
+import {
+	addPermissionToRole,
+	getEditableRole,
+	getPermissionId,
+	roleHoldsPermission,
+} from "./change-kinds/role-permission";
 import type { DbExecutor } from "./db-executor";
 import { GovernanceError } from "./governance-error";
 import { permissions } from "./schema/permissions";
 import { rolePermissions } from "./schema/role_permissions";
 import { roles } from "./schema/roles";
 import { userRoles } from "./schema/user_roles";
+import { proposeChange } from "./two-person";
 
 /** Every role and permission, for the Roles & Permissions screen. */
 export async function getRoleMatrix(client: DbExecutor) {
@@ -55,7 +63,11 @@ export type RolePermissionChange = {
 	granted: boolean;
 };
 
-/** Saves permission changes together, each with its own audit entry. */
+/**
+ * Saves permission changes together, each with its own audit entry. Adding an
+ * Admin-level permission doesn't take effect yet: it waits for a second
+ * Superadmin. Everything else, including removals, applies straight away.
+ */
 export async function saveRolePermissions(
 	client: DbExecutor,
 	input: {
@@ -67,53 +79,52 @@ export async function saveRolePermissions(
 	const reason = input.reason.trim();
 	if (!reason) throw new GovernanceError("Give a reason for these changes.");
 
-	await client.transaction(async (tx) => {
-		const permissionRows = await tx
-			.select({ id: permissions.id, key: permissions.key })
-			.from(permissions);
+	return client.transaction(async (tx) => {
+		let applied = 0;
+		let proposed = 0;
 
-		for (const change of input.changes) {
-			const [role] = await tx
-				.select({ name: roles.name, locked: roles.locked })
-				.from(roles)
-				.where(eq(roles.id, change.roleId));
-			if (!role) throw new GovernanceError("This role no longer exists.");
-			if (role.locked) {
-				throw new GovernanceError(`${role.name} permissions can't be changed.`);
-			}
-			const permissionId = permissionRows.find(
-				({ key }) => key === change.permission,
-			)?.id;
-			if (!permissionId) {
-				throw new GovernanceError("This permission no longer exists.");
-			}
+		for (const { granted, permission, roleId } of input.changes) {
+			const role = await getEditableRole(tx, roleId);
+			const permissionId = await getPermissionId(tx, permission);
+			const payload = { roleId, permission };
 
-			if (change.granted) {
-				await tx
-					.insert(rolePermissions)
-					.values({ roleId: change.roleId, permissionId })
-					.onConflictDoNothing();
-			} else {
+			if (!granted) {
 				await tx
 					.delete(rolePermissions)
 					.where(
 						and(
-							eq(rolePermissions.roleId, change.roleId),
+							eq(rolePermissions.roleId, roleId),
 							eq(rolePermissions.permissionId, permissionId),
 						),
 					);
+				await recordAudit(tx, {
+					actorUserId: input.actorUserId,
+					action: "role_permission.removed",
+					targetType: "role",
+					targetId: roleId,
+					details: { role: role.name, permission, reason },
+				});
+				applied += 1;
+			} else if (await roleHoldsPermission(tx, roleId, permissionId)) {
+				// Already there, so there's nothing to change or to confirm.
+			} else if (elevatedPermissions.has(permission)) {
+				await proposeChange(tx, {
+					kind: "role_permission",
+					payload,
+					proposerUserId: input.actorUserId,
+					reason,
+				});
+				proposed += 1;
+			} else {
+				await addPermissionToRole(tx, payload, {
+					actorUserId: input.actorUserId,
+					reason,
+				});
+				applied += 1;
 			}
-
-			await recordAudit(tx, {
-				actorUserId: input.actorUserId,
-				action: change.granted
-					? "role_permission.added"
-					: "role_permission.removed",
-				targetType: "role",
-				targetId: change.roleId,
-				details: { role: role.name, permission: change.permission, reason },
-			});
 		}
+
+		return { applied, proposed };
 	});
 }
 

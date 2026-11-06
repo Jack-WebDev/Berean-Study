@@ -16,7 +16,12 @@ import {
 	openAccessCase,
 	suspendAccount,
 } from "@/functions/people";
-import { auditKeys, peopleKeys, staffQueueKeys } from "@/queries/keys";
+import {
+	auditKeys,
+	peopleKeys,
+	roleKeys,
+	staffQueueKeys,
+} from "@/queries/keys";
 import { assignableRolesQueryOptions } from "@/queries/people";
 
 import { ReasonField, StaffFormDialog } from "../staff-form-dialog";
@@ -28,6 +33,7 @@ function usePeopleMutationSettled() {
 	return () =>
 		Promise.all([
 			queryClient.invalidateQueries({ queryKey: peopleKeys.all }),
+			queryClient.invalidateQueries({ queryKey: roleKeys.all }),
 			queryClient.invalidateQueries({ queryKey: auditKeys.all }),
 			queryClient.invalidateQueries({ queryKey: staffQueueKeys.all }),
 		]);

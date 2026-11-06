@@ -1,9 +1,13 @@
-import type { PermissionKey } from "@berean-study/db/access-catalogue";
+import {
+	elevatedPermissions,
+	type PermissionKey,
+} from "@berean-study/db/access-catalogue";
 import { Input } from "@berean-study/ui/components/input";
 import { Label } from "@berean-study/ui/components/label";
 import { cn } from "@berean-study/ui/lib/utils";
 import {
 	useMutation,
+	useQuery,
 	useQueryClient,
 	useSuspenseQuery,
 } from "@tanstack/react-query";
@@ -12,13 +16,22 @@ import { useId, useState } from "react";
 import { toast } from "sonner";
 
 import { createRole, saveRolePermissions } from "@/functions/roles";
-import { auditKeys, peopleKeys, roleKeys } from "@/queries/keys";
+import { formatStaffDate } from "@/lib/format";
+import {
+	auditKeys,
+	peopleKeys,
+	roleKeys,
+	staffQueueKeys,
+} from "@/queries/keys";
+import { pendingChangesQueryOptions } from "@/queries/people";
 import { roleMatrixQueryOptions } from "@/queries/roles";
 
+import { DecisionDialog } from "../people/person-dialogs";
 import { StaffButton } from "../staff-button";
 import { StaffCard } from "../staff-card";
 import { ReasonField, StaffFormDialog } from "../staff-form-dialog";
 import { StaffPage } from "../staff-page";
+import { StatusChip } from "../status-chip";
 
 type Change = { granted: boolean; permission: PermissionKey; roleId: number };
 
@@ -26,7 +39,9 @@ function changeKey(roleId: number, permission: PermissionKey) {
 	return `${roleId}|${permission}`;
 }
 
-export function RolesPage() {
+const ROLES_PAGE = "/admin/roles";
+
+export function RolesPage({ viewerId }: { viewerId: string }) {
 	const { data: matrix } = useSuspenseQuery(roleMatrixQueryOptions());
 	const [changes, setChanges] = useState<ReadonlyMap<string, Change>>(
 		new Map(),
@@ -39,7 +54,11 @@ export function RolesPage() {
 		matrix.roles.find(({ id }) => id === roleId)?.name ?? "This role";
 	const summary = [...changes.values()].map(
 		({ granted, permission, roleId }) =>
-			`${roleName(roleId)} ${granted ? "gains" : "loses"} ${permission}`,
+			`${roleName(roleId)} ${granted ? "gains" : "loses"} ${permission}${
+				granted && elevatedPermissions.has(permission)
+					? " (needs a second Superadmin)"
+					: ""
+			}`,
 	);
 
 	function toggle(
@@ -91,6 +110,8 @@ export function RolesPage() {
 					</li>
 				))}
 			</ul>
+
+			<PendingPermissionChanges viewerId={viewerId} />
 
 			{changes.size > 0 ? (
 				<div
@@ -214,6 +235,82 @@ export function RolesPage() {
 	);
 }
 
+/** Admin-level permissions waiting for a second Superadmin before they apply. */
+function PendingPermissionChanges({ viewerId }: { viewerId: string }) {
+	const { data: changes } = useQuery(pendingChangesQueryOptions());
+	const [deciding, setDeciding] = useState<{
+		decision: "confirm" | "reject";
+		description: string;
+		proposalId: number;
+	} | null>(null);
+	const waiting = changes?.filter(
+		({ destination }) => destination === ROLES_PAGE,
+	);
+
+	if (!waiting?.length) return null;
+
+	return (
+		<StaffCard className="mt-6" title="Waiting for a second Superadmin">
+			<ul className="divide-y divide-border-subtle">
+				{waiting.map((change) => (
+					<li
+						className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
+						key={change.id}
+					>
+						<div className="min-w-0 flex-1 basis-64">
+							<p className="font-medium text-sm">{change.description}</p>
+							<p className="text-muted-foreground text-xs">
+								Proposed {formatStaffDate(change.createdAt)}: {change.reason}
+							</p>
+						</div>
+						{change.proposerUserId === viewerId ? (
+							<StatusChip tone="neutral">You proposed this</StatusChip>
+						) : (
+							<div className="flex gap-2">
+								<StaffButton
+									onClick={() =>
+										setDeciding({
+											decision: "confirm",
+											description: change.description,
+											proposalId: change.id,
+										})
+									}
+								>
+									Confirm
+								</StaffButton>
+								<StaffButton
+									onClick={() =>
+										setDeciding({
+											decision: "reject",
+											description: change.description,
+											proposalId: change.id,
+										})
+									}
+									variant="outline"
+								>
+									Decline
+								</StaffButton>
+							</div>
+						)}
+					</li>
+				))}
+			</ul>
+			{deciding ? (
+				<DecisionDialog
+					decision={deciding.decision}
+					description={deciding.description}
+					key={`${deciding.proposalId}-${deciding.decision}`}
+					onOpenChange={(open) => {
+						if (!open) setDeciding(null);
+					}}
+					open
+					proposalId={deciding.proposalId}
+				/>
+			) : null}
+		</StaffCard>
+	);
+}
+
 function PermissionToggle({
 	changed,
 	label,
@@ -273,13 +370,17 @@ function ReviewChangesDialog({
 	const queryClient = useQueryClient();
 	const mutation = useMutation({
 		mutationFn: () => saveRolePermissions({ data: { changes, reason } }),
-		onSuccess: async () => {
+		onSuccess: async ({ applied, proposed }) => {
 			await Promise.all([
 				queryClient.invalidateQueries({ queryKey: roleKeys.all }),
 				queryClient.invalidateQueries({ queryKey: peopleKeys.all }),
 				queryClient.invalidateQueries({ queryKey: auditKeys.all }),
+				queryClient.invalidateQueries({ queryKey: staffQueueKeys.all }),
 			]);
-			toast.success("Permissions saved");
+			if (applied > 0) toast.success("Permissions saved");
+			if (proposed > 0) {
+				toast.success("Sent for a second Superadmin to confirm");
+			}
 			onSaved();
 			setReason("");
 			onOpenChange(false);

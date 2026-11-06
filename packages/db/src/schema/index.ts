@@ -99,6 +99,7 @@ export * from "./themes";
 export * from "./translations";
 export * from "./user_preferences";
 export * from "./user_roles";
+export * from "./verse_presence";
 export * from "./verse_texts";
 export * from "./verses";
 export * from "./versification_systems";

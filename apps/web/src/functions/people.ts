@@ -43,7 +43,7 @@ export const listAssignableRoles = createServerFn({ method: "GET" })
 
 /** Changes waiting for a second person, shown at the top of the Users page. */
 export const listPendingChanges = createServerFn({ method: "GET" })
-	.middleware([requirePermission("admins.manage")])
+	.middleware([requirePermission("admins.manage", "roles.manage")])
 	.handler(async () => {
 		const proposals = await listProposals(db, { status: "proposed" });
 		return proposals.map((proposal) => ({
@@ -72,7 +72,8 @@ export const changeRoles = createServerFn({ method: "POST" })
 	);
 
 export const decideChange = createServerFn({ method: "POST" })
-	.middleware([requirePermission("admins.manage")])
+	// Each kind of change also checks its own permission when it's decided.
+	.middleware([requirePermission("admins.manage", "roles.manage")])
 	.validator(
 		z.object({
 			proposalId: z.number().int().positive(),
