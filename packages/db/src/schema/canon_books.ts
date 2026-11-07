@@ -23,6 +23,12 @@ export const canonBooks = pgTable(
 			.references(() => books.id),
 
 		canonicalOrder: smallint("canonical_order").notNull(),
+
+		/**
+		 * How many chapters this book has in this canon. Blank until two Superadmins
+		 * approve a number, so nobody has to guess for a canon they haven't checked.
+		 */
+		chapterLimit: smallint("chapter_limit"),
 	},
 	(table) => [
 		primaryKey({
@@ -33,5 +39,10 @@ export const canonBooks = pgTable(
 		unique("canon_books_order_unique").on(table.canonId, table.canonicalOrder),
 
 		check("canon_books_order_positive_check", sql`${table.canonicalOrder} > 0`),
+
+		check(
+			"canon_books_chapter_limit_positive_check",
+			sql`${table.chapterLimit} IS NULL OR ${table.chapterLimit} > 0`,
+		),
 	],
 );

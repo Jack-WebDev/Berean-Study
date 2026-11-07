@@ -6,6 +6,7 @@ import type { getVerseRangeText } from "@/functions/passages";
 import type { listPeople } from "@/functions/people";
 import type { listReflections } from "@/functions/reflections";
 import type { getBookStructure } from "@/functions/scripture-data";
+import type { getVerseHandling } from "@/functions/structure";
 import type {
 	getEntryChapter,
 	getVerseAcrossTranslations,
@@ -28,6 +29,7 @@ export type ProofreadingChapterInput = ServerFnData<
 export type VerseAcrossTranslationsInput = ServerFnData<
 	typeof getVerseAcrossTranslations
 >;
+export type VerseHandlingInput = ServerFnData<typeof getVerseHandling>;
 export type PeopleListFilters = ServerFnData<typeof listPeople>;
 export type AuditListFilters = ServerFnData<typeof listAuditEntries>;
 export type NoteListFilters = ServerFnData<typeof listNotes>;
@@ -96,6 +98,16 @@ export const verseTextKeys = {
 	readyToPublish: () => [...verseTextKeys.all, "ready-to-publish"] as const,
 	verse: (input: VerseAcrossTranslationsInput) =>
 		[...verseTextKeys.all, "verse", input] as const,
+};
+
+export const foundationKeys = {
+	all: ["foundations"] as const,
+	canon: (slug?: string) => [...foundationKeys.all, "canon", { slug }] as const,
+	structureChanges: () => [...foundationKeys.all, "structure-changes"] as const,
+	structureChange: (id: number) =>
+		[...foundationKeys.all, "structure-change", id] as const,
+	verseHandling: (input: VerseHandlingInput) =>
+		[...foundationKeys.all, "verse-handling", input] as const,
 };
 
 export const passageKeys = {

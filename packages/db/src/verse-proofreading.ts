@@ -2,6 +2,7 @@ import { and, asc, eq, inArray } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import { recordAudit } from "./audit";
+import { isBeyondProtestantCanon } from "./canon-limits";
 import type { DbExecutor } from "./db-executor";
 import { GovernanceError } from "./governance-error";
 import { createNotification } from "./notifications";
@@ -70,6 +71,11 @@ export async function getProofreadingChapter(
 	return {
 		book: { name: book.name, slug: book.slug },
 		chapter: chapter.number,
+		noTextSourceYet: await isBeyondProtestantCanon(
+			client,
+			book.id,
+			chapter.number,
+		),
 		translation: {
 			abbreviation: translation.abbreviation,
 			name: translation.name,

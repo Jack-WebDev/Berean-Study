@@ -151,7 +151,8 @@ export const permissionCatalogue = [
 		key: "canon.manage",
 		name: "Manage canon",
 		category: "Foundations",
-		description: "Change the books in each canon and their order.",
+		description:
+			"Change the books in each canon, their order and their chapter limits.",
 	},
 	{
 		key: "translations.manage",

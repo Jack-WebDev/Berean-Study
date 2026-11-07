@@ -44,10 +44,28 @@ export function ChaptersPage({
 	const { book, chapters, selectedVerse, verses } = data;
 	const totalVerses = chapters.reduce((total, { verses }) => total + verses, 0);
 	const canEnter = permissionKeys.includes("scripture.enter");
+	const canManage = permissionKeys.includes("scripture.manage");
 	const reference = `${book.name} ${data.chapter}`;
 
 	return (
 		<StaffPage
+			actions={
+				canManage ? (
+					<>
+						<Link className={staffLinkClassName} to="/admin/canon">
+							Chapter limits
+						</Link>
+						<Link
+							className={staffLinkClassName}
+							params={{ bookSlug: book.slug }}
+							search={{ chapter: data.chapter ?? undefined }}
+							to="/admin/scripture/$bookSlug/add-verses"
+						>
+							+ Add verse
+						</Link>
+					</>
+				) : null
+			}
 			description="The skeleton every translation, commentary and link hangs on. Verse text lives in Translations; this shows which chapters and verses exist."
 			section={`${book.name} · Structure`}
 			title="Chapters & verses"
@@ -195,19 +213,34 @@ export function ChaptersPage({
 									{selectedVerse.linked.crossReferences} cross-references and{" "}
 									{selectedVerse.linked.themes} themes.
 								</p>
-								{canReadVerseText(permissionKeys) && data.chapter ? (
-									<Link
-										className={cn(staffLinkClassName, "mt-4")}
-										params={{
-											bookSlug: book.slug,
-											chapter: String(data.chapter),
-											verse: String(selectedVerse.number),
-										}}
-										to="/work/scripture/verse/$bookSlug/$chapter/$verse"
-									>
-										View text in all translations
-									</Link>
-								) : null}
+								<div className="mt-4 flex flex-wrap gap-2">
+									{canReadVerseText(permissionKeys) && data.chapter ? (
+										<Link
+											className={staffLinkClassName}
+											params={{
+												bookSlug: book.slug,
+												chapter: String(data.chapter),
+												verse: String(selectedVerse.number),
+											}}
+											to="/work/scripture/verse/$bookSlug/$chapter/$verse"
+										>
+											View text in all translations
+										</Link>
+									) : null}
+									{canManage && data.chapter ? (
+										<Link
+											className={staffLinkClassName}
+											params={{ bookSlug: book.slug }}
+											search={{
+												chapter: data.chapter,
+												verse: selectedVerse.number,
+											}}
+											to="/admin/scripture/$bookSlug/verse-handling"
+										>
+											Split / merge verse
+										</Link>
+									) : null}
+								</div>
 							</div>
 						) : null}
 					</StaffCard>

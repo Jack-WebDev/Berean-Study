@@ -169,6 +169,13 @@
 			"when": 1793993331237,
 			"tag": "0023_scripture_entry_and_proofreading",
 			"breakpoints": true
+		},
+		{
+			"idx": 24,
+			"version": "7",
+			"when": 1794024555933,
+			"tag": "0024_canon_chapter_limits",
+			"breakpoints": true
 		}
 	]
 }

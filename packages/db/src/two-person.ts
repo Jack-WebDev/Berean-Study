@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import type { z } from "zod";
 
 import { getPermissionKeys } from "./access";
@@ -10,6 +10,14 @@ import {
 	accessCaseKind,
 } from "./change-kinds/access-case";
 import {
+	type CanonOrderPayload,
+	canonOrderKind,
+} from "./change-kinds/canon-order";
+import {
+	type ChapterLimitsPayload,
+	chapterLimitsKind,
+} from "./change-kinds/chapter-limits";
+import {
 	type RoleChangePayload,
 	roleChangeKind,
 } from "./change-kinds/role-change";
@@ -17,6 +25,14 @@ import {
 	type RolePermissionPayload,
 	rolePermissionKind,
 } from "./change-kinds/role-permission";
+import {
+	type VerseAdditionPayload,
+	verseAdditionKind,
+} from "./change-kinds/verse-addition";
+import {
+	type VerseHandlingPayload,
+	verseHandlingKind,
+} from "./change-kinds/verse-handling";
 import type { DbExecutor } from "./db-executor";
 import { GovernanceError } from "./governance-error";
 import { createNotification } from "./notifications";
@@ -84,6 +100,10 @@ const changeKinds = {
 	role_change: changeKind(roleChangeKind),
 	access_case: changeKind(accessCaseKind),
 	role_permission: changeKind(rolePermissionKind),
+	chapter_limits: changeKind(chapterLimitsKind),
+	canon_order: changeKind(canonOrderKind),
+	verse_addition: changeKind(verseAdditionKind),
+	verse_handling: changeKind(verseHandlingKind),
 };
 
 export type ChangeKindName = keyof typeof changeKinds;
@@ -92,6 +112,10 @@ type ChangePayloads = {
 	role_change: RoleChangePayload;
 	access_case: AccessCasePayload;
 	role_permission: RolePermissionPayload;
+	chapter_limits: ChapterLimitsPayload;
+	canon_order: CanonOrderPayload;
+	verse_addition: VerseAdditionPayload;
+	verse_handling: VerseHandlingPayload;
 };
 
 function kindNamed(name: string) {
@@ -291,6 +315,7 @@ export type ProposalSummary = Awaited<ReturnType<typeof listProposals>>[number];
 export async function listProposals(
 	client: DbExecutor,
 	filter: {
+		kinds?: readonly ChangeKindName[];
 		status?: "proposed";
 		target?: { type: string; id: string };
 	} = {},
@@ -300,6 +325,9 @@ export async function listProposals(
 		.from(changeProposals)
 		.where(
 			and(
+				filter.kinds
+					? inArray(changeProposals.kind, [...filter.kinds])
+					: undefined,
 				filter.status ? eq(changeProposals.status, filter.status) : undefined,
 				filter.target
 					? and(

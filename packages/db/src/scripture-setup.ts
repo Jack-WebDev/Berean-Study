@@ -10,9 +10,17 @@ import { versificationSystems } from "./schema/versification_systems";
 import {
 	bookCatalogue,
 	canonCatalogue,
+	protestantCanonSlug,
 	translationCatalogue,
 	versificationCatalogue,
 } from "./scripture-catalogue";
+
+function expectedChaptersOf(slug: string) {
+	return (
+		bookCatalogue.find((definition) => definition.slug === slug)
+			?.expectedChapters ?? null
+	);
+}
 
 /**
  * Adds any catalogue books, canons and translations that are missing. Safe to run
@@ -84,7 +92,17 @@ export async function applyScriptureCatalogue(client: DbExecutor) {
 			const rows = (definition?.books ?? []).flatMap((bookSlug, index) => {
 				const bookId = bookIdBySlug.get(bookSlug);
 				return bookId
-					? [{ canonId: id, bookId, canonicalOrder: index + 1 }]
+					? [
+							{
+								canonId: id,
+								bookId,
+								canonicalOrder: index + 1,
+								chapterLimit:
+									slug === protestantCanonSlug
+										? expectedChaptersOf(bookSlug)
+										: null,
+							},
+						]
 					: [];
 			});
 			if (rows.length > 0) await tx.insert(canonBooks).values(rows);

@@ -8,13 +8,13 @@ import {
 	openAccessCase as openAccessCaseInDb,
 	suspendAccount as suspendAccountInDb,
 } from "@berean-study/db/people";
+import { peopleChangeKinds } from "@berean-study/db/staff-queues";
 import {
 	decideChange as decideChangeInDb,
 	listProposals,
 } from "@berean-study/db/two-person";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-
 import { requirePermission } from "@/middleware/auth";
 
 const userIdSchema = z.string().min(1);
@@ -45,7 +45,10 @@ export const listAssignableRoles = createServerFn({ method: "GET" })
 export const listPendingChanges = createServerFn({ method: "GET" })
 	.middleware([requirePermission("admins.manage", "roles.manage")])
 	.handler(async () => {
-		const proposals = await listProposals(db, { status: "proposed" });
+		const proposals = await listProposals(db, {
+			kinds: peopleChangeKinds,
+			status: "proposed",
+		});
 		return proposals.map((proposal) => ({
 			id: proposal.id,
 			title: proposal.title,

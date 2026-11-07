@@ -777,8 +777,11 @@ export type CanonDefinition = {
 	books: readonly string[];
 };
 
+/** The canon the six translations follow, so its limits say what they contain. */
+export const protestantCanonSlug = "protestant";
+
 export const canonCatalogue: readonly CanonDefinition[] = [
-	{ name: "Protestant", slug: "protestant", books: protestantOrder },
+	{ name: "Protestant", slug: protestantCanonSlug, books: protestantOrder },
 	{
 		name: "Catholic",
 		slug: "catholic",
@@ -901,3 +904,18 @@ export const verseTextStatusLabels: Record<VerseTextStatus, string> = {
 export function hasOwnText(kind: VersePresenceKind | null) {
 	return kind === null || kind === "bracketed";
 }
+
+/**
+ * Psalm numbering differs between the Hebrew text and the Greek and Latin ones.
+ * Reference only for now: nothing maps verses through this table yet.
+ */
+export const psalmNumberingMap = [
+	{ hebrew: "1–8", greek: "1–8" },
+	{ hebrew: "9–10", greek: "9" },
+	{ hebrew: "11–113", greek: "10–112" },
+	{ hebrew: "114–115", greek: "113" },
+	{ hebrew: "116", greek: "114–115" },
+	{ hebrew: "117–146", greek: "116–145" },
+	{ hebrew: "147", greek: "146–147" },
+	{ hebrew: "148–150", greek: "148–150" },
+] as const;
