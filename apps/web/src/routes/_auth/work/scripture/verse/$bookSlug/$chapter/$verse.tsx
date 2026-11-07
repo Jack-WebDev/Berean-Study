@@ -24,13 +24,14 @@ export const Route = createFileRoute(
 		}
 	},
 	loader: ({ context, params }) =>
-		context.queryClient.ensureQueryData(
-			verseAcrossTranslationsQueryOptions({
+		context.queryClient.query({
+			...verseAcrossTranslationsQueryOptions({
 				chapter: Number(params.chapter),
 				slug: params.bookSlug,
 				verse: Number(params.verse),
 			}),
-		),
+			staleTime: "static",
+		}),
 	component: VerseRoute,
 });
 

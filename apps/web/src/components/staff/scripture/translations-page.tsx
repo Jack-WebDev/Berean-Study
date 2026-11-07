@@ -1,3 +1,4 @@
+import { protestantCanonSlug } from "@berean-study/db/scripture-catalogue";
 import { Input } from "@berean-study/ui/components/input";
 import { Label } from "@berean-study/ui/components/label";
 import { Textarea } from "@berean-study/ui/components/textarea";
@@ -76,7 +77,7 @@ export function TranslationsPage({ abbreviation }: { abbreviation?: string }) {
 			actions={
 				<Link
 					className={staffLinkClassName}
-					search={{ t: selected?.abbreviation }}
+					search={{ canon: protestantCanonSlug, t: selected?.abbreviation }}
 					to="/work/scripture"
 				>
 					Enter verses
@@ -173,7 +174,11 @@ function BookProgress({ selected }: { selected: Selected }) {
 								"grid min-h-11 place-items-center rounded-lg px-1 text-center font-bold text-xs transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
 								stateClassNames[book.state],
 							)}
-							search={{ book: book.slug, t: selected.abbreviation }}
+							search={{
+								book: book.slug,
+								canon: protestantCanonSlug,
+								t: selected.abbreviation,
+							}}
 							title={`${book.name}: ${stateLabels[book.state]}, ${book.publishedVerses} of ${book.expectedVerses} verses published`}
 							to="/work/scripture"
 						>

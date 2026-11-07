@@ -13,8 +13,14 @@ export const Route = createFileRoute("/_auth/admin/roles")({
 	},
 	loader: ({ context }) =>
 		Promise.all([
-			context.queryClient.ensureQueryData(roleMatrixQueryOptions()),
-			context.queryClient.ensureQueryData(pendingChangesQueryOptions()),
+			context.queryClient.query({
+				...roleMatrixQueryOptions(),
+				staleTime: "static",
+			}),
+			context.queryClient.query({
+				...pendingChangesQueryOptions(),
+				staleTime: "static",
+			}),
 		]),
 	component: RolesRoute,
 });

@@ -20,10 +20,14 @@ export const Route = createFileRoute("/_auth/admin/canon")({
 	loaderDeps: ({ search }) => search,
 	loader: ({ context, deps }) =>
 		Promise.all([
-			context.queryClient.ensureQueryData(
-				canonOverviewQueryOptions(deps.canon),
-			),
-			context.queryClient.ensureQueryData(structureChangesQueryOptions()),
+			context.queryClient.query({
+				...canonOverviewQueryOptions(deps.canon),
+				staleTime: "static",
+			}),
+			context.queryClient.query({
+				...structureChangesQueryOptions(),
+				staleTime: "static",
+			}),
 		]),
 	component: CanonRoute,
 });

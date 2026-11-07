@@ -19,13 +19,14 @@ export const Route = createFileRoute(
 		}
 	},
 	loader: ({ context, params }) =>
-		context.queryClient.ensureQueryData(
-			proofreadingChapterQueryOptions({
+		context.queryClient.query({
+			...proofreadingChapterQueryOptions({
 				abbreviation: params.translation,
 				chapter: Number(params.chapter),
 				slug: params.bookSlug,
 			}),
-		),
+			staleTime: "static",
+		}),
 	component: ProofreadingRoute,
 });
 

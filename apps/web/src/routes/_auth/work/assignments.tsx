@@ -13,6 +13,9 @@ export const Route = createFileRoute("/_auth/work/assignments")({
 		}
 	},
 	loader: ({ context }) =>
-		context.queryClient.ensureQueryData(assignmentsQueryOptions()),
+		context.queryClient.query({
+			...assignmentsQueryOptions(),
+			staleTime: "static",
+		}),
 	component: AssignmentsPage,
 });

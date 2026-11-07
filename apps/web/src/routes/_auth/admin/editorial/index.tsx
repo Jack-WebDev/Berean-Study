@@ -17,8 +17,14 @@ export const Route = createFileRoute("/_auth/admin/editorial/")({
 	},
 	loader: ({ context }) =>
 		Promise.all([
-			context.queryClient.ensureQueryData(editorialQueueQueryOptions()),
-			context.queryClient.ensureQueryData(assignablePeopleQueryOptions()),
+			context.queryClient.query({
+				...editorialQueueQueryOptions(),
+				staleTime: "static",
+			}),
+			context.queryClient.query({
+				...assignablePeopleQueryOptions(),
+				staleTime: "static",
+			}),
 		]),
 	component: EditorialQueuePage,
 });

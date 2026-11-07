@@ -16,16 +16,18 @@ export const Route = createFileRoute("/_auth/admin/scripture/$bookSlug/")({
 		tab: z.enum(bookTabs).optional().catch(undefined),
 	}),
 	loader: async ({ context, params }) => {
-		const book = await context.queryClient.ensureQueryData(
-			scriptureBookQueryOptions(params.bookSlug),
-		);
+		const book = await context.queryClient.query({
+			...scriptureBookQueryOptions(params.bookSlug),
+			staleTime: "static",
+		});
 		if (book) {
-			await context.queryClient.ensureQueryData(
-				contentStateQueryOptions({
+			await context.queryClient.query({
+				...contentStateQueryOptions({
 					kind: "book_overview",
 					scopeKey: params.bookSlug,
 				}),
-			);
+				staleTime: "static",
+			});
 		}
 	},
 	component: BookRoute,

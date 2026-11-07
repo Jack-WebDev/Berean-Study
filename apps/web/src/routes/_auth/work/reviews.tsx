@@ -11,6 +11,9 @@ export const Route = createFileRoute("/_auth/work/reviews")({
 		}
 	},
 	loader: ({ context }) =>
-		context.queryClient.ensureQueryData(reviewQueueQueryOptions()),
+		context.queryClient.query({
+			...reviewQueueQueryOptions(),
+			staleTime: "static",
+		}),
 	component: ReviewsPage,
 });

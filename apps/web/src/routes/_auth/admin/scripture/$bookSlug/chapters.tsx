@@ -19,13 +19,14 @@ export const Route = createFileRoute(
 	}),
 	loaderDeps: ({ search }) => search,
 	loader: ({ context, deps, params }) =>
-		context.queryClient.ensureQueryData(
-			bookStructureQueryOptions({
+		context.queryClient.query({
+			...bookStructureQueryOptions({
 				chapter: deps.chapter,
 				slug: params.bookSlug,
 				verse: deps.verse,
 			}),
-		),
+			staleTime: "static",
+		}),
 	component: ChaptersRoute,
 });
 

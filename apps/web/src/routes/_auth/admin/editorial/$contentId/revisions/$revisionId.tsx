@@ -38,12 +38,13 @@ export const Route = createFileRoute(
 		tab: z.enum(revisionTabs).optional().catch(undefined),
 	}),
 	loader: ({ context, params }) =>
-		context.queryClient.ensureQueryData(
-			revisionPageQueryOptions({
+		context.queryClient.query({
+			...revisionPageQueryOptions({
 				contentItemId: Number(params.contentId),
 				revisionId: Number(params.revisionId),
 			}),
-		),
+			staleTime: "static",
+		}),
 	component: RevisionRoute,
 });
 

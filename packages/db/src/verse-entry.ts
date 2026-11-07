@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, max, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, max, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import { recordAudit } from "./audit";
@@ -8,6 +8,7 @@ import { GovernanceError } from "./governance-error";
 import { user } from "./schema/auth";
 import { books } from "./schema/books";
 import { canonBooks } from "./schema/canon_books";
+import { canonTraditions } from "./schema/canon_traditions";
 import { chapters } from "./schema/chapters";
 import { translations } from "./schema/translations";
 import { versePresence } from "./schema/verse_presence";
@@ -17,6 +18,8 @@ import { verses } from "./schema/verses";
 import { versificationSystems } from "./schema/versification_systems";
 import {
 	bookCatalogue,
+	canonCatalogue,
+	entryOpenCanonSlugs,
 	hasOwnText,
 	type VersePresenceKind,
 	type VerseTextStatus,
@@ -195,10 +198,83 @@ async function verseHasNoContent(client: DbExecutor, verseId: number) {
 	return !revision && !published && !exception;
 }
 
-/** Everything the Scripture entry screen shows for one chapter of one translation. */
+/** The traditions Scripture entry starts from, and which of them can be chosen yet. */
+export async function listEntryTraditions(client: DbExecutor) {
+	const rows = await client
+		.select({
+			bookCount: count(canonBooks.bookId),
+			name: canonTraditions.name,
+			slug: canonTraditions.slug,
+		})
+		.from(canonTraditions)
+		.leftJoin(canonBooks, eq(canonBooks.canonId, canonTraditions.id))
+		.groupBy(canonTraditions.id);
+
+	return canonCatalogue.flatMap(({ slug }) =>
+		rows
+			.filter((row) => row.slug === slug)
+			.map((row) => ({ ...row, open: entryOpenCanonSlugs.includes(slug) })),
+	);
+}
+
+/**
+ * The books on offer, each with its chapter limit. A book is on offer once it has
+ * a limit, or if it already has chapters from before that limit changed. Without
+ * a canon, that's every canon's books, in catalogue order, with the longest limit.
+ */
+async function listEntryBooks(client: DbExecutor, canonId: number | undefined) {
+	if (canonId === undefined) {
+		const rows = await client
+			.select({
+				id: books.id,
+				name: books.name,
+				slug: books.slug,
+				chapterLimit: max(canonBooks.chapterLimit),
+				hasChapters: sql<boolean>`count(${chapters.id}) > 0`,
+			})
+			.from(books)
+			.leftJoin(canonBooks, eq(canonBooks.bookId, books.id))
+			.leftJoin(chapters, eq(chapters.bookId, books.id))
+			.where(inArray(books.slug, catalogueSlugs))
+			.groupBy(books.id);
+		return catalogueSlugs.flatMap((slug) =>
+			rows.filter(
+				(row) =>
+					row.slug === slug && (row.chapterLimit !== null || row.hasChapters),
+			),
+		);
+	}
+
+	const rows = await client
+		.select({
+			id: books.id,
+			name: books.name,
+			slug: books.slug,
+			chapterLimit: canonBooks.chapterLimit,
+			hasChapters: sql<boolean>`count(${chapters.id}) > 0`,
+		})
+		.from(canonBooks)
+		.innerJoin(books, eq(books.id, canonBooks.bookId))
+		.leftJoin(chapters, eq(chapters.bookId, books.id))
+		.where(eq(canonBooks.canonId, canonId))
+		.groupBy(books.id, canonBooks.chapterLimit, canonBooks.canonicalOrder)
+		.orderBy(asc(canonBooks.canonicalOrder));
+	return rows.filter((row) => row.chapterLimit !== null || row.hasChapters);
+}
+
+/**
+ * Everything the Scripture entry screen shows for one chapter of one translation.
+ * Given a canon, it offers only that canon's books and chapters. Links to one
+ * specific chapter leave the canon out, so they work for any book.
+ */
 export async function getEntryChapter(
 	client: DbExecutor,
-	input: { abbreviation?: string; chapter?: number; slug?: string },
+	input: {
+		abbreviation?: string;
+		canon?: string;
+		chapter?: number;
+		slug?: string;
+	},
 	viewerUserId: string,
 ) {
 	const supported = await listSupportedTranslations(client);
@@ -207,38 +283,37 @@ export async function getEntryChapter(
 		supported[0];
 	if (!translation) return null;
 
-	// A book is on offer once some canon has a limit for it, or if it already has
-	// chapters from before that limit changed.
-	const bookRows = await client
-		.select({
-			id: books.id,
-			name: books.name,
-			slug: books.slug,
-			chapterLimit: max(canonBooks.chapterLimit),
-			hasChapters: sql<boolean>`count(${chapters.id}) > 0`,
-		})
-		.from(books)
-		.leftJoin(canonBooks, eq(canonBooks.bookId, books.id))
-		.leftJoin(chapters, eq(chapters.bookId, books.id))
-		.where(inArray(books.slug, catalogueSlugs))
-		.groupBy(books.id);
-	const bookList = catalogueSlugs.flatMap((slug) =>
-		bookRows.filter(
-			(row) =>
-				row.slug === slug && (row.chapterLimit !== null || row.hasChapters),
-		),
-	);
+	const [canon] = input.canon
+		? await client
+				.select({
+					id: canonTraditions.id,
+					name: canonTraditions.name,
+					slug: canonTraditions.slug,
+				})
+				.from(canonTraditions)
+				.where(eq(canonTraditions.slug, input.canon))
+		: [];
+	if (input.canon && !canon) return null;
+
+	const bookList = await listEntryBooks(client, canon?.id);
 	const book = bookList.find((row) => row.slug === input.slug) ?? bookList[0];
 	if (!book) return null;
 
 	const chapterStates = await listChapterStates(client, book.id, translation);
+	// Another canon may have added chapters past this one's limit. All canons share
+	// them, so they still count when working out which chapter comes next.
+	const { chapterLimit } = book;
+	const chaptersOnOffer =
+		canon && chapterLimit !== null
+			? chapterStates.filter(({ number }) => number <= chapterLimit)
+			: chapterStates;
 	const chosenNumber =
-		chapterStates.find(({ number }) => number === input.chapter)?.number ??
-		chapterStates[0]?.number ??
+		chaptersOnOffer.find(({ number }) => number === input.chapter)?.number ??
+		chaptersOnOffer[0]?.number ??
 		null;
 	const lastChapter = chapterStates.at(-1)?.number ?? 0;
 	const nextChapter =
-		book.chapterLimit !== null && lastChapter < book.chapterLimit
+		chapterLimit !== null && lastChapter < chapterLimit
 			? lastChapter + 1
 			: null;
 
@@ -270,8 +345,9 @@ export async function getEntryChapter(
 	return {
 		books: bookList.map(({ name, slug }) => ({ name, slug })),
 		book: { name: book.name, slug: book.slug },
+		canon: canon ? { name: canon.name, slug: canon.slug } : null,
 		chapter: chosenNumber,
-		chapters: chapterStates,
+		chapters: chaptersOnOffer,
 		// Only an empty last chapter can be taken back, and only if nothing links to it.
 		canRemoveChapter: chosenNumber === lastChapter && rows.length === 0,
 		canRemoveLastVerse: lastVerse

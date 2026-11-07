@@ -14,9 +14,10 @@ export const Route = createFileRoute("/_auth/admin/users/$userId")({
 		}
 	},
 	loader: ({ context, params }) =>
-		context.queryClient.ensureQueryData(
-			personProfileQueryOptions(params.userId),
-		),
+		context.queryClient.query({
+			...personProfileQueryOptions(params.userId),
+			staleTime: "static",
+		}),
 	component: PersonProfileRoute,
 });
 

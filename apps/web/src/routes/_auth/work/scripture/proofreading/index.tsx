@@ -17,9 +17,15 @@ export const Route = createFileRoute("/_auth/work/scripture/proofreading/")({
 		}
 	},
 	loader: async ({ context }) => {
-		await context.queryClient.ensureQueryData(proofreadingQueueQueryOptions());
+		await context.queryClient.query({
+			...proofreadingQueueQueryOptions(),
+			staleTime: "static",
+		});
 		if (context.viewer.permissionKeys.includes("publication.publish")) {
-			await context.queryClient.ensureQueryData(readyToPublishQueryOptions());
+			await context.queryClient.query({
+				...readyToPublishQueryOptions(),
+				staleTime: "static",
+			});
 		}
 	},
 	component: ProofreadingQueueRoute,

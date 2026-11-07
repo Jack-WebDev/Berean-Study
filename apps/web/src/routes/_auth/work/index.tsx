@@ -11,6 +11,6 @@ export const Route = createFileRoute("/_auth/work/")({
 		}
 	},
 	loader: ({ context }) =>
-		context.queryClient.ensureQueryData(myWorkQueryOptions()),
+		context.queryClient.query({ ...myWorkQueryOptions(), staleTime: "static" }),
 	component: MyWorkPage,
 });

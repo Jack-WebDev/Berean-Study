@@ -801,6 +801,13 @@ export const canonCatalogue: readonly CanonDefinition[] = [
 	},
 ];
 
+/**
+ * The canons Scripture entry lets people choose. The six translations follow the
+ * Protestant canon, and nobody has decided where the text for the other canons'
+ * extra books and chapters comes from. Add a canon here once that's settled.
+ */
+export const entryOpenCanonSlugs: readonly string[] = [protestantCanonSlug];
+
 export type TranslationDefinition = {
 	abbreviation: string;
 	name: string;

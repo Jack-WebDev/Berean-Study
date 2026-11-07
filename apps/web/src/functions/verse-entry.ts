@@ -4,6 +4,7 @@ import {
 	addVerse as addVerseInDb,
 	getEntryChapter as getEntryChapterFromDb,
 	getVerseAcrossTranslations as getVerseAcrossTranslationsFromDb,
+	listEntryTraditions as listEntryTraditionsFromDb,
 	proposeVerseCorrection as proposeVerseCorrectionInDb,
 	removeLastChapter as removeLastChapterInDb,
 	removeLastVerse as removeLastVerseInDb,
@@ -30,11 +31,16 @@ const chapterAddressSchema = z.object({
 	slug: slugSchema,
 });
 
+export const listEntryTraditions = createServerFn({ method: "GET" })
+	.middleware([requirePermission("scripture.enter")])
+	.handler(() => listEntryTraditionsFromDb(db));
+
 export const getEntryChapter = createServerFn({ method: "GET" })
 	.middleware([requirePermission("scripture.enter")])
 	.validator(
 		z.object({
 			abbreviation: abbreviationSchema.optional(),
+			canon: slugSchema.optional(),
 			chapter: chapterSchema.optional(),
 			slug: slugSchema.optional(),
 		}),

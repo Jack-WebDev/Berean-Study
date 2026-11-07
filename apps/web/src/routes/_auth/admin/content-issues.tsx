@@ -16,6 +16,9 @@ export const Route = createFileRoute("/_auth/admin/content-issues")({
 		}
 	},
 	loader: ({ context }) =>
-		context.queryClient.ensureQueryData(openIssuesQueryOptions()),
+		context.queryClient.query({
+			...openIssuesQueryOptions(),
+			staleTime: "static",
+		}),
 	component: ContentIssuesPage,
 });

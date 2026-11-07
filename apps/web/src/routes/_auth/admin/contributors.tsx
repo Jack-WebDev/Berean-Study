@@ -27,13 +27,14 @@ export const Route = createFileRoute("/_auth/admin/contributors")({
 	}),
 	loaderDeps: ({ search }) => search,
 	loader: ({ context, deps }) =>
-		context.queryClient.ensureQueryData(
-			peopleListQueryOptions({
+		context.queryClient.query({
+			...peopleListQueryOptions({
 				page: deps.page ?? 1,
 				query: deps.q,
 				staffOnly: !deps.everyone,
 			}),
-		),
+			staleTime: "static",
+		}),
 	component: ContributorsRoute,
 });
 

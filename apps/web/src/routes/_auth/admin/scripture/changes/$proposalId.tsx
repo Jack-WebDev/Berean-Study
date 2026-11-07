@@ -15,9 +15,10 @@ export const Route = createFileRoute(
 		}
 	},
 	loader: ({ context, params }) =>
-		context.queryClient.ensureQueryData(
-			structureChangeQueryOptions(Number(params.proposalId)),
-		),
+		context.queryClient.query({
+			...structureChangeQueryOptions(Number(params.proposalId)),
+			staleTime: "static",
+		}),
 	component: StructureChangeRoute,
 });
 

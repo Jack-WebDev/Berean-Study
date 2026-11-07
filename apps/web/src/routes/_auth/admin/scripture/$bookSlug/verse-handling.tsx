@@ -25,13 +25,14 @@ export const Route = createFileRoute(
 	loaderDeps: ({ search }) => search,
 	loader: ({ context, deps, params }) => {
 		if (!deps.chapter || !deps.verse) return;
-		return context.queryClient.ensureQueryData(
-			verseHandlingQueryOptions({
+		return context.queryClient.query({
+			...verseHandlingQueryOptions({
 				chapter: deps.chapter,
 				slug: params.bookSlug,
 				verse: deps.verse,
 			}),
-		);
+			staleTime: "static",
+		});
 	},
 	component: VerseHandlingRoute,
 });

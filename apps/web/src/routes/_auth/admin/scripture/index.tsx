@@ -11,6 +11,9 @@ export const Route = createFileRoute("/_auth/admin/scripture/")({
 		}
 	},
 	loader: ({ context }) =>
-		context.queryClient.ensureQueryData(scriptureBooksQueryOptions()),
+		context.queryClient.query({
+			...scriptureBooksQueryOptions(),
+			staleTime: "static",
+		}),
 	component: BooksPage,
 });

@@ -105,9 +105,15 @@ function EntryFrame({
 				</>
 			}
 			description="Type or paste verses as they appear in print. Someone else checks them before readers see anything."
-			section="Contributor"
+			section={data.canon ? `Contributor · ${data.canon.name}` : "Contributor"}
 			title="Scripture entry"
 		>
+			<Link
+				className="mb-4 inline-flex min-h-11 items-center font-medium text-muted-foreground text-sm underline-offset-4 hover:text-foreground hover:underline"
+				to="/work/scripture"
+			>
+				← All traditions
+			</Link>
 			<TranslationLinks data={data} />
 			<BookAndChapterBar data={data} />
 			<div className="mt-6 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
@@ -141,6 +147,7 @@ function TranslationLinks({ data }: { data: EntryData }) {
 								)}
 								search={{
 									book: data.book.slug,
+									canon: data.canon?.slug,
 									chapter: data.chapter ?? undefined,
 									t: translation.abbreviation,
 								}}
@@ -174,12 +181,18 @@ function BookAndChapterBar({ data }: { data: EntryData }) {
 	const navigate = useNavigate();
 	const bookId = useId();
 	const { abbreviation } = data.translation;
+	const canon = data.canon?.slug;
 
 	const add = useVerseTextMutation(
 		() => addChapter({ data: { abbreviation, slug: data.book.slug } }),
 		({ number }) =>
 			void navigate({
-				search: { book: data.book.slug, chapter: number, t: abbreviation },
+				search: {
+					book: data.book.slug,
+					canon,
+					chapter: number,
+					t: abbreviation,
+				},
 				to: "/work/scripture",
 			}),
 	);
@@ -199,7 +212,7 @@ function BookAndChapterBar({ data }: { data: EntryData }) {
 						id={bookId}
 						onChange={(event) =>
 							void navigate({
-								search: { book: event.target.value, t: abbreviation },
+								search: { book: event.target.value, canon, t: abbreviation },
 								to: "/work/scripture",
 							})
 						}
@@ -237,6 +250,7 @@ function BookAndChapterBar({ data }: { data: EntryData }) {
 									)}
 									search={{
 										book: data.book.slug,
+										canon,
 										chapter: chapter.number,
 										t: abbreviation,
 									}}
@@ -412,7 +426,11 @@ function ChapterEditor({
 		() => removeLastChapter({ data: address }),
 		() =>
 			void navigate({
-				search: { book: data.book.slug, t: abbreviation },
+				search: {
+					book: data.book.slug,
+					canon: data.canon?.slug,
+					t: abbreviation,
+				},
 				to: "/work/scripture",
 			}),
 	);

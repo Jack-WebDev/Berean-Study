@@ -18,9 +18,18 @@ export const Route = createFileRoute("/_auth/admin/publication")({
 	},
 	loader: ({ context }) =>
 		Promise.all([
-			context.queryClient.ensureQueryData(readyToPublishQueryOptions()),
-			context.queryClient.ensureQueryData(approvedContentQueryOptions()),
-			context.queryClient.ensureQueryData(liveContentQueryOptions()),
+			context.queryClient.query({
+				...readyToPublishQueryOptions(),
+				staleTime: "static",
+			}),
+			context.queryClient.query({
+				...approvedContentQueryOptions(),
+				staleTime: "static",
+			}),
+			context.queryClient.query({
+				...liveContentQueryOptions(),
+				staleTime: "static",
+			}),
 		]),
 	component: PublicationRoute,
 });

@@ -3,6 +3,7 @@ import { type QueryClient, queryOptions } from "@tanstack/react-query";
 import {
 	getEntryChapter,
 	getVerseAcrossTranslations,
+	listEntryTraditions,
 } from "@/functions/verse-entry";
 import {
 	getProofreadingChapter,
@@ -24,6 +25,12 @@ export const entryChapterQueryOptions = (input: EntryChapterInput) =>
 	queryOptions({
 		queryKey: verseTextKeys.entry(input),
 		queryFn: () => getEntryChapter({ data: input }),
+	});
+
+export const entryTraditionsQueryOptions = () =>
+	queryOptions({
+		queryKey: verseTextKeys.entryTraditions(),
+		queryFn: () => listEntryTraditions(),
 	});
 
 export const proofreadingChapterQueryOptions = (

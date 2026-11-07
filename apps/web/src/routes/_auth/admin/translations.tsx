@@ -18,9 +18,10 @@ export const Route = createFileRoute("/_auth/admin/translations")({
 	}),
 	loaderDeps: ({ search }) => search,
 	loader: ({ context, deps }) =>
-		context.queryClient.ensureQueryData(
-			translationsOverviewQueryOptions(deps.t),
-		),
+		context.queryClient.query({
+			...translationsOverviewQueryOptions(deps.t),
+			staleTime: "static",
+		}),
 	component: TranslationsRoute,
 });
 

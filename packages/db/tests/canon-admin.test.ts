@@ -9,7 +9,11 @@ import {
 import type { DbExecutor } from "../src/db-executor";
 import { applyScriptureCatalogue } from "../src/scripture-setup";
 import { decideChange } from "../src/two-person";
-import { addChapter, getEntryChapter } from "../src/verse-entry";
+import {
+	addChapter,
+	getEntryChapter,
+	listEntryTraditions,
+} from "../src/verse-entry";
 import {
 	createPerson,
 	inRolledBackTransactionWithoutScripture,
@@ -291,6 +295,83 @@ describe("adding chapters in Scripture entry", () => {
 			expect(await noticeFor("daniel", 12)).toBe(false);
 			expect(await noticeFor("daniel", 13)).toBe(true);
 			expect(await noticeFor("tobit", 1)).toBe(true);
+		});
+	});
+});
+
+describe("choosing a tradition for Scripture entry", () => {
+	it("lists every tradition but opens only the Protestant canon", async () => {
+		await inRolledBackTransactionWithoutScripture(async (tx) => {
+			await setUp(tx);
+
+			expect(await listEntryTraditions(tx)).toEqual([
+				{ bookCount: 66, name: "Protestant", open: true, slug: "protestant" },
+				{ bookCount: 73, name: "Catholic", open: false, slug: "catholic" },
+				{
+					bookCount: 76,
+					name: "Eastern Orthodox",
+					open: false,
+					slug: "eastern-orthodox",
+				},
+				{
+					bookCount: 0,
+					name: "Ethiopian Orthodox Tewahedo",
+					open: false,
+					slug: "ethiopian-orthodox",
+				},
+			]);
+		});
+	});
+
+	it("keeps entry within the chosen canon's books and chapters", async () => {
+		await inRolledBackTransactionWithoutScripture(async (tx) => {
+			const { contributor, first, second } = await setUp(tx);
+			await confirm(
+				tx,
+				await proposeChapterLimits(tx, {
+					actorUserId: first.id,
+					canonSlug: "catholic",
+					limits: [
+						{ bookSlug: "daniel", limit: 13 },
+						{ bookSlug: "tobit", limit: 14 },
+					],
+					reason: "From the printed canon",
+				}),
+				second.id,
+			);
+			await addChapters(tx, contributor.id, "daniel", 13);
+			await addChapters(tx, contributor.id, "tobit", 1);
+
+			const inProtestant = (slug?: string, chapter?: number) =>
+				getEntryChapter(
+					tx,
+					{ canon: "protestant", chapter, slug },
+					contributor.id,
+				);
+
+			const genesis = await inProtestant();
+			expect(genesis?.canon).toEqual({
+				name: "Protestant",
+				slug: "protestant",
+			});
+			expect(genesis?.books).toHaveLength(66);
+			expect(genesis?.books.map(({ slug }) => slug)).not.toContain("tobit");
+
+			const daniel = await inProtestant("daniel", 13);
+			expect(daniel?.chapters.map(({ number }) => number)).toEqual(
+				Array.from({ length: 12 }, (_, index) => index + 1),
+			);
+			expect(daniel?.chapter).toBe(1);
+			expect(daniel?.nextChapter).toBeNull();
+
+			// A link to one specific chapter isn't limited to a canon.
+			const direct = await getEntryChapter(
+				tx,
+				{ chapter: 13, slug: "daniel" },
+				contributor.id,
+			);
+			expect(direct?.canon).toBeNull();
+			expect(direct?.chapter).toBe(13);
 		});
 	});
 });

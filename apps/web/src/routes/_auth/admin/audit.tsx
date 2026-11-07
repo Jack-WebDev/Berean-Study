@@ -20,13 +20,14 @@ export const Route = createFileRoute("/_auth/admin/audit")({
 	}),
 	loaderDeps: ({ search }) => search,
 	loader: ({ context, deps }) =>
-		context.queryClient.ensureQueryData(
-			auditEntriesQueryOptions({
+		context.queryClient.query({
+			...auditEntriesQueryOptions({
 				domain: deps.domain,
 				mine: deps.mine,
 				page: deps.page ?? 1,
 			}),
-		),
+			staleTime: "static",
+		}),
 	component: AuditRoute,
 });
 

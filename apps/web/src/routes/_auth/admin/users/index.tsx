@@ -29,10 +29,14 @@ export const Route = createFileRoute("/_auth/admin/users/")({
 	loaderDeps: ({ search }) => search,
 	loader: ({ context, deps }) =>
 		Promise.all([
-			context.queryClient.ensureQueryData(
-				peopleListQueryOptions({ page: deps.page ?? 1, query: deps.q }),
-			),
-			context.queryClient.ensureQueryData(pendingChangesQueryOptions()),
+			context.queryClient.query({
+				...peopleListQueryOptions({ page: deps.page ?? 1, query: deps.q }),
+				staleTime: "static",
+			}),
+			context.queryClient.query({
+				...pendingChangesQueryOptions(),
+				staleTime: "static",
+			}),
 		]),
 	component: UsersRoute,
 });

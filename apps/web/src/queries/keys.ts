@@ -95,6 +95,7 @@ export const verseTextKeys = {
 	all: ["verse-text"] as const,
 	entry: (input: EntryChapterInput) =>
 		[...verseTextKeys.all, "entry", input] as const,
+	entryTraditions: () => [...verseTextKeys.all, "entry-traditions"] as const,
 	proofreading: (input: ProofreadingChapterInput) =>
 		[...verseTextKeys.all, "proofreading", input] as const,
 	queue: () => [...verseTextKeys.all, "queue"] as const,

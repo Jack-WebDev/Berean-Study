@@ -17,12 +17,13 @@ export const Route = createFileRoute(
 	}),
 	loaderDeps: ({ search }) => search,
 	loader: ({ context, deps, params }) =>
-		context.queryClient.ensureQueryData(
-			bookStructureQueryOptions({
+		context.queryClient.query({
+			...bookStructureQueryOptions({
 				chapter: deps.chapter,
 				slug: params.bookSlug,
 			}),
-		),
+			staleTime: "static",
+		}),
 	component: AddVersesRoute,
 });
 
