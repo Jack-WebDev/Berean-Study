@@ -2,10 +2,12 @@ import { and, asc, desc, eq, inArray, max, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import { recordAudit } from "./audit";
+import { highestChapterLimit, isBeyondProtestantCanon } from "./canon-limits";
 import type { DbExecutor } from "./db-executor";
 import { GovernanceError } from "./governance-error";
 import { user } from "./schema/auth";
 import { books } from "./schema/books";
+import { canonBooks } from "./schema/canon_books";
 import { chapters } from "./schema/chapters";
 import { translations } from "./schema/translations";
 import { versePresence } from "./schema/verse_presence";
@@ -14,8 +16,8 @@ import { verseTexts } from "./schema/verse_texts";
 import { verses } from "./schema/verses";
 import { versificationSystems } from "./schema/versification_systems";
 import {
+	bookCatalogue,
 	hasOwnText,
-	protestantBookCatalogue,
 	type VersePresenceKind,
 	type VerseTextStatus,
 } from "./scripture-catalogue";
@@ -38,7 +40,7 @@ import { HIGHEST_VERSE_NUMBER } from "./verse-text-tools";
 
 const FOREIGN_KEY_VIOLATION = "23503";
 
-const catalogueSlugs = protestantBookCatalogue.map(({ slug }) => slug);
+const catalogueSlugs = bookCatalogue.map(({ slug }) => slug);
 
 /** How far each translation has got with one chapter. */
 async function chapterProgressByTranslation(
@@ -205,17 +207,26 @@ export async function getEntryChapter(
 		supported[0];
 	if (!translation) return null;
 
+	// A book is on offer once some canon has a limit for it, or if it already has
+	// chapters from before that limit changed.
 	const bookRows = await client
 		.select({
 			id: books.id,
 			name: books.name,
 			slug: books.slug,
-			expectedChapters: books.expectedChapters,
+			chapterLimit: max(canonBooks.chapterLimit),
+			hasChapters: sql<boolean>`count(${chapters.id}) > 0`,
 		})
 		.from(books)
-		.where(inArray(books.slug, catalogueSlugs));
+		.leftJoin(canonBooks, eq(canonBooks.bookId, books.id))
+		.leftJoin(chapters, eq(chapters.bookId, books.id))
+		.where(inArray(books.slug, catalogueSlugs))
+		.groupBy(books.id);
 	const bookList = catalogueSlugs.flatMap((slug) =>
-		bookRows.filter((row) => row.slug === slug),
+		bookRows.filter(
+			(row) =>
+				row.slug === slug && (row.chapterLimit !== null || row.hasChapters),
+		),
 	);
 	const book = bookList.find((row) => row.slug === input.slug) ?? bookList[0];
 	if (!book) return null;
@@ -227,7 +238,7 @@ export async function getEntryChapter(
 		null;
 	const lastChapter = chapterStates.at(-1)?.number ?? 0;
 	const nextChapter =
-		book.expectedChapters !== null && lastChapter < book.expectedChapters
+		book.chapterLimit !== null && lastChapter < book.chapterLimit
 			? lastChapter + 1
 			: null;
 
@@ -267,6 +278,9 @@ export async function getEntryChapter(
 			? await verseHasNoContent(client, lastVerse.verseId)
 			: false,
 		nextChapter,
+		noTextSourceYet:
+			chosenNumber !== null &&
+			(await isBeyondProtestantCanon(client, book.id, chosenNumber)),
 		nextVerse: (lastVerse?.number ?? 0) + 1,
 		translation: {
 			abbreviation: translation.abbreviation,
@@ -296,8 +310,8 @@ export async function getEntryChapter(
 }
 
 /**
- * Adds the next chapter of a book. Chapters beyond the book's known length are
- * numbering exceptions, which need a second Superadmin through a structure change.
+ * Adds the next chapter of a book, up to the longest limit any canon has approved.
+ * Going further means raising a limit, which needs a second Superadmin.
  */
 export async function addChapter(
 	client: DbExecutor,
@@ -322,14 +336,15 @@ export async function addChapter(
 				),
 			);
 		const number = (last?.value ?? 0) + 1;
-		if (book.expectedChapters === null) {
+		const limit = await highestChapterLimit(tx, book.id);
+		if (limit === null) {
 			throw new GovernanceError(
-				`None of the six translations include ${book.name}.`,
+				`No canon has a chapter limit for ${book.name} yet. A Superadmin sets these on Canon & Versification.`,
 			);
 		}
-		if (number > book.expectedChapters) {
+		if (number > limit) {
 			throw new GovernanceError(
-				`${book.name} has ${book.expectedChapters} chapters. Adding another is a numbering exception, which needs a structure change confirmed by a second Superadmin.`,
+				`${book.name} has ${limit} chapters in the longest canon that includes it. Raising a limit needs a second Superadmin, on Canon & Versification.`,
 			);
 		}
 

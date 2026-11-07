@@ -282,7 +282,8 @@ const managementNavigationItems = [
 		href: "/admin/canon",
 		icon: ListOrderedIcon,
 		label: "Canon & Versification",
-		requiredPermissions: ["canon.manage"],
+		queue: "foundationChanges",
+		requiredPermissions: ["canon.manage", "scripture.manage"],
 	},
 	{
 		href: "/admin/translations",

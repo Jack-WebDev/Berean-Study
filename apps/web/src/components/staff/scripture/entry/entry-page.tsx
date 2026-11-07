@@ -315,6 +315,19 @@ function EntrySidePanel({ data }: { data: EntryData }) {
 				</p>
 			</StaffCard>
 
+			{data.noTextSourceYet ? (
+				<StaffCard className="border-accent">
+					<h2 className="font-semibold text-sm">
+						No text source chosen for this chapter
+					</h2>
+					<p className="mt-1 text-muted-foreground text-sm">
+						It's in another canon, so {abbreviation} may not contain it. Only
+						enter text you have a real copy of, because the proofreader has to
+						check it against one.
+					</p>
+				</StaffCard>
+			) : null}
+
 			{publishingBlock === "permission_not_recorded" ? (
 				<StaffCard>
 					<h2 className="font-semibold text-sm">

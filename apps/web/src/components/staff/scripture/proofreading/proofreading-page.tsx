@@ -497,6 +497,13 @@ function ChapterResult({
 					/>
 				) : null}
 
+				{data.noTextSourceYet ? (
+					<p className="rounded-[0.625rem] bg-status-attention p-3 text-sm text-status-attention-foreground">
+						This chapter is from another canon, and no text source has been
+						chosen. Only pass it if you have a real copy to check it against.
+					</p>
+				) : null}
+
 				{block ? (
 					<p className="rounded-[0.625rem] bg-status-attention p-3 text-sm text-status-attention-foreground">
 						{publishingBlockNotes[block](data.translation.abbreviation)}

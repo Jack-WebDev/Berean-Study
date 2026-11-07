@@ -1,4 +1,4 @@
-import { and, count, eq, isNull, ne } from "drizzle-orm";
+import { and, count, eq, inArray, isNull, ne } from "drizzle-orm";
 
 import type { PermissionKey } from "./access-catalogue";
 import type { DbExecutor } from "./db-executor";
@@ -15,7 +15,23 @@ export type StaffQueue =
 	| "communityReports"
 	| "pendingConfirmations"
 	| "scriptureEntry"
-	| "readyToPublish";
+	| "readyToPublish"
+	| "foundationChanges";
+
+/** Decided on the Users and Roles pages. */
+export const peopleChangeKinds = [
+	"role_change",
+	"access_case",
+	"role_permission",
+] as const;
+
+/** Decided on the Canon & Versification page. */
+const foundationChangeKinds = [
+	"chapter_limits",
+	"canon_order",
+	"verse_addition",
+	"verse_handling",
+] as const;
 
 /**
  * How many items are waiting in each staff queue, for the sidebar counts. Only
@@ -52,10 +68,28 @@ export async function getStaffQueueCounts(
 			.where(
 				and(
 					eq(changeProposals.status, "proposed"),
+					inArray(changeProposals.kind, [...peopleChangeKinds]),
 					ne(changeProposals.proposerUserId, userId),
 				),
 			);
 		counts.pendingConfirmations = result?.value ?? 0;
+	}
+
+	if (
+		permissionKeys.includes("canon.manage") ||
+		permissionKeys.includes("scripture.manage")
+	) {
+		const [result] = await client
+			.select({ value: count() })
+			.from(changeProposals)
+			.where(
+				and(
+					eq(changeProposals.status, "proposed"),
+					inArray(changeProposals.kind, [...foundationChangeKinds]),
+					ne(changeProposals.proposerUserId, userId),
+				),
+			);
+		counts.foundationChanges = result?.value ?? 0;
 	}
 
 	const canProofread = permissionKeys.includes("scripture.proofread");
