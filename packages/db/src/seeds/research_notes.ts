@@ -1,5 +1,14 @@
 import { researchNotes } from "../schema/research_notes";
-import { db, numberId, rows, type SeedContext, save, sentence } from "./utils";
+import {
+	db,
+	numberId,
+	rows,
+	type SeedContext,
+	save,
+	sentence,
+	textId,
+} from "./utils";
+
 export async function seedResearchNotes(
 	context: SeedContext,
 	count = 50,
@@ -7,14 +16,12 @@ export async function seedResearchNotes(
 	const inserted = await db
 		.insert(researchNotes)
 		.values(
-			rows(count, (i) =>
-				i % 2 === 0
-					? { bookId: numberId(context, "books", i), content: sentence() }
-					: {
-							passageId: numberId(context, "passages", i),
-							content: sentence(),
-						},
-			),
+			rows(count, (i) => ({
+				bookId: numberId(context, "books", i),
+				content: sentence(),
+				createdByUserId: textId(context, "users", i),
+				reference: `Seed book ${i + 1}`,
+			})),
 		)
 		.returning({ id: researchNotes.id });
 	save(
@@ -22,5 +29,4 @@ export async function seedResearchNotes(
 		"researchNotes",
 		inserted.map(({ id }) => id),
 	);
-	return;
 }

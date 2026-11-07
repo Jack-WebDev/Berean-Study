@@ -1,15 +1,19 @@
 import { and, asc, desc, eq, inArray, ne, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import type { PermissionKey } from "./access-catalogue";
-import { contentKindNamed } from "./content-kind-registry";
+import {
+	type ContentBody,
+	type ContentKindName,
+	contentKindNamed,
+} from "./content-kind-registry";
 import {
 	type ContentRevisionStatus,
 	openRevisionStatuses,
 } from "./content-kinds";
 import { type ContentScope, checksFor } from "./content-workflow";
 import type { DbExecutor } from "./db-executor";
+import { listRevisionCitations } from "./evidence-kinds";
 import { user } from "./schema/auth";
-import { citations } from "./schema/citations";
 import { contentIssues } from "./schema/content_issues";
 import { contentItems } from "./schema/content_items";
 import { contentRevisions } from "./schema/content_revisions";
@@ -86,12 +90,13 @@ export async function getLiveContent(client: DbExecutor, scope: ContentScope) {
 }
 
 /** Where a piece of content stands, and what its editor should start from. */
-export async function getContentState(
+export async function getContentState<TKind extends ContentKindName>(
 	client: DbExecutor,
-	scope: ContentScope,
+	scope: ContentScope<TKind>,
 	viewerUserId: string,
 ) {
 	const kind = contentKindNamed(scope.kind);
+	const parseBody = (raw: unknown) => kind.parse(raw) as ContentBody<TKind>;
 	const [item] = await client
 		.select()
 		.from(contentItems)
@@ -144,7 +149,7 @@ export async function getContentState(
 		: [];
 
 	return {
-		body: kind.parse(latest?.body ?? kind.empty),
+		body: parseBody(latest?.body ?? kind.empty),
 		canEdit: open
 			? open.status === "draft" && open.authorUserId === viewerUserId
 			: true,
@@ -153,7 +158,7 @@ export async function getContentState(
 		kindLabel: kind.label,
 		live: live
 			? {
-					body: kind.parse(live.body),
+					body: parseBody(live.body),
 					number: live.number,
 					revisionId: live.id,
 				}
@@ -261,10 +266,7 @@ export async function getRevisionPage(
 		.where(eq(contentIssues.contentRevisionId, current.id))
 		.orderBy(desc(contentIssues.createdAt));
 
-	const [sources] = await client
-		.select({ value: sql<number>`count(*)::int` })
-		.from(citations)
-		.where(eq(citations.contentRevisionId, current.id));
+	const citations = await listRevisionCitations(client, current.id);
 
 	const performer = alias(user, "performer");
 	const publications = await client
@@ -309,7 +311,8 @@ export async function getRevisionPage(
 			label,
 		})),
 		checks,
-		citationCount: sources?.value ?? 0,
+		citationCount: citations.length,
+		citations,
 		contentItemId: row.contentItemId,
 		createdAt: current.createdAt,
 		fields: afterFields,

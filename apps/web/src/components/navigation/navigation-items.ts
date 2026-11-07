@@ -192,6 +192,7 @@ const contributorNavigationItems = [
 		href: "/work/sources",
 		icon: BookMarkedIcon,
 		label: "Sources",
+		queue: "sourceRetirements",
 		requiredPermissions: ["sources.manage"],
 	},
 	{

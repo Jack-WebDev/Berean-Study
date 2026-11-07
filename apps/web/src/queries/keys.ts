@@ -1,6 +1,13 @@
 import type { listAuditEntries } from "@/functions/audit";
 import type { getCommunityFeed } from "@/functions/community";
 import type { getContentState, getRevisionPage } from "@/functions/content";
+import type {
+	findSimilarSources,
+	getEvidenceWorkbench,
+	listEvidenceClaims,
+	listEvidenceSources,
+	listResearchNotes,
+} from "@/functions/evidence";
 import type { countNoteViews, listNotes } from "@/functions/notes";
 import type { getNotificationPage } from "@/functions/notifications";
 import type { getVerseRangeText } from "@/functions/passages";
@@ -32,6 +39,11 @@ export type VerseAcrossTranslationsInput = ServerFnData<
 >;
 export type ContentScopeInput = ServerFnData<typeof getContentState>;
 export type RevisionPageInput = ServerFnData<typeof getRevisionPage>;
+export type EvidenceWorkbenchInput = ServerFnData<typeof getEvidenceWorkbench>;
+export type SimilarSourcesInput = ServerFnData<typeof findSimilarSources>;
+export type EvidenceSourceFilters = ServerFnData<typeof listEvidenceSources>;
+export type EvidenceClaimFilters = ServerFnData<typeof listEvidenceClaims>;
+export type ResearchNoteFilters = ServerFnData<typeof listResearchNotes>;
 export type VerseHandlingInput = ServerFnData<typeof getVerseHandling>;
 export type PeopleListFilters = ServerFnData<typeof listPeople>;
 export type AuditListFilters = ServerFnData<typeof listAuditEntries>;
@@ -118,6 +130,20 @@ export const contentKeys = {
 	live: () => [...contentKeys.all, "live"] as const,
 	openIssues: () => [...contentKeys.all, "open-issues"] as const,
 	assignablePeople: () => [...contentKeys.all, "assignable-people"] as const,
+};
+
+export const evidenceKeys = {
+	all: ["evidence"] as const,
+	sources: (filters: EvidenceSourceFilters) =>
+		[...evidenceKeys.all, "sources", filters] as const,
+	claims: (filters: EvidenceClaimFilters) =>
+		[...evidenceKeys.all, "claims", filters] as const,
+	workbench: (input: EvidenceWorkbenchInput) =>
+		[...evidenceKeys.all, "workbench", input] as const,
+	similar: (input: SimilarSourcesInput) =>
+		[...evidenceKeys.all, "similar", input] as const,
+	research: (filters: ResearchNoteFilters) =>
+		[...evidenceKeys.all, "research", filters] as const,
 };
 
 export const foundationKeys = {

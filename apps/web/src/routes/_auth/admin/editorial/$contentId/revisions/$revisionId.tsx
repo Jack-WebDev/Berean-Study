@@ -17,6 +17,7 @@ export const Route = createFileRoute(
 		const canOpen = [
 			"content.write",
 			"content.revise",
+			"sources.manage",
 			"editorial.check",
 			"editorial.review",
 			"editorial.assign",

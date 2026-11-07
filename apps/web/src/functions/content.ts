@@ -38,6 +38,7 @@ import { requirePermission } from "@/middleware/auth";
 const contentReaders = [
 	"content.write",
 	"content.revise",
+	"sources.manage",
 	"editorial.check",
 	"editorial.review",
 	"editorial.assign",
@@ -120,7 +121,12 @@ export const saveDraft = createServerFn({ method: "POST" })
 
 export const discardDraft = createServerFn({ method: "POST" })
 	.middleware([
-		requirePermission("content.write", "content.revise", "editorial.assign"),
+		requirePermission(
+			"content.write",
+			"content.revise",
+			"sources.manage",
+			"editorial.assign",
+		),
 	])
 	.validator(revisionSchema)
 	.handler(({ context, data }) =>
@@ -128,7 +134,9 @@ export const discardDraft = createServerFn({ method: "POST" })
 	);
 
 export const submitRevision = createServerFn({ method: "POST" })
-	.middleware([requirePermission("content.write", "content.revise")])
+	.middleware([
+		requirePermission("content.write", "content.revise", "sources.manage"),
+	])
 	.validator(revisionSchema)
 	.handler(({ context, data }) =>
 		submitRevisionInDb(db, { ...data, actorUserId: context.userId }),

@@ -26,6 +26,10 @@ import {
 	rolePermissionKind,
 } from "./change-kinds/role-permission";
 import {
+	type SourceRetirementPayload,
+	sourceRetirementKind,
+} from "./change-kinds/source-retirement";
+import {
 	type VerseAdditionPayload,
 	verseAdditionKind,
 } from "./change-kinds/verse-addition";
@@ -104,6 +108,7 @@ const changeKinds = {
 	canon_order: changeKind(canonOrderKind),
 	verse_addition: changeKind(verseAdditionKind),
 	verse_handling: changeKind(verseHandlingKind),
+	source_retirement: changeKind(sourceRetirementKind),
 };
 
 export type ChangeKindName = keyof typeof changeKinds;
@@ -116,6 +121,7 @@ type ChangePayloads = {
 	canon_order: CanonOrderPayload;
 	verse_addition: VerseAdditionPayload;
 	verse_handling: VerseHandlingPayload;
+	source_retirement: SourceRetirementPayload;
 };
 
 function kindNamed(name: string) {

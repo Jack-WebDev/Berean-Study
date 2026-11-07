@@ -25,7 +25,10 @@ import { editorialChecks } from "./schema/editorial_checks";
 import { editorialReviews } from "./schema/editorial_reviews";
 import { publicationHistory } from "./schema/publication_history";
 
-export type ContentScope = { kind: ContentKindName; scopeKey: string };
+export type ContentScope<TKind extends ContentKindName = ContentKindName> = {
+	kind: TKind;
+	scopeKey: string;
+};
 
 async function requirePermission(
 	client: DbExecutor,
@@ -81,6 +84,17 @@ export async function saveDraft(
 ) {
 	const kind = contentKindNamed(input.kind);
 	const body = kind.parse(input.body);
+	const followTitle = async (
+		tx: DbExecutor,
+		item: { id: number; liveRevisionId: number | null },
+	) => {
+		// Once something's live, its name stays until a new revision takes over.
+		if (!kind.titleFollowsBody || item.liveRevisionId) return;
+		await tx
+			.update(contentItems)
+			.set({ title: await kind.title(tx, input.scopeKey, body) })
+			.where(eq(contentItems.id, item.id));
+	};
 
 	return client.transaction(async (tx) => {
 		const [existing] = await tx
@@ -97,8 +111,11 @@ export async function saveDraft(
 		await requirePermission(
 			tx,
 			input.actorUserId,
-			existing?.liveRevisionId ? "content.revise" : "content.write",
+			existing?.liveRevisionId
+				? kind.writePermissions.revise
+				: kind.writePermissions.create,
 		);
+		await kind.assertCanDraft(tx, input.scopeKey, body);
 
 		const item =
 			existing ??
@@ -108,7 +125,7 @@ export async function saveDraft(
 					.values({
 						kind: input.kind,
 						scopeKey: input.scopeKey,
-						title: await kind.title(tx, input.scopeKey),
+						title: await kind.title(tx, input.scopeKey, body),
 					})
 					.returning()
 			)[0];
@@ -148,6 +165,8 @@ export async function saveDraft(
 				.update(contentRevisions)
 				.set({ body, updatedAt: new Date() })
 				.where(eq(contentRevisions.id, open.id));
+			await kind.afterDraftSaved(tx, { body, revisionId: open.id });
+			await followTitle(tx, item);
 			return {
 				contentItemId: item.id,
 				number: open.number,
@@ -178,6 +197,8 @@ export async function saveDraft(
 			})
 			.returning({ id: contentRevisions.id });
 		if (!revision) throw new Error("Could not save the draft.");
+		await kind.afterDraftSaved(tx, { body, revisionId: revision.id });
+		await followTitle(tx, item);
 		return { contentItemId: item.id, number, revisionId: revision.id };
 	});
 }
@@ -203,7 +224,7 @@ export async function discardDraft(
 	input: { actorUserId: string; revisionId: number },
 ) {
 	await client.transaction(async (tx) => {
-		const { revision } = await lockRevision(tx, input.revisionId);
+		const { item, revision } = await lockRevision(tx, input.revisionId);
 		await assertCanTouchDraft(tx, revision, input.actorUserId, "discard");
 		await tx
 			.delete(editorialAssignments)
@@ -211,6 +232,17 @@ export async function discardDraft(
 		await tx
 			.delete(contentRevisions)
 			.where(eq(contentRevisions.id, revision.id));
+
+		const { removeWhenEmpty } = contentKindNamed(item.kind);
+		if (!removeWhenEmpty) return;
+		const [remaining] = await tx
+			.select({ id: contentRevisions.id })
+			.from(contentRevisions)
+			.where(eq(contentRevisions.contentItemId, item.id))
+			.limit(1);
+		if (remaining) return;
+		await tx.delete(contentItems).where(eq(contentItems.id, item.id));
+		await removeWhenEmpty(tx, item.scopeKey);
 	});
 }
 
@@ -222,7 +254,10 @@ export async function submitRevision(
 	await client.transaction(async (tx) => {
 		const { item, revision } = await lockRevision(tx, input.revisionId);
 		await assertCanTouchDraft(tx, revision, input.actorUserId, "send");
-		contentKindNamed(item.kind).assertReadyForReview(revision.body);
+		await contentKindNamed(item.kind).assertReadyForReview(revision.body, {
+			client: tx,
+			scopeKey: item.scopeKey,
+		});
 
 		const now = new Date();
 		await tx
@@ -516,6 +551,11 @@ export async function publishRevision(
 				"This needs an approval from someone other than its author.",
 			);
 		}
+		const kind = contentKindNamed(item.kind);
+		await kind.assertReadyToPublish(tx, {
+			body: revision.body,
+			scopeKey: item.scopeKey,
+		});
 
 		const now = new Date();
 		if (item.liveRevisionId) {
@@ -535,8 +575,17 @@ export async function publishRevision(
 			.where(eq(contentRevisions.id, revision.id));
 		await tx
 			.update(contentItems)
-			.set({ liveRevisionId: revision.id })
+			.set({
+				liveRevisionId: revision.id,
+				...(kind.titleFollowsBody
+					? { title: await kind.title(tx, item.scopeKey, revision.body) }
+					: {}),
+			})
 			.where(eq(contentItems.id, item.id));
+		await kind.afterPublished(tx, {
+			revisionId: revision.id,
+			scopeKey: item.scopeKey,
+		});
 		await tx.insert(publicationHistory).values({
 			action: "published",
 			contentRevisionId: revision.id,
@@ -582,6 +631,7 @@ export async function withdrawLive(
 		if (!item.liveRevisionId)
 			throw new GovernanceError("Nothing is live here.");
 		if (!reason) throw new GovernanceError("Say why this is being withdrawn.");
+		await contentKindNamed(item.kind).assertCanWithdraw(tx, item.scopeKey);
 
 		await tx
 			.update(contentRevisions)
@@ -673,12 +723,8 @@ export async function assignWriter(
 		if (revision.status !== "draft") {
 			throw new GovernanceError("Only a draft can go to another writer.");
 		}
-		await assertCanBeAssigned(
-			tx,
-			input.assigneeUserId,
-			"content.write",
-			"content.revise",
-		);
+		const { create, revise } = contentKindNamed(item.kind).writePermissions;
+		await assertCanBeAssigned(tx, input.assigneeUserId, create, revise);
 
 		await tx
 			.update(contentRevisions)

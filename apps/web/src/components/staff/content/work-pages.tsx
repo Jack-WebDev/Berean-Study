@@ -38,7 +38,7 @@ export function MyWorkPage() {
 			title="My Work"
 		>
 			<RevisionList
-				emptyMessage="Nothing in progress. Open a book in Scripture Data to write its overview. More kinds of content arrive with the writing tools."
+				emptyMessage="Nothing in progress. Open a book in Scripture Data to write its overview, or add evidence under Sources. More kinds of content arrive with the writing tools."
 				rows={data}
 				title="In progress"
 			/>
@@ -98,7 +98,7 @@ export function EditorialQueuePage() {
 	);
 }
 
-function AssignButton({ row }: { row: RevisionRow }) {
+export function AssignButton({ row }: { row: RevisionRow }) {
 	const forReview = row.status === "submitted" || row.status === "in_review";
 	const forWriter = row.status === "draft";
 	const [open, setOpen] = useState(false);

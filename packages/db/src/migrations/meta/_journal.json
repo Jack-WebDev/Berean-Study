@@ -190,6 +190,20 @@
 			"when": 1794029634479,
 			"tag": "0026_content_engine",
 			"breakpoints": true
+		},
+		{
+			"idx": 27,
+			"version": "7",
+			"when": 1794042839883,
+			"tag": "0027_remove_old_evidence_shape",
+			"breakpoints": true
+		},
+		{
+			"idx": 28,
+			"version": "7",
+			"when": 1794042889197,
+			"tag": "0028_evidence_chain",
+			"breakpoints": true
 		}
 	]
 }

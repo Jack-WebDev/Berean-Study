@@ -17,6 +17,7 @@ import {
 	auditKeys,
 	type ContentScopeInput,
 	contentKeys,
+	evidenceKeys,
 	type RevisionPageInput,
 	staffQueueKeys,
 } from "./keys";
@@ -85,6 +86,7 @@ export const assignablePeopleQueryOptions = () =>
 export function invalidateContent(queryClient: QueryClient) {
 	return Promise.all([
 		queryClient.invalidateQueries({ queryKey: contentKeys.all }),
+		queryClient.invalidateQueries({ queryKey: evidenceKeys.all }),
 		queryClient.invalidateQueries({ queryKey: staffQueueKeys.all }),
 		queryClient.invalidateQueries({ queryKey: auditKeys.all }),
 	]);

@@ -1,8 +1,13 @@
-import { sql } from "drizzle-orm";
-import { check, index, integer, pgTable, text } from "drizzle-orm/pg-core";
+import { index, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
+import { user } from "./auth";
 import { sources } from "./sources";
 
+/**
+ * One saved part of a source. Its wording lives in reviewed revisions. Which source
+ * it belongs to is kept here because merging duplicates has to move it between
+ * sources without inventing a new revision.
+ */
 export const sourceExcerpts = pgTable(
 	"source_excerpts",
 	{
@@ -12,21 +17,13 @@ export const sourceExcerpts = pgTable(
 			.notNull()
 			.references(() => sources.id, { onDelete: "restrict" }),
 
-		locator: text("locator"),
+		createdByUserId: text("created_by_user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "restrict" }),
 
-		text: text("text").notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true })
+			.notNull()
+			.defaultNow(),
 	},
-	(table) => [
-		index("source_excerpts_source_id_idx").on(table.sourceId),
-
-		check(
-			"source_excerpts_locator_not_empty_check",
-			sql`${table.locator} IS NULL OR btrim(${table.locator}) <> ''`,
-		),
-
-		check(
-			"source_excerpts_text_not_empty_check",
-			sql`btrim(${table.text}) <> ''`,
-		),
-	],
+	(table) => [index("source_excerpts_source_id_idx").on(table.sourceId)],
 );

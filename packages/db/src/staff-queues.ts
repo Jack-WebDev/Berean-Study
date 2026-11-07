@@ -23,7 +23,8 @@ export type StaffQueue =
 	| "readyToPublish"
 	| "foundationChanges"
 	| "awaitingReview"
-	| "myAssignments";
+	| "myAssignments"
+	| "sourceRetirements";
 
 /** Decided on the Users and Roles pages. */
 export const peopleChangeKinds = [
@@ -97,6 +98,20 @@ export async function getStaffQueueCounts(
 				),
 			);
 		counts.foundationChanges = result?.value ?? 0;
+	}
+
+	if (permissionKeys.includes("sources.retire")) {
+		const [result] = await client
+			.select({ value: count() })
+			.from(changeProposals)
+			.where(
+				and(
+					eq(changeProposals.status, "proposed"),
+					eq(changeProposals.kind, "source_retirement"),
+					ne(changeProposals.proposerUserId, userId),
+				),
+			);
+		counts.sourceRetirements = result?.value ?? 0;
 	}
 
 	const canProofread = permissionKeys.includes("scripture.proofread");

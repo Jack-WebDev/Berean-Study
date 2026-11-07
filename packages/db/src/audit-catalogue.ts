@@ -71,6 +71,9 @@ const auditActionDomains = {
 	"content_issue.closed": "editorial",
 	"source.merged": "editorial",
 	"source.retired": "editorial",
+	"source.retirement_proposed": "editorial",
+	"source.retirement_returned": "editorial",
+	"source.retirement_rejected": "editorial",
 } as const satisfies Record<string, AuditDomain>;
 
 export type AuditAction = keyof typeof auditActionDomains;
@@ -136,6 +139,9 @@ export const auditActionLabels: Record<AuditAction, string> = {
 	"content_issue.closed": "Closed a content issue",
 	"source.merged": "Merged sources",
 	"source.retired": "Retired a source",
+	"source.retirement_proposed": "Proposed retiring a source",
+	"source.retirement_returned": "Sent a source retirement back",
+	"source.retirement_rejected": "Rejected a source retirement",
 };
 
 export function isAuditAction(value: string): value is AuditAction {

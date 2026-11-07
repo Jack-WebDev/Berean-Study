@@ -1,24 +1,19 @@
-import { sql } from "drizzle-orm";
-import { check, integer, pgTable, text } from "drizzle-orm/pg-core";
+import { integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
-export const claims = pgTable(
-	"claims",
-	{
-		id: integer().primaryKey().generatedAlwaysAsIdentity(),
+import { user } from "./auth";
 
-		statement: text().notNull(),
+/**
+ * Something Berean Study says is true, and which has to trace back to a source.
+ * Its statement, confidence and citations live in reviewed revisions.
+ */
+export const claims = pgTable("claims", {
+	id: integer().primaryKey().generatedAlwaysAsIdentity(),
 
-		status: text().default("unverified").notNull(),
-	},
-	(table) => [
-		check(
-			"claims_statement_not_empty_check",
-			sql`btrim(${table.statement}) <> ''`,
-		),
+	createdByUserId: text("created_by_user_id")
+		.notNull()
+		.references(() => user.id, { onDelete: "restrict" }),
 
-		check(
-			"claims_status_check",
-			sql`${table.status} IN ('unverified', 'verified', 'rejected')`,
-		),
-	],
-);
+	createdAt: timestamp("created_at", { withTimezone: true })
+		.notNull()
+		.defaultNow(),
+});

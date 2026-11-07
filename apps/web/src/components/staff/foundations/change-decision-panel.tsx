@@ -18,19 +18,27 @@ const decisionMessages: Record<Decision, string> = {
 /** The second person's decision on a foundation change. The proposer only sees why they can't. */
 export function ChangeDecisionPanel({
 	confirmLabel = "Confirm & apply",
+	decideWith = decideFoundationChange,
+	onDecided,
 	proposalId,
 	proposedByMe,
 }: {
 	confirmLabel?: string;
+	/** Each screen decides through a server function guarded by its own permission. */
+	decideWith?: (input: {
+		data: { decision: Decision; note: string; proposalId: number };
+	}) => Promise<unknown>;
+	onDecided?: () => void;
 	proposalId: number;
 	proposedByMe: boolean;
 }) {
 	const [note, setNote] = useState("");
 	const decide = useFoundationMutation(
 		(decision: Decision) =>
-			decideFoundationChange({ data: { decision, note, proposalId } }),
+			decideWith({ data: { decision, note, proposalId } }),
 		(_result, decision) => {
 			setNote("");
+			onDecided?.();
 			toast.success(decisionMessages[decision]);
 		},
 	);

@@ -1,41 +1,54 @@
 import { sql } from "drizzle-orm";
-import { check, index, integer, pgTable, text } from "drizzle-orm/pg-core";
+import {
+	check,
+	index,
+	integer,
+	pgTable,
+	text,
+	timestamp,
+} from "drizzle-orm/pg-core";
 
+import { user } from "./auth";
 import { books } from "./books";
-import { passages } from "./passages";
 
+/** A working note for staff. Readers never see these, so they aren't reviewed. */
 export const researchNotes = pgTable(
 	"research_notes",
 	{
 		id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
 
-		bookId: integer("book_id").references(() => books.id, {
-			onDelete: "restrict",
-		}),
+		bookId: integer("book_id")
+			.notNull()
+			.references(() => books.id, { onDelete: "restrict" }),
 
-		passageId: integer("passage_id").references(() => passages.id, {
-			onDelete: "restrict",
-		}),
+		/** The passage as it was typed, such as "Romans 8:28". The book is resolved from it. */
+		reference: text().notNull(),
 
 		content: text("content").notNull(),
+
+		createdByUserId: text("created_by_user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "restrict" }),
+
+		createdAt: timestamp("created_at", { withTimezone: true })
+			.notNull()
+			.defaultNow(),
+
+		updatedAt: timestamp("updated_at", { withTimezone: true })
+			.notNull()
+			.defaultNow(),
 	},
 	(table) => [
-		check(
-			"research_notes_target_check",
-			sql`num_nonnulls(${table.bookId}, ${table.passageId}) = 1`,
-		),
-
 		check(
 			"research_notes_content_not_empty_check",
 			sql`btrim(${table.content}) <> ''`,
 		),
 
-		index("research_notes_book_id_idx")
-			.on(table.bookId)
-			.where(sql`${table.bookId} IS NOT NULL`),
+		check(
+			"research_notes_reference_not_empty_check",
+			sql`btrim(${table.reference}) <> ''`,
+		),
 
-		index("research_notes_passage_id_idx")
-			.on(table.passageId)
-			.where(sql`${table.passageId} IS NOT NULL`),
+		index("research_notes_book_id_idx").on(table.bookId),
 	],
 );

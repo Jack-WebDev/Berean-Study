@@ -41,7 +41,20 @@ export const permissionCatalogue = [
 		key: "sources.manage",
 		name: "Manage sources",
 		category: "Research & sources",
-		description: "Add and edit sources, excerpts and citations.",
+		description: "Add and edit sources, excerpts, citations and claims.",
+	},
+	{
+		key: "sources.merge",
+		name: "Merge duplicate sources",
+		category: "Research & sources",
+		description: "Combine two records of the same source into one.",
+	},
+	{
+		key: "sources.retire",
+		name: "Retire sources",
+		category: "Research & sources",
+		description:
+			"Stop a source being relied on. One already in use needs a second person.",
 	},
 	{
 		key: "content.write",
@@ -212,6 +225,7 @@ const contributorGrants = [
 
 const adminGrants = [
 	...contributorGrants,
+	"sources.merge",
 	"editorial.assign",
 	"publication.publish",
 	"publication.withdraw",
@@ -227,6 +241,8 @@ const adminGrants = [
  * a custom role can't be used to get around the rule.
  */
 export const elevatedPermissions: ReadonlySet<PermissionKey> = new Set([
+	"sources.merge",
+	"sources.retire",
 	"editorial.assign",
 	"publication.publish",
 	"publication.withdraw",
