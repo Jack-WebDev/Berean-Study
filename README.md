@@ -268,7 +268,7 @@ pnpm db:seed --specific=auth.ts -- count=10
 
 ### Roles and permissions
 
-Permissions and starting roles are defined in `packages/db/src/access-catalogue.ts`. After running migrations, copy them into the database. This is safe to repeat, and it keeps changes made on the Roles screen:
+Permissions and starting roles are defined in `packages/db/src/access-catalogue.ts`, and the editorial checks every revision must pass are in `packages/db/src/content-kinds.ts`. After running migrations, copy them into the database. This is safe to repeat, and it keeps changes made on the Roles screen. Nothing can be approved until the checks are set up:
 
 ```bash
 pnpm db:access:sync

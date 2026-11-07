@@ -24,6 +24,10 @@ import {
 import { auditKeys, scriptureDataKeys } from "@/queries/keys";
 import { scriptureBookQueryOptions } from "@/queries/scripture-data";
 
+import {
+	BookOverviewTab,
+	OverviewStatusChip,
+} from "../content/book-overview-tab";
 import { StaffButton, staffLinkClassName } from "../staff-button";
 import { StaffCard } from "../staff-card";
 import { ReasonField, StaffFormDialog } from "../staff-form-dialog";
@@ -99,7 +103,7 @@ export function BookPage({
 							{book.name}
 						</h1>
 						<div className="mt-2 flex flex-wrap gap-1.5">
-							<StatusChip tone="attention">No overview yet</StatusChip>
+							<OverviewStatusChip slug={book.slug} />
 							<StatusChip tone="neutral">
 								{chapterProgressLabel(book.chapters, book.expectedChapters)},{" "}
 								{verseCountLabel(book.verses)}
@@ -137,9 +141,11 @@ export function BookPage({
 
 				<div className="mt-6">
 					{tab === "overview" ? (
-						<WaitingForReviewCard
-							body="The one-line summary, author, date and outline are content, so they're written and reviewed like commentary. They can be written once the review system is in place."
-							title={`No overview of ${book.name} yet`}
+						<BookOverviewTab
+							bookName={book.name}
+							chapterLimit={book.chapterLimit}
+							permissionKeys={permissionKeys}
+							slug={book.slug}
 						/>
 					) : null}
 					{tab === "introduction" ? (

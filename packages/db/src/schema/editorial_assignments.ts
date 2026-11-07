@@ -1,5 +1,6 @@
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
+	check,
 	index,
 	integer,
 	pgTable,
@@ -7,9 +8,8 @@ import {
 	timestamp,
 	unique,
 } from "drizzle-orm/pg-core";
-
+import { user } from "./auth";
 import { contentRevisions } from "./content_revisions";
-import { contributors } from "./contributors";
 
 export const editorialAssignments = pgTable(
 	"editorial_assignments",
@@ -24,13 +24,16 @@ export const editorialAssignments = pgTable(
 
 		assigneeUserId: text("assignee_user_id")
 			.notNull()
-			.references(() => contributors.userId, {
+			.references(() => user.id, {
 				onDelete: "restrict",
 			}),
 
+		/** Writers take over a draft. Reviewers are asked to pick up a submitted revision. */
+		role: text().$type<"reviewer" | "writer">().notNull().default("reviewer"),
+
 		assignedByUserId: text("assigned_by_user_id")
 			.notNull()
-			.references(() => contributors.userId, {
+			.references(() => user.id, {
 				onDelete: "restrict",
 			}),
 
@@ -44,6 +47,11 @@ export const editorialAssignments = pgTable(
 		unique("editorial_assignments_revision_assignee_unique").on(
 			table.contentRevisionId,
 			table.assigneeUserId,
+		),
+
+		check(
+			"editorial_assignments_role_check",
+			sql`${table.role} IN ('reviewer', 'writer')`,
 		),
 
 		index("editorial_assignments_assignee_assigned_at_idx").on(
@@ -61,15 +69,15 @@ export const editorialAssignmentsRelations = relations(
 			references: [contentRevisions.id],
 		}),
 
-		assignee: one(contributors, {
+		assignee: one(user, {
 			fields: [editorialAssignments.assigneeUserId],
-			references: [contributors.userId],
+			references: [user.id],
 			relationName: "editorialAssignmentAssignee",
 		}),
 
-		assignedBy: one(contributors, {
+		assignedBy: one(user, {
 			fields: [editorialAssignments.assignedByUserId],
-			references: [contributors.userId],
+			references: [user.id],
 			relationName: "editorialAssignmentAssignedBy",
 		}),
 	}),

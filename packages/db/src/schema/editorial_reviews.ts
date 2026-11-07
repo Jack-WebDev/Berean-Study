@@ -7,8 +7,8 @@ import {
 	timestamp,
 	unique,
 } from "drizzle-orm/pg-core";
+import { user } from "./auth";
 import { contentRevisions } from "./content_revisions";
-import { contributors } from "./contributors";
 
 export const editorialReviews = pgTable(
 	"editorial_reviews",
@@ -23,7 +23,7 @@ export const editorialReviews = pgTable(
 
 		reviewerUserId: text("reviewer_user_id")
 			.notNull()
-			.references(() => contributors.userId, {
+			.references(() => user.id, {
 				onDelete: "restrict",
 			}),
 

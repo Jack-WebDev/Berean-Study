@@ -1,78 +1,38 @@
+import { emptyBookOverview } from "../book-overview";
+import { contentItems } from "../schema/content_items";
 import { contentRevisions } from "../schema/content_revisions";
-import {
-	db,
-	numberId,
-	rows,
-	type SeedContext,
-	save,
-	sentence,
-	textId,
-} from "./utils";
+import { db, rows, type SeedContext, save, sentence, textId } from "./utils";
+
 export async function seedContentRevisions(
 	context: SeedContext,
 	count = 50,
 ): Promise<void> {
-	const bookIntroductionRevisions = await db
-		.insert(contentRevisions)
+	const items = await db
+		.insert(contentItems)
 		.values(
 			rows(count, (i) => ({
-				content: sentence(),
-				title: `Introduction revision ${i + 1}`,
-				position: i + 1,
+				kind: "book_overview",
+				scopeKey: `seed-book-${i + 1}`,
+				title: `Seed book ${i + 1} overview`,
+			})),
+		)
+		.returning({ id: contentItems.id });
+
+	const revisions = await db
+		.insert(contentRevisions)
+		.values(
+			items.map(({ id }, i) => ({
+				body: { ...emptyBookOverview, summary: sentence() },
+				contentItemId: id,
 				createdByUserId: textId(context, "users", i),
-				bookIntroductionSectionId: numberId(
-					context,
-					"bookIntroductionSections",
-					i,
-				),
+				number: 1,
 			})),
 		)
 		.returning({ id: contentRevisions.id });
-	const commentaryRevisions = await db
-		.insert(contentRevisions)
-		.values(
-			rows(count, (i) => ({
-				content: sentence(),
-				createdByUserId: textId(context, "users", i),
-				commentaryPassageId: numberId(context, "passages", i),
-			})),
-		)
-		.returning({ id: contentRevisions.id });
-	const commentarySectionRevisions = await db
-		.insert(contentRevisions)
-		.values(
-			rows(count, (i) => ({
-				content: sentence(),
-				title: `Commentary revision ${i + 1}`,
-				position: i + 1,
-				createdByUserId: textId(context, "users", i),
-				commentarySectionId: numberId(context, "commentarySections", i),
-			})),
-		)
-		.returning({ id: contentRevisions.id });
+
 	save(
 		context,
 		"contentRevisions",
-		[
-			...bookIntroductionRevisions,
-			...commentaryRevisions,
-			...commentarySectionRevisions,
-		].map(({ id }) => id),
+		revisions.map(({ id }) => id),
 	);
-	save(
-		context,
-		"revisionBookIntroductionSections",
-		rows(count, (i) => numberId(context, "bookIntroductionSections", i)),
-	);
-	save(
-		context,
-		"revisionCommentaries",
-		rows(count, (i) => numberId(context, "passages", i)),
-	);
-	save(
-		context,
-		"revisionCommentarySections",
-		rows(count, (i) => numberId(context, "commentarySections", i)),
-	);
-	return;
 }

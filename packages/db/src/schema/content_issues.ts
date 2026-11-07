@@ -7,9 +7,9 @@ import {
 	text,
 	timestamp,
 } from "drizzle-orm/pg-core";
+import type { ContentIssueType } from "../content-kinds";
 import { user } from "./auth";
 import { contentRevisions } from "./content_revisions";
-import { contributors } from "./contributors";
 
 export const contentIssues = pgTable(
 	"content_issues",
@@ -26,7 +26,7 @@ export const contentIssues = pgTable(
 			onDelete: "set null",
 		}),
 
-		issueType: text("issue_type").notNull(),
+		issueType: text("issue_type").$type<ContentIssueType>().notNull(),
 
 		description: text("description").notNull(),
 
@@ -38,12 +38,9 @@ export const contentIssues = pgTable(
 			.notNull()
 			.defaultNow(),
 
-		closedByUserId: text("closed_by_user_id").references(
-			() => contributors.userId,
-			{
-				onDelete: "restrict",
-			},
-		),
+		closedByUserId: text("closed_by_user_id").references(() => user.id, {
+			onDelete: "restrict",
+		}),
 
 		closedAt: timestamp("closed_at", {
 			withTimezone: true,

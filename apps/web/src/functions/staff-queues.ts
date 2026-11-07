@@ -15,6 +15,9 @@ export const getStaffQueueCounts = createServerFn({ method: "GET" })
 			"publication.publish",
 			"canon.manage",
 			"scripture.manage",
+			"editorial.review",
+			"editorial.assign",
+			"content.write",
 		),
 	])
 	.handler(({ context }) =>

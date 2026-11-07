@@ -1,5 +1,6 @@
 import type { listAuditEntries } from "@/functions/audit";
 import type { getCommunityFeed } from "@/functions/community";
+import type { getContentState, getRevisionPage } from "@/functions/content";
 import type { countNoteViews, listNotes } from "@/functions/notes";
 import type { getNotificationPage } from "@/functions/notifications";
 import type { getVerseRangeText } from "@/functions/passages";
@@ -29,6 +30,8 @@ export type ProofreadingChapterInput = ServerFnData<
 export type VerseAcrossTranslationsInput = ServerFnData<
 	typeof getVerseAcrossTranslations
 >;
+export type ContentScopeInput = ServerFnData<typeof getContentState>;
+export type RevisionPageInput = ServerFnData<typeof getRevisionPage>;
 export type VerseHandlingInput = ServerFnData<typeof getVerseHandling>;
 export type PeopleListFilters = ServerFnData<typeof listPeople>;
 export type AuditListFilters = ServerFnData<typeof listAuditEntries>;
@@ -98,6 +101,22 @@ export const verseTextKeys = {
 	readyToPublish: () => [...verseTextKeys.all, "ready-to-publish"] as const,
 	verse: (input: VerseAcrossTranslationsInput) =>
 		[...verseTextKeys.all, "verse", input] as const,
+};
+
+export const contentKeys = {
+	all: ["content"] as const,
+	state: (input: ContentScopeInput) =>
+		[...contentKeys.all, "state", input] as const,
+	revision: (input: RevisionPageInput) =>
+		[...contentKeys.all, "revision", input] as const,
+	editorialQueue: () => [...contentKeys.all, "editorial-queue"] as const,
+	reviewQueue: () => [...contentKeys.all, "review-queue"] as const,
+	assignments: () => [...contentKeys.all, "assignments"] as const,
+	myWork: () => [...contentKeys.all, "my-work"] as const,
+	approved: () => [...contentKeys.all, "approved"] as const,
+	live: () => [...contentKeys.all, "live"] as const,
+	openIssues: () => [...contentKeys.all, "open-issues"] as const,
+	assignablePeople: () => [...contentKeys.all, "assignable-people"] as const,
 };
 
 export const foundationKeys = {

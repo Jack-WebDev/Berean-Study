@@ -176,6 +176,20 @@
 			"when": 1794024555933,
 			"tag": "0024_canon_chapter_limits",
 			"breakpoints": true
+		},
+		{
+			"idx": 25,
+			"version": "7",
+			"when": 1794029553111,
+			"tag": "0025_remove_old_revision_targets",
+			"breakpoints": true
+		},
+		{
+			"idx": 26,
+			"version": "7",
+			"when": 1794029634479,
+			"tag": "0026_content_engine",
+			"breakpoints": true
 		}
 	]
 }

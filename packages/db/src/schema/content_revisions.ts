@@ -1,33 +1,65 @@
 import { relations, sql } from "drizzle-orm";
 import {
+	type AnyPgColumn,
 	check,
 	index,
 	integer,
+	jsonb,
 	pgTable,
 	text,
 	timestamp,
 	unique,
+	uniqueIndex,
 } from "drizzle-orm/pg-core";
-import { user } from "./auth";
-import { bookIntroductionSections } from "./book_introduction_sections";
-import { citations } from "./citations";
-import { commentaries } from "./commentaries";
-import { commentarySections } from "./commentary_sections";
 
+import type { ContentRevisionStatus } from "../content-kinds";
+import { user } from "./auth";
+import { citations } from "./citations";
+import { contentItems } from "./content_items";
+
+/**
+ * Every version of a piece of content, numbered. A draft can change. Once it is
+ * submitted its wording is fixed, which a database trigger enforces, so publishing
+ * always refers to exactly what was reviewed. Any later edit is a new revision.
+ */
 export const contentRevisions = pgTable(
 	"content_revisions",
 	{
 		id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
 
-		content: text("content").notNull(),
+		contentItemId: integer("content_item_id")
+			.notNull()
+			.references(() => contentItems.id, { onDelete: "restrict" }),
 
-		title: text("title"),
+		number: integer().notNull(),
 
-		position: integer("position"),
+		body: jsonb().$type<unknown>().notNull(),
 
+		status: text().$type<ContentRevisionStatus>().notNull().default("draft"),
+
+		/** The author. */
 		createdByUserId: text("created_by_user_id")
 			.notNull()
 			.references(() => user.id, { onDelete: "restrict" }),
+
+		basedOnRevisionId: integer("based_on_revision_id").references(
+			(): AnyPgColumn => contentRevisions.id,
+			{ onDelete: "restrict" },
+		),
+
+		reviewerUserId: text("reviewer_user_id").references(() => user.id, {
+			onDelete: "restrict",
+		}),
+
+		submittedAt: timestamp("submitted_at", { withTimezone: true }),
+
+		approvedAt: timestamp("approved_at", { withTimezone: true }),
+
+		publishedAt: timestamp("published_at", { withTimezone: true }),
+
+		publishedByUserId: text("published_by_user_id").references(() => user.id, {
+			onDelete: "restrict",
+		}),
 
 		createdAt: timestamp("created_at", {
 			withTimezone: true,
@@ -35,109 +67,72 @@ export const contentRevisions = pgTable(
 			.defaultNow()
 			.notNull(),
 
-		bookIntroductionSectionId: integer(
-			"book_introduction_section_id",
-		).references(() => bookIntroductionSections.id, {
-			onDelete: "restrict",
-		}),
-
-		commentaryPassageId: integer("commentary_passage_id").references(
-			() => commentaries.passageId,
-			{ onDelete: "restrict" },
-		),
-
-		commentarySectionId: integer("commentary_section_id").references(
-			() => commentarySections.id,
-			{
-				onDelete: "restrict",
-			},
-		),
+		updatedAt: timestamp("updated_at", { withTimezone: true })
+			.defaultNow()
+			.notNull(),
 	},
 	(table) => [
-		check(
-			"content_revisions_content_not_empty_check",
-			sql`btrim(${table.content}) <> ''`,
+		unique("content_revisions_item_number_unique").on(
+			table.contentItemId,
+			table.number,
 		),
 
-		check(
-			"content_revisions_exactly_one_target_check",
-			sql`num_nonnulls(
-				${table.bookIntroductionSectionId},
-					${table.commentaryPassageId},
-					${table.commentarySectionId}
-				) = 1`,
-		),
+		uniqueIndex("content_revisions_one_open_idx")
+			.on(table.contentItemId)
+			.where(
+				sql`${table.status} IN ('draft', 'submitted', 'in_review', 'approved')`,
+			),
 
-		check(
-			"content_revisions_snapshot_shape_check",
-			sql`
-				(
-					${table.commentaryPassageId} IS NOT NULL
-					AND ${table.title} IS NULL
-					AND ${table.position} IS NULL
-				)
-				OR (
-					(${table.bookIntroductionSectionId} IS NOT NULL OR ${table.commentarySectionId} IS NOT NULL)
-					AND ${table.title} IS NOT NULL
-					AND btrim(${table.title}) <> ''
-					AND ${table.position} IS NOT NULL
-					AND ${table.position} > 0
-				)
-			`,
-		),
+		uniqueIndex("content_revisions_one_published_idx")
+			.on(table.contentItemId)
+			.where(sql`${table.status} = 'published'`),
 
-		unique("content_revisions_id_book_intro_section_unique").on(
-			table.id,
-			table.bookIntroductionSectionId,
-		),
-
-		unique("content_revisions_id_commentary_unique").on(
-			table.id,
-			table.commentaryPassageId,
-		),
-
-		unique("content_revisions_id_commentary_section_unique").on(
-			table.id,
-			table.commentarySectionId,
-		),
-
-		index("content_revisions_book_intro_section_idx")
-			.on(table.bookIntroductionSectionId, table.createdAt)
-			.where(sql`${table.bookIntroductionSectionId} IS NOT NULL`),
-
-		index("content_revisions_commentary_idx")
-			.on(table.commentaryPassageId, table.createdAt)
-			.where(sql`${table.commentaryPassageId} IS NOT NULL`),
-
-		index("content_revisions_commentary_section_idx")
-			.on(table.commentarySectionId, table.createdAt)
-			.where(sql`${table.commentarySectionId} IS NOT NULL`),
+		index("content_revisions_status_idx").on(table.status),
 
 		index("content_revisions_created_by_created_at_idx").on(
 			table.createdByUserId,
 			table.createdAt,
+		),
+
+		check(
+			"content_revisions_status_check",
+			sql`${table.status} IN (
+				'draft',
+				'submitted',
+				'in_review',
+				'changes_requested',
+				'approved',
+				'published',
+				'superseded',
+				'withdrawn'
+			)`,
+		),
+
+		check("content_revisions_number_positive_check", sql`${table.number} > 0`),
+
+		// The rule at the heart of review, kept here so no code path can skip it.
+		check(
+			"content_revisions_second_person_check",
+			sql`${table.reviewerUserId} IS NULL OR ${table.reviewerUserId} <> ${table.createdByUserId}`,
+		),
+
+		check(
+			"content_revisions_approved_has_reviewer_check",
+			sql`${table.status} NOT IN ('approved', 'published', 'superseded', 'withdrawn')
+				OR (${table.reviewerUserId} IS NOT NULL AND ${table.approvedAt} IS NOT NULL)`,
+		),
+
+		check(
+			"content_revisions_published_state_check",
+			sql`${table.status} NOT IN ('published', 'superseded', 'withdrawn')
+				OR (${table.publishedAt} IS NOT NULL AND ${table.publishedByUserId} IS NOT NULL)`,
 		),
 	],
 );
 
 export const contentRevisionsRelations = relations(
 	contentRevisions,
-	({ one, many }) => ({
-		bookIntroductionSection: one(bookIntroductionSections, {
-			fields: [contentRevisions.bookIntroductionSectionId],
-			references: [bookIntroductionSections.id],
-			relationName: "bookIntroductionSectionRevisions",
-		}),
-		commentary: one(commentaries, {
-			fields: [contentRevisions.commentaryPassageId],
-			references: [commentaries.passageId],
-			relationName: "commentaryRevisions",
-		}),
-		commentarySection: one(commentarySections, {
-			fields: [contentRevisions.commentarySectionId],
-			references: [commentarySections.id],
-			relationName: "commentarySectionRevisions",
-		}),
+	({ many }) => ({
 		citations: many(citations),
 	}),
 );

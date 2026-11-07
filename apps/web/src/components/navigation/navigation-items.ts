@@ -198,12 +198,14 @@ const contributorNavigationItems = [
 		href: "/work/assignments",
 		icon: ClipboardListIcon,
 		label: "Assignments",
+		queue: "myAssignments",
 		requiredPermissions: ["content.write", "editorial.review"],
 	},
 	{
 		href: "/work/reviews",
 		icon: ScrollTextIcon,
 		label: "Reviews",
+		queue: "awaitingReview",
 		requiredPermissions: ["editorial.review"],
 	},
 ] as const satisfies readonly NavigationItem[];
@@ -227,6 +229,7 @@ const administrationNavigationItems = [
 		href: "/admin/editorial",
 		icon: FileCheckIcon,
 		label: "Editorial",
+		queue: "awaitingReview",
 		requiredPermissions: ["editorial.assign"],
 	},
 	{

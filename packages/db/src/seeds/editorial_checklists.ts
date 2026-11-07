@@ -1,22 +1,18 @@
+import { applyAccessCatalogue } from "../access-setup";
 import { editorialChecklists } from "../schema/editorial_checklists";
-import { db, rows, type SeedContext, save } from "./utils";
+import { db, type SeedContext, save } from "./utils";
+
+/** The real checks, since the review screen shows them as they are. */
 export async function seedEditorialChecklists(
 	context: SeedContext,
-	count = 50,
 ): Promise<void> {
+	await applyAccessCatalogue(db);
 	const inserted = await db
-		.insert(editorialChecklists)
-		.values(
-			rows(count, (index) => ({
-				requirement: `Seed editorial requirement ${index + 1}`,
-				position: index + 1,
-			})),
-		)
-		.returning({ id: editorialChecklists.id });
+		.select({ id: editorialChecklists.id })
+		.from(editorialChecklists);
 	save(
 		context,
 		"editorialChecklists",
 		inserted.map(({ id }) => id),
 	);
-	return;
 }

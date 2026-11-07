@@ -1,5 +1,12 @@
 import { sql } from "drizzle-orm";
-import { check, integer, pgTable, text, unique } from "drizzle-orm/pg-core";
+import {
+	boolean,
+	check,
+	integer,
+	pgTable,
+	text,
+	unique,
+} from "drizzle-orm/pg-core";
 
 export const editorialChecklists = pgTable(
 	"editorial_checklists",
@@ -9,6 +16,11 @@ export const editorialChecklists = pgTable(
 		requirement: text("requirement").notNull(),
 
 		position: integer("position").notNull(),
+
+		/** Only original-language and textual content needs this one. */
+		originalLanguageOnly: boolean("original_language_only")
+			.notNull()
+			.default(false),
 	},
 	(table) => [
 		unique("editorial_checklists_requirement_unique").on(table.requirement),
