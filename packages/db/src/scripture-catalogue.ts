@@ -871,3 +871,33 @@ export const versePresenceLabels: Record<VersePresenceKind, string> = {
 	bracketed: "Bracketed",
 	not_in_translation: "Not in this translation",
 };
+
+/** The steps verse text moves through. `superseded` is published text since replaced. */
+export type VerseRevisionStatus =
+	| "draft"
+	| "submitted"
+	| "needs_fix"
+	| "proofread"
+	| "published"
+	| "superseded";
+
+export type VerseProofMark = "matches" | "needs_fix";
+
+/** Where a verse stands in one translation. */
+export type VerseTextStatus =
+	| Exclude<VerseRevisionStatus, "superseded">
+	| "empty";
+
+export const verseTextStatusLabels: Record<VerseTextStatus, string> = {
+	empty: "Empty",
+	draft: "Draft",
+	submitted: "Proofreading",
+	needs_fix: "Needs a fix",
+	proofread: "Proofread",
+	published: "Published",
+};
+
+/** A verse with one of these has no text of its own in that translation. */
+export function hasOwnText(kind: VersePresenceKind | null) {
+	return kind === null || kind === "bracketed";
+}

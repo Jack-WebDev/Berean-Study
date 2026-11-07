@@ -179,7 +179,8 @@ const contributorNavigationItems = [
 		href: "/work/scripture",
 		icon: KeyboardIcon,
 		label: "Scripture Entry",
-		requiredPermissions: ["scripture.enter"],
+		queue: "scriptureEntry",
+		requiredPermissions: ["scripture.enter", "scripture.proofread"],
 	},
 	{
 		href: "/work/research",
@@ -232,6 +233,7 @@ const administrationNavigationItems = [
 		href: "/admin/publication",
 		icon: SendIcon,
 		label: "Publication",
+		queue: "readyToPublish",
 		requiredPermissions: ["publication.publish", "publication.withdraw"],
 	},
 	{

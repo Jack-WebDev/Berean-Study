@@ -5,11 +5,17 @@ import type { DbExecutor } from "./db-executor";
 import { changeProposals } from "./schema/change_proposals";
 import { communityReports } from "./schema/community_reports";
 import { contentIssues } from "./schema/content_issues";
+import {
+	countChaptersReadyToPublish,
+	countChaptersWaitingOnPerson,
+} from "./verse-proofreading";
 
 export type StaffQueue =
 	| "contentIssues"
 	| "communityReports"
-	| "pendingConfirmations";
+	| "pendingConfirmations"
+	| "scriptureEntry"
+	| "readyToPublish";
 
 /**
  * How many items are waiting in each staff queue, for the sidebar counts. Only
@@ -50,6 +56,18 @@ export async function getStaffQueueCounts(
 				),
 			);
 		counts.pendingConfirmations = result?.value ?? 0;
+	}
+
+	const canProofread = permissionKeys.includes("scripture.proofread");
+	if (canProofread || permissionKeys.includes("scripture.enter")) {
+		counts.scriptureEntry = await countChaptersWaitingOnPerson(client, {
+			canProofread,
+			userId,
+		});
+	}
+
+	if (permissionKeys.includes("publication.publish")) {
+		counts.readyToPublish = await countChaptersReadyToPublish(client);
 	}
 
 	return counts;

@@ -10,7 +10,7 @@ import { staffLinkClassName } from "../staff-button";
 import { StaffCard } from "../staff-card";
 import { StaffPage } from "../staff-page";
 import { StatusChip } from "../status-chip";
-import { verseCountLabel } from "./scripture-access";
+import { canReadVerseText, verseCountLabel } from "./scripture-access";
 
 const gridCell =
 	"grid place-items-center rounded-[0.625rem] border text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -67,8 +67,8 @@ export function ChaptersPage({
 					{canEnter ? (
 						<Link
 							className={cn(staffLinkClassName, "mt-4")}
-							to="/work/$section"
-							params={{ section: "scripture" }}
+							search={{ book: book.slug }}
+							to="/work/scripture"
 						>
 							Go to Scripture entry
 						</Link>
@@ -195,6 +195,19 @@ export function ChaptersPage({
 									{selectedVerse.linked.crossReferences} cross-references and{" "}
 									{selectedVerse.linked.themes} themes.
 								</p>
+								{canReadVerseText(permissionKeys) && data.chapter ? (
+									<Link
+										className={cn(staffLinkClassName, "mt-4")}
+										params={{
+											bookSlug: book.slug,
+											chapter: String(data.chapter),
+											verse: String(selectedVerse.number),
+										}}
+										to="/work/scripture/verse/$bookSlug/$chapter/$verse"
+									>
+										View text in all translations
+									</Link>
+								) : null}
 							</div>
 						) : null}
 					</StaffCard>

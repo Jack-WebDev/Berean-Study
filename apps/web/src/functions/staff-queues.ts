@@ -6,7 +6,14 @@ import { requirePermission } from "@/middleware/auth";
 
 export const getStaffQueueCounts = createServerFn({ method: "GET" })
 	.middleware([
-		requirePermission("issues.manage", "community.moderate", "admins.manage"),
+		requirePermission(
+			"issues.manage",
+			"community.moderate",
+			"admins.manage",
+			"scripture.enter",
+			"scripture.proofread",
+			"publication.publish",
+		),
 	])
 	.handler(({ context }) =>
 		getStaffQueueCountsFromDb(db, {

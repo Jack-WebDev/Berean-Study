@@ -46,6 +46,22 @@ describe("staff sidebar sections", () => {
 		]);
 	});
 
+	it("shows Scripture Entry to someone who can only proofread", () => {
+		expect(
+			accessibleStaffItem("/work/scripture", ["scripture.proofread"])?.label,
+		).toBe("Scripture Entry");
+	});
+
+	it("counts Scripture work in the sidebar", () => {
+		const items = accessibleStaffSections(grantsOf("Admin")).flatMap(
+			({ items }) => items,
+		);
+		const queueOf = (label: string) =>
+			items.find((item) => item.label === label)?.queue;
+		expect(queueOf("Scripture Entry")).toBe("scriptureEntry");
+		expect(queueOf("Publication")).toBe("readyToPublish");
+	});
+
 	it("gives a Greek Reviewer the review pages but no writing pages", () => {
 		expect(linksFor("Greek Reviewer")).toEqual(["Assignments", "Reviews"]);
 	});

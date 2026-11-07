@@ -197,7 +197,7 @@ async function presenceOfVerse(
 }
 
 /** How many pieces of content are attached to passages covering this verse. */
-async function linkedContentCounts(client: DbExecutor, verseId: number) {
+export async function linkedContentCounts(client: DbExecutor, verseId: number) {
 	const startVerse = alias(verses, "start_verse");
 	const endVerse = alias(verses, "end_verse");
 	const startChapter = alias(chapters, "start_chapter");

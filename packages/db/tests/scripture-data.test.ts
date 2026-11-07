@@ -35,7 +35,7 @@ import {
 } from "../src/translations-admin";
 import {
 	createPerson,
-	inRolledBackTransaction,
+	inRolledBackTransactionWithoutScripture,
 	withFreshCatalogue,
 } from "./governance-helpers";
 
@@ -99,7 +99,7 @@ describe.runIf(process.env.DATABASE_URL)("Scripture data", () => {
 
 	describe("catalogue setup", () => {
 		it("adds everything once, in order", async () => {
-			await inRolledBackTransaction(async (tx) => {
+			await inRolledBackTransactionWithoutScripture(async (tx) => {
 				const first = await applyScriptureCatalogue(tx);
 				const second = await applyScriptureCatalogue(tx);
 
@@ -120,7 +120,7 @@ describe.runIf(process.env.DATABASE_URL)("Scripture data", () => {
 		});
 
 		it("never overwrites a Superadmin's corrections", async () => {
-			await inRolledBackTransaction(async (tx) => {
+			await inRolledBackTransactionWithoutScripture(async (tx) => {
 				await withFreshCatalogue(tx);
 				await applyScriptureCatalogue(tx);
 				const superadmin = await createPerson(tx, "Superadmin");
@@ -151,7 +151,7 @@ describe.runIf(process.env.DATABASE_URL)("Scripture data", () => {
 
 	describe("books", () => {
 		it("lists the catalogue in canonical order, ignoring other rows", async () => {
-			await inRolledBackTransaction(async (tx) => {
+			await inRolledBackTransactionWithoutScripture(async (tx) => {
 				await applyScriptureCatalogue(tx);
 				await tx.insert(books).values({
 					name: `Stray ${randomUUID()}`,
@@ -169,7 +169,7 @@ describe.runIf(process.env.DATABASE_URL)("Scripture data", () => {
 		});
 
 		it("shows a book's position in each canon, and its structure", async () => {
-			await inRolledBackTransaction(async (tx) => {
+			await inRolledBackTransactionWithoutScripture(async (tx) => {
 				await applyScriptureCatalogue(tx);
 				await addChapter(tx, "romans", 1, 3);
 
@@ -193,7 +193,7 @@ describe.runIf(process.env.DATABASE_URL)("Scripture data", () => {
 		});
 
 		it("returns nothing for an unknown book", async () => {
-			await inRolledBackTransaction(async (tx) => {
+			await inRolledBackTransactionWithoutScripture(async (tx) => {
 				expect(await getScriptureBook(tx, "nonsense")).toBeNull();
 				expect(await getBookStructure(tx, { slug: "nonsense" })).toBeNull();
 			});
@@ -202,7 +202,7 @@ describe.runIf(process.env.DATABASE_URL)("Scripture data", () => {
 
 	describe("structure", () => {
 		it("starts empty, because chapters only exist once someone enters them", async () => {
-			await inRolledBackTransaction(async (tx) => {
+			await inRolledBackTransactionWithoutScripture(async (tx) => {
 				await applyScriptureCatalogue(tx);
 
 				const structure = await getBookStructure(tx, { slug: "romans" });
@@ -217,7 +217,7 @@ describe.runIf(process.env.DATABASE_URL)("Scripture data", () => {
 		});
 
 		it("shows a chosen verse, with how each translation treats it", async () => {
-			await inRolledBackTransaction(async (tx) => {
+			await inRolledBackTransactionWithoutScripture(async (tx) => {
 				await applyScriptureCatalogue(tx);
 				await addChapter(tx, "romans", 1, 2);
 				const inserted = await addChapter(tx, "romans", 16, 24);
@@ -266,7 +266,7 @@ describe.runIf(process.env.DATABASE_URL)("Scripture data", () => {
 		});
 
 		it("falls back to the first chapter and verse", async () => {
-			await inRolledBackTransaction(async (tx) => {
+			await inRolledBackTransactionWithoutScripture(async (tx) => {
 				await applyScriptureCatalogue(tx);
 				await addChapter(tx, "romans", 1, 2);
 
@@ -282,7 +282,7 @@ describe.runIf(process.env.DATABASE_URL)("Scripture data", () => {
 		});
 
 		it("counts content on passages covering the verse, across chapters", async () => {
-			await inRolledBackTransaction(async (tx) => {
+			await inRolledBackTransactionWithoutScripture(async (tx) => {
 				const { versificationId } = await applyScriptureCatalogue(tx);
 				const first = await addChapter(tx, "romans", 1, 3);
 				const second = await addChapter(tx, "romans", 2, 3);
@@ -319,7 +319,7 @@ describe.runIf(process.env.DATABASE_URL)("Scripture data", () => {
 
 	describe("book records", () => {
 		it("saves changes and records them", async () => {
-			await inRolledBackTransaction(async (tx) => {
+			await inRolledBackTransactionWithoutScripture(async (tx) => {
 				await withFreshCatalogue(tx);
 				await applyScriptureCatalogue(tx);
 				const superadmin = await createPerson(tx, "Superadmin");
@@ -338,7 +338,7 @@ describe.runIf(process.env.DATABASE_URL)("Scripture data", () => {
 		});
 
 		it("refuses an alias that already points to another book", async () => {
-			await inRolledBackTransaction(async (tx) => {
+			await inRolledBackTransactionWithoutScripture(async (tx) => {
 				await withFreshCatalogue(tx);
 				await applyScriptureCatalogue(tx);
 				const superadmin = await createPerson(tx, "Superadmin");
@@ -355,7 +355,7 @@ describe.runIf(process.env.DATABASE_URL)("Scripture data", () => {
 		});
 
 		it("refuses a name another book has", async () => {
-			await inRolledBackTransaction(async (tx) => {
+			await inRolledBackTransactionWithoutScripture(async (tx) => {
 				await withFreshCatalogue(tx);
 				await applyScriptureCatalogue(tx);
 				const superadmin = await createPerson(tx, "Superadmin");
@@ -372,7 +372,7 @@ describe.runIf(process.env.DATABASE_URL)("Scripture data", () => {
 		});
 
 		it("passes suggestions to the people who can act on them", async () => {
-			await inRolledBackTransaction(async (tx) => {
+			await inRolledBackTransactionWithoutScripture(async (tx) => {
 				await withFreshCatalogue(tx);
 				await applyScriptureCatalogue(tx);
 				const superadmin = await createPerson(tx, "Superadmin");
@@ -395,7 +395,7 @@ describe.runIf(process.env.DATABASE_URL)("Scripture data", () => {
 
 	describe("translations", () => {
 		it("lists the six in order, and falls back to the first", async () => {
-			await inRolledBackTransaction(async (tx) => {
+			await inRolledBackTransactionWithoutScripture(async (tx) => {
 				await applyScriptureCatalogue(tx);
 
 				const overview = await getTranslationsOverview(tx, "nonsense");
@@ -415,7 +415,7 @@ describe.runIf(process.env.DATABASE_URL)("Scripture data", () => {
 		});
 
 		it("starts with blank rights details, and only licensed ones blocked", async () => {
-			await inRolledBackTransaction(async (tx) => {
+			await inRolledBackTransactionWithoutScripture(async (tx) => {
 				await applyScriptureCatalogue(tx);
 
 				const kjv = (await getTranslationsOverview(tx, "KJV")).selected;
@@ -432,7 +432,7 @@ describe.runIf(process.env.DATABASE_URL)("Scripture data", () => {
 		});
 
 		it("measures progress from published verses", async () => {
-			await inRolledBackTransaction(async (tx) => {
+			await inRolledBackTransactionWithoutScripture(async (tx) => {
 				await applyScriptureCatalogue(tx);
 				const verseRows = await addChapter(tx, "jude", 1, 25);
 				const kjvId = await translationId(tx, "KJV");
@@ -463,7 +463,7 @@ describe.runIf(process.env.DATABASE_URL)("Scripture data", () => {
 		});
 
 		it("records details and permission, which unblocks publishing", async () => {
-			await inRolledBackTransaction(async (tx) => {
+			await inRolledBackTransactionWithoutScripture(async (tx) => {
 				await withFreshCatalogue(tx);
 				await applyScriptureCatalogue(tx);
 				const superadmin = await createPerson(tx, "Superadmin");
@@ -506,7 +506,7 @@ describe.runIf(process.env.DATABASE_URL)("Scripture data", () => {
 		});
 
 		it("won't blank the details a recorded permission depends on", async () => {
-			await inRolledBackTransaction(async (tx) => {
+			await inRolledBackTransactionWithoutScripture(async (tx) => {
 				await withFreshCatalogue(tx);
 				await applyScriptureCatalogue(tx);
 				const superadmin = await createPerson(tx, "Superadmin");
@@ -551,7 +551,7 @@ describe.runIf(process.env.DATABASE_URL)("Scripture data", () => {
 		});
 
 		it("needs a rights holder, a notice and a reference to record permission", async () => {
-			await inRolledBackTransaction(async (tx) => {
+			await inRolledBackTransactionWithoutScripture(async (tx) => {
 				await withFreshCatalogue(tx);
 				await applyScriptureCatalogue(tx);
 				const superadmin = await createPerson(tx, "Superadmin");
@@ -578,7 +578,7 @@ describe.runIf(process.env.DATABASE_URL)("Scripture data", () => {
 		});
 
 		it("doesn't take a permission for the KJV, or edit other translations", async () => {
-			await inRolledBackTransaction(async (tx) => {
+			await inRolledBackTransactionWithoutScripture(async (tx) => {
 				await withFreshCatalogue(tx);
 				await applyScriptureCatalogue(tx);
 				const superadmin = await createPerson(tx, "Superadmin");
