@@ -1,4 +1,4 @@
-import { and, count, eq, inArray } from "drizzle-orm";
+import { and, count, eq, inArray, ne } from "drizzle-orm";
 
 import { recordAudit } from "./audit";
 import type { DbExecutor } from "./db-executor";
@@ -6,6 +6,7 @@ import { GovernanceError } from "./governance-error";
 import { books } from "./schema/books";
 import { chapters } from "./schema/chapters";
 import { translations } from "./schema/translations";
+import { verseTextRevisions } from "./schema/verse_text_revisions";
 import { verseTexts } from "./schema/verse_texts";
 import { verses } from "./schema/verses";
 import {
@@ -48,12 +49,26 @@ export function publishingBlock(
 function progressState(
 	publishedVerses: number,
 	expectedVerses: number,
+	work: { drafts: number; inProofreading: number },
 ): BookProgressState {
+	if (work.inProofreading > 0) return "proofreading";
+	if (work.drafts > 0) return "entering";
 	if (publishedVerses === 0) return "not_started";
 	return publishedVerses >= expectedVerses ? "published" : "entering";
 }
 
-function toDateString(date: Date) {
+/** The six supported translations, in catalogue order. */
+export async function listSupportedTranslations(client: DbExecutor) {
+	const rows = await client
+		.select()
+		.from(translations)
+		.where(inArray(translations.abbreviation, catalogueAbbreviations));
+	return catalogueAbbreviations.flatMap((candidate) =>
+		rows.filter((row) => row.abbreviation === candidate),
+	);
+}
+
+export function toDateString(date: Date) {
 	return date.toISOString().slice(0, 10);
 }
 
@@ -65,13 +80,7 @@ export async function getTranslationsOverview(
 	client: DbExecutor,
 	abbreviation?: string,
 ) {
-	const rows = await client
-		.select()
-		.from(translations)
-		.where(inArray(translations.abbreviation, catalogueAbbreviations));
-	const ordered = catalogueAbbreviations.flatMap((candidate) =>
-		rows.filter((row) => row.abbreviation === candidate),
-	);
+	const ordered = await listSupportedTranslations(client);
 
 	const publishedByBook = await client
 		.select({
@@ -84,6 +93,29 @@ export async function getTranslationsOverview(
 		.innerJoin(chapters, eq(chapters.id, verses.chapterId))
 		.innerJoin(books, eq(books.id, chapters.bookId))
 		.groupBy(verseTexts.translationId, books.slug);
+
+	const workByBook = await client
+		.select({
+			translationId: verseTextRevisions.translationId,
+			slug: books.slug,
+			status: verseTextRevisions.status,
+			value: count(),
+		})
+		.from(verseTextRevisions)
+		.innerJoin(verses, eq(verses.id, verseTextRevisions.verseId))
+		.innerJoin(chapters, eq(chapters.id, verses.chapterId))
+		.innerJoin(books, eq(books.id, chapters.bookId))
+		.where(
+			and(
+				ne(verseTextRevisions.status, "published"),
+				ne(verseTextRevisions.status, "superseded"),
+			),
+		)
+		.groupBy(
+			verseTextRevisions.translationId,
+			books.slug,
+			verseTextRevisions.status,
+		);
 
 	const list = ordered.map((row) => {
 		const published = publishedByBook
@@ -108,13 +140,24 @@ export async function getTranslationsOverview(
 					translationId === chosen.id && slug === book.slug,
 			)?.value ?? 0;
 		const expectedVerses = book.expectedVerses ?? 0;
+		const work = workByBook.filter(
+			({ translationId, slug }) =>
+				translationId === chosen.id && slug === book.slug,
+		);
+		const totalOf = (matches: (status: string) => boolean) =>
+			work
+				.filter(({ status }) => matches(status))
+				.reduce((total, { value }) => total + value, 0);
 		return {
 			slug: book.slug,
 			name: book.name,
 			shortName: book.shortName,
 			publishedVerses,
 			expectedVerses,
-			state: progressState(publishedVerses, expectedVerses),
+			state: progressState(publishedVerses, expectedVerses, {
+				drafts: totalOf((status) => status === "draft"),
+				inProofreading: totalOf((status) => status !== "draft"),
+			}),
 		};
 	});
 
@@ -136,7 +179,7 @@ export async function getTranslationsOverview(
 	};
 }
 
-async function getTranslation(client: DbExecutor, abbreviation: string) {
+export async function getTranslation(client: DbExecutor, abbreviation: string) {
 	const [translation] = await client
 		.select()
 		.from(translations)

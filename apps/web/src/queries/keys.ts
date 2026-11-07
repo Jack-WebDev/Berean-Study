@@ -6,6 +6,11 @@ import type { getVerseRangeText } from "@/functions/passages";
 import type { listPeople } from "@/functions/people";
 import type { listReflections } from "@/functions/reflections";
 import type { getBookStructure } from "@/functions/scripture-data";
+import type {
+	getEntryChapter,
+	getVerseAcrossTranslations,
+} from "@/functions/verse-entry";
+import type { getProofreadingChapter } from "@/functions/verse-proofreading";
 
 /*
  * Query keys for every server resource, kept apart from the query functions so
@@ -16,6 +21,13 @@ type ServerFnData<TFn extends (...args: never[]) => unknown> =
 	NonNullable<Parameters<TFn>[0]> extends { data: infer TData } ? TData : never;
 
 export type BookStructureInput = ServerFnData<typeof getBookStructure>;
+export type EntryChapterInput = ServerFnData<typeof getEntryChapter>;
+export type ProofreadingChapterInput = ServerFnData<
+	typeof getProofreadingChapter
+>;
+export type VerseAcrossTranslationsInput = ServerFnData<
+	typeof getVerseAcrossTranslations
+>;
 export type PeopleListFilters = ServerFnData<typeof listPeople>;
 export type AuditListFilters = ServerFnData<typeof listAuditEntries>;
 export type NoteListFilters = ServerFnData<typeof listNotes>;
@@ -72,6 +84,18 @@ export const scriptureDataKeys = {
 		[...scriptureDataKeys.all, "structure", input] as const,
 	translations: (abbreviation?: string) =>
 		[...scriptureDataKeys.all, "translations", { abbreviation }] as const,
+};
+
+export const verseTextKeys = {
+	all: ["verse-text"] as const,
+	entry: (input: EntryChapterInput) =>
+		[...verseTextKeys.all, "entry", input] as const,
+	proofreading: (input: ProofreadingChapterInput) =>
+		[...verseTextKeys.all, "proofreading", input] as const,
+	queue: () => [...verseTextKeys.all, "queue"] as const,
+	readyToPublish: () => [...verseTextKeys.all, "ready-to-publish"] as const,
+	verse: (input: VerseAcrossTranslationsInput) =>
+		[...verseTextKeys.all, "verse", input] as const,
 };
 
 export const passageKeys = {

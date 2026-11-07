@@ -162,6 +162,13 @@
 			"when": 1793991004937,
 			"tag": "0022_scripture_foundations",
 			"breakpoints": true
+		},
+		{
+			"idx": 23,
+			"version": "7",
+			"when": 1793993331237,
+			"tag": "0023_scripture_entry_and_proofreading",
+			"breakpoints": true
 		}
 	]
 }

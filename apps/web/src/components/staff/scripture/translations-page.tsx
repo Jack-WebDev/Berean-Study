@@ -76,8 +76,8 @@ export function TranslationsPage({ abbreviation }: { abbreviation?: string }) {
 			actions={
 				<Link
 					className={staffLinkClassName}
-					params={{ section: "scripture" }}
-					to="/work/$section"
+					search={{ t: selected?.abbreviation }}
+					to="/work/scripture"
 				>
 					Enter verses
 				</Link>
@@ -173,9 +173,9 @@ function BookProgress({ selected }: { selected: Selected }) {
 								"grid min-h-11 place-items-center rounded-lg px-1 text-center font-bold text-xs transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
 								stateClassNames[book.state],
 							)}
-							params={{ section: "scripture" }}
+							search={{ book: book.slug, t: selected.abbreviation }}
 							title={`${book.name}: ${stateLabels[book.state]}, ${book.publishedVerses} of ${book.expectedVerses} verses published`}
-							to="/work/$section"
+							to="/work/scripture"
 						>
 							{book.shortName}
 						</Link>

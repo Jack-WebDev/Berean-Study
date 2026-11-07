@@ -9,6 +9,19 @@ export function canReadScriptureData(permissionKeys: readonly PermissionKey[]) {
 	);
 }
 
+export const verseTextReaderPermissions = [
+	"scripture.enter",
+	"scripture.proofread",
+	"scripture.manage",
+	"translations.manage",
+	"publication.publish",
+] as const satisfies readonly PermissionKey[];
+
+/** Unpublished wording is for the people working on it, not everyone who reads the structure. */
+export function canReadVerseText(permissionKeys: readonly PermissionKey[]) {
+	return verseTextReaderPermissions.some((key) => permissionKeys.includes(key));
+}
+
 /** For example "2 of 16 chapters", or just "2 chapters" when the total isn't known. */
 export function chapterProgressLabel(
 	chapters: number,

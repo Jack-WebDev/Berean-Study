@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { expect } from "vitest";
 
 import { db } from "../src";
@@ -22,6 +22,20 @@ export async function inRolledBackTransaction(
 			throw new RollBack();
 		}),
 	).rejects.toBeInstanceOf(RollBack);
+}
+
+/**
+ * For tests that count or create Scripture. These share the development database,
+ * which holds whatever people have entered, so they start with none of it. Taking
+ * it out is part of the transaction, so it all comes back when the test ends.
+ */
+export function inRolledBackTransactionWithoutScripture(
+	test: (tx: DbExecutor) => Promise<void>,
+) {
+	return inRolledBackTransaction(async (tx) => {
+		await tx.execute(sql`TRUNCATE TABLE chapters CASCADE`);
+		await test(tx);
+	});
 }
 
 export async function createAccount(tx: DbExecutor) {
