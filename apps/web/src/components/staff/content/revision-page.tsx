@@ -4,6 +4,7 @@ import {
 	commentaryBodySchema,
 	isCommentaryKind,
 } from "@berean-study/db/commentary-body";
+import { parseConnectionScopeKey } from "@berean-study/db/connection-body";
 import {
 	type ContentIssueType,
 	type ContentRevisionStatus,
@@ -17,7 +18,7 @@ import { diffWords } from "@berean-study/db/verse-text-tools";
 import { Input } from "@berean-study/ui/components/input";
 import { Textarea } from "@berean-study/ui/components/textarea";
 import { cn } from "@berean-study/ui/lib/utils";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useId, useState } from "react";
 import { toast } from "sonner";
@@ -31,16 +32,26 @@ import {
 	startReview,
 	withdrawLive,
 } from "@/functions/content";
+import {
+	decideFoundationalChange,
+	requestPublicationConfirmation,
+} from "@/functions/study-content";
 import { formatStaffDate, formatStaffDateTime } from "@/lib/format";
-import { revisionPageQueryOptions } from "@/queries/content";
+import { invalidateContent, revisionPageQueryOptions } from "@/queries/content";
 import { CommentaryPreview } from "../commentary/commentary-preview";
 import { evidenceWorkbenchSearch } from "../evidence/evidence-display";
+import { ChangeDecisionPanel } from "../foundations/change-decision-panel";
 import { WordDiff } from "../scripture/verse-text-display";
 import { StaffButton, staffLinkClassName } from "../staff-button";
 import { StaffCard } from "../staff-card";
 import { ReasonField, StaffFormDialog } from "../staff-form-dialog";
 import { StaffPage } from "../staff-page";
 import { StatusChip } from "../status-chip";
+import {
+	StudyPreview,
+	type StudyPreviewInput,
+	studyPreviewInput,
+} from "../study/study-previews";
 import { BookOverviewPreview } from "./book-overview-preview";
 import { RevisionStatusChip, useContentMutation } from "./content-display";
 
@@ -103,6 +114,61 @@ function RevisionCitations({
 				</ol>
 			)}
 		</StaffCard>
+	);
+}
+
+function StudyEditorLink({
+	input,
+	scopeKey,
+}: {
+	input: StudyPreviewInput;
+	scopeKey: string;
+}) {
+	if (
+		input.kind === "cross_reference" ||
+		input.kind === "canonical_relationship"
+	) {
+		const passage = parseConnectionScopeKey(input.kind, scopeKey)?.first;
+		return (
+			<Link
+				className={staffLinkClassName}
+				search={{ edit: scopeKey, passage, tab: input.kind }}
+				to="/work/connections"
+			>
+				Open the editor
+			</Link>
+		);
+	}
+	if (input.kind === "interpretive_question") {
+		return (
+			<Link
+				className={staffLinkClassName}
+				search={{ id: scopeKey }}
+				to="/work/questions"
+			>
+				Open the editor
+			</Link>
+		);
+	}
+	if (input.kind === "theme") {
+		return (
+			<Link
+				className={staffLinkClassName}
+				search={{ theme: Number(scopeKey) }}
+				to="/work/themes"
+			>
+				Open the editor
+			</Link>
+		);
+	}
+	return (
+		<Link
+			className={staffLinkClassName}
+			search={{ id: scopeKey, passage: input.body.passage, tab: input.kind }}
+			to="/work/language"
+		>
+			Open the editor
+		</Link>
 	);
 }
 
@@ -175,8 +241,11 @@ export function RevisionPage({
 		({ result }) => result === "passed" || result === "not_applicable",
 	);
 	const searchFor = (value: RevisionTab) => ({ tab: value });
+	const studyPreview = studyPreviewInput(data.kind, data.body);
 	const hasReaderView =
-		data.kind === "book_overview" || isCommentaryKind(data.kind);
+		data.kind === "book_overview" ||
+		isCommentaryKind(data.kind) ||
+		studyPreview !== null;
 	const tabLinks: { label: string; value: RevisionTab }[] = [
 		{
 			label: data.baselineNumber
@@ -261,6 +330,8 @@ export function RevisionPage({
 						>
 							Open the editor
 						</Link>
+					) : studyPreview ? (
+						<StudyEditorLink input={studyPreview} scopeKey={data.scopeKey} />
 					) : (
 						<Link
 							className={staffLinkClassName}
@@ -304,6 +375,9 @@ export function RevisionPage({
 					{tab === "full" ? <FullTextTab data={data} /> : null}
 					{tab === "reader" && isCommentaryKind(data.kind) ? (
 						<CommentaryPreview body={commentaryBodySchema.parse(data.body)} />
+					) : null}
+					{tab === "reader" && studyPreview ? (
+						<StudyPreview input={studyPreview} title={data.title} />
 					) : null}
 					{tab === "reader" && data.kind === "book_overview" ? (
 						<BookOverviewPreview
@@ -798,6 +872,98 @@ function HistoryTab({ data }: { data: RevisionData }) {
 	);
 }
 
+/** A stance change or theme rename goes live when a second Superadmin confirms it. */
+function FoundationalConfirmation({
+	change,
+	contentItemId,
+	pending,
+	permissionKeys,
+	revisionId,
+}: {
+	change: string;
+	contentItemId: number;
+	pending: NonNullable<RevisionData["foundationalChange"]>["pending"];
+	permissionKeys: readonly PermissionKey[];
+	revisionId: number;
+}) {
+	const queryClient = useQueryClient();
+	const canConfirm = permissionKeys.includes("content.confirm_foundational");
+	const [open, setOpen] = useState(false);
+	const [reason, setReason] = useState("");
+	const request = useContentMutation(
+		() =>
+			requestPublicationConfirmation({
+				data: { contentItemId, reason, revisionId },
+			}),
+		() => {
+			setOpen(false);
+			setReason("");
+			toast.success("Sent. A different Superadmin publishes it by confirming.");
+		},
+	);
+
+	return (
+		<div className="space-y-3 text-sm">
+			<div
+				className="rounded-[0.625rem] bg-status-attention p-3 text-status-attention-foreground"
+				role="status"
+			>
+				<p className="font-semibold">This needs two Superadmins</p>
+				<p className="mt-1">{change}</p>
+			</div>
+			{pending ? (
+				<>
+					<p>
+						{pending.proposedByMe ? "You" : pending.proposerName} sent this for
+						confirmation.
+					</p>
+					<p className="text-muted-foreground">{pending.reason}</p>
+					{canConfirm ? (
+						<ChangeDecisionPanel
+							confirmLabel="Confirm & publish"
+							decideWith={decideFoundationalChange}
+							onDecided={() => invalidateContent(queryClient)}
+							proposalId={pending.id}
+							proposedByMe={pending.proposedByMe}
+						/>
+					) : (
+						<p className="text-muted-foreground">
+							A different Superadmin has to decide it.
+						</p>
+					)}
+				</>
+			) : canConfirm ? (
+				<>
+					<StaffButton
+						className="w-full"
+						onClick={() => setOpen(true)}
+						variant="outline"
+					>
+						Send for confirmation
+					</StaffButton>
+					<StaffFormDialog
+						canSubmit={reason.trim().length > 0}
+						description="A different Superadmin reads this and decides. Confirming publishes it straight away."
+						onOpenChange={setOpen}
+						onSubmit={() => request.mutate(undefined)}
+						open={open}
+						pending={request.isPending}
+						submitLabel="Send for confirmation"
+						title="Send for confirmation"
+					>
+						<ReasonField onChange={setReason} value={reason} />
+					</StaffFormDialog>
+				</>
+			) : (
+				<p className="text-muted-foreground">
+					A Superadmin has to send this for confirmation. It can't be published
+					from here.
+				</p>
+			)}
+		</div>
+	);
+}
+
 function PublicationCard({
 	data,
 	permissionKeys,
@@ -806,9 +972,11 @@ function PublicationCard({
 	permissionKeys: readonly PermissionKey[];
 }) {
 	const { revision } = data;
+	const foundational = data.foundationalChange;
 	const canPublish =
 		permissionKeys.includes("publication.publish") &&
-		revision.status === "approved";
+		revision.status === "approved" &&
+		!foundational;
 	const canWithdraw =
 		permissionKeys.includes("publication.withdraw") && data.liveRevision;
 	const publish = useContentMutation(
@@ -848,7 +1016,15 @@ function PublicationCard({
 						Publish Revision #{revision.number}
 					</StaffButton>
 				) : null}
-				{canPublish ? null : (
+				{foundational ? (
+					<FoundationalConfirmation
+						change={foundational.change}
+						contentItemId={data.contentItemId}
+						pending={foundational.pending}
+						permissionKeys={permissionKeys}
+						revisionId={revision.id}
+					/>
+				) : canPublish ? null : (
 					<p className="text-sm" role="status">
 						{publicationStatusNotes[revision.status]}
 					</p>

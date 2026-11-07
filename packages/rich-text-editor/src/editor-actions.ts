@@ -24,7 +24,10 @@ export type EditorCommandId =
 	| "citation"
 	| "scriptureReference"
 	| "crossReference"
-	| "originalTerm";
+	| "originalTerm"
+	| "questionBlock"
+	| "textualNoteBlock"
+	| "crossReferenceBlock";
 
 export type ReferenceRequest = () =>
 	| BibleReferenceAttributes
@@ -261,6 +264,44 @@ const commandDefinitions: readonly EditorCommandDefinition[] = [
 		keywords: ["see also", "related"],
 		label: "Cross-reference",
 	},
+	...(
+		[
+			{
+				description: "Place an interpretive question and its views here.",
+				id: "questionBlock",
+				kind: "interpretive_question",
+				label: "Interpretive question",
+			},
+			{
+				description: "Place a textual note here.",
+				id: "textualNoteBlock",
+				kind: "textual_note",
+				label: "Textual note",
+			},
+			{
+				description: "Place a reviewed cross-reference here.",
+				id: "crossReferenceBlock",
+				kind: "cross_reference",
+				label: "Cross-reference",
+			},
+		] as const
+	).map(
+		({ description, id, kind, label }): EditorCommandDefinition => ({
+			description,
+			execute: async (target, context) => {
+				const block =
+					await context.commentaryTools?.onRequestContentBlock?.(kind);
+				return block ? (target.insertContentBlock?.(block) ?? false) : false;
+			},
+			group: "insert",
+			id,
+			isAvailable: (context) =>
+				isCommentary(context) &&
+				Boolean(context.commentaryTools?.onRequestContentBlock),
+			keywords: ["block", "embed"],
+			label,
+		}),
+	),
 ];
 
 /**

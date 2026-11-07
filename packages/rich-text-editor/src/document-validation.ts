@@ -29,6 +29,7 @@ function hasMeaningfulNode(node: RichTextNode): boolean {
 	if (
 		node.type === "bibleReference" ||
 		node.type === "citation" ||
+		node.type === "contentBlock" ||
 		node.type === "originalTerm" ||
 		node.type === "scriptureReference" ||
 		node.type === "verseBlock"

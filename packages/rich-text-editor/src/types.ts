@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 import type { DockedToolbarItem } from "./docked-toolbar";
 import type {
 	CitationAttributes,
+	ContentBlockAttributes,
+	ContentBlockKind,
 	OriginalTermAttributes,
 	RichTextDocument,
 	ScriptureReferenceAttributes,
@@ -13,6 +15,8 @@ import type { SlashCommandItem } from "./slash-commands";
 export type {
 	CitationAttributes,
 	CitationStrength,
+	ContentBlockAttributes,
+	ContentBlockKind,
 	OriginalTermAttributes,
 	RichTextDocument,
 	RichTextNode,
@@ -37,6 +41,10 @@ export type CommentaryTools = {
 	onRequestCrossReference: () => Promise<ScriptureReferenceAttributes | null>;
 	onRequestOriginalTerm: () => Promise<OriginalTermAttributes | null>;
 	onRequestScriptureReference: () => Promise<ScriptureReferenceAttributes | null>;
+	/** Turns on "Insert block". Only full commentary has room for one. */
+	onRequestContentBlock?: (
+		kind: ContentBlockKind,
+	) => Promise<ContentBlockAttributes | null>;
 };
 
 export type VerseText = { number: number; text: string };

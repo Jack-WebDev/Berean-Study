@@ -55,5 +55,19 @@ export type ScriptureReferenceAttributes = {
 export type OriginalTermAttributes = {
 	gloss: string;
 	language: "greek" | "hebrew";
+	/** The original-language note this word opens, when one has been chosen. */
+	noteScopeKey?: string | null;
 	word: string;
+};
+
+export type ContentBlockKind =
+	| "cross_reference"
+	| "interpretive_question"
+	| "textual_note";
+
+/** A separately reviewed piece of content placed inside contributor writing. */
+export type ContentBlockAttributes = {
+	kind: ContentBlockKind;
+	label: string;
+	scopeKey: string;
 };

@@ -2,6 +2,7 @@ import type { JSONContent } from "@tiptap/core";
 
 import type {
 	CitationAttributes,
+	ContentBlockAttributes,
 	OriginalTermAttributes,
 	ScriptureReferenceAttributes,
 } from "./document-types";
@@ -44,19 +45,47 @@ export function isValidOriginalTerm(
 		term &&
 			nonEmptyText(term.word) &&
 			typeof term.gloss === "string" &&
+			(term.noteScopeKey === undefined ||
+				term.noteScopeKey === null ||
+				nonEmptyText(term.noteScopeKey)) &&
 			(term.language === "greek" || term.language === "hebrew"),
+	);
+}
+
+export const contentBlockKindLabels: Record<
+	ContentBlockAttributes["kind"],
+	string
+> = {
+	cross_reference: "Cross-reference",
+	interpretive_question: "Interpretive question",
+	textual_note: "Textual note",
+};
+
+export function isValidContentBlock(
+	block: Partial<ContentBlockAttributes> | null | undefined,
+): block is ContentBlockAttributes {
+	return Boolean(
+		block &&
+			nonEmptyText(block.scopeKey) &&
+			nonEmptyText(block.label) &&
+			typeof block.kind === "string" &&
+			block.kind in contentBlockKindLabels,
 	);
 }
 
 /** Every commentary tool used in a document, in reading order. */
 export function getDocumentCommentaryNodes(document: JSONContent) {
 	const citations: CitationAttributes[] = [];
+	const contentBlocks: ContentBlockAttributes[] = [];
 	const originalTerms: OriginalTermAttributes[] = [];
 	const scriptureReferences: ScriptureReferenceAttributes[] = [];
 	const visit = (node: JSONContent) => {
 		const attrs = node.attrs as Record<string, unknown> | undefined;
 		if (node.type === "citation" && isValidCitation(attrs)) {
 			citations.push(attrs);
+		}
+		if (node.type === "contentBlock" && isValidContentBlock(attrs)) {
+			contentBlocks.push(attrs);
 		}
 		if (node.type === "originalTerm" && isValidOriginalTerm(attrs)) {
 			originalTerms.push(attrs);
@@ -70,7 +99,7 @@ export function getDocumentCommentaryNodes(document: JSONContent) {
 		for (const child of node.content ?? []) visit(child);
 	};
 	visit(document);
-	return { citations, originalTerms, scriptureReferences };
+	return { citations, contentBlocks, originalTerms, scriptureReferences };
 }
 
 /**
@@ -107,6 +136,11 @@ export function getCommentaryReviewText(document: JSONContent) {
 
 	const lines: string[] = [];
 	const collect = (node: JSONContent) => {
+		const attrs = node.attrs as Record<string, unknown> | undefined;
+		if (node.type === "contentBlock" && isValidContentBlock(attrs)) {
+			lines.push(`[${contentBlockKindLabels[attrs.kind]}: ${attrs.label}]`);
+			return;
+		}
 		if (!node.content?.some(isInline)) {
 			for (const child of node.content ?? []) collect(child);
 			return;

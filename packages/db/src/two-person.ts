@@ -18,6 +18,10 @@ import {
 	chapterLimitsKind,
 } from "./change-kinds/chapter-limits";
 import {
+	type GuardedPublicationPayload,
+	guardedPublicationKind,
+} from "./change-kinds/guarded-publication";
+import {
 	type RoleChangePayload,
 	roleChangeKind,
 } from "./change-kinds/role-change";
@@ -29,6 +33,10 @@ import {
 	type SourceRetirementPayload,
 	sourceRetirementKind,
 } from "./change-kinds/source-retirement";
+import {
+	type ThemeMergePayload,
+	themeMergeKind,
+} from "./change-kinds/theme-merge";
 import {
 	type VerseAdditionPayload,
 	verseAdditionKind,
@@ -109,6 +117,8 @@ const changeKinds = {
 	verse_addition: changeKind(verseAdditionKind),
 	verse_handling: changeKind(verseHandlingKind),
 	source_retirement: changeKind(sourceRetirementKind),
+	guarded_publication: changeKind(guardedPublicationKind),
+	theme_merge: changeKind(themeMergeKind),
 };
 
 export type ChangeKindName = keyof typeof changeKinds;
@@ -122,6 +132,8 @@ type ChangePayloads = {
 	verse_addition: VerseAdditionPayload;
 	verse_handling: VerseHandlingPayload;
 	source_retirement: SourceRetirementPayload;
+	guarded_publication: GuardedPublicationPayload;
+	theme_merge: ThemeMergePayload;
 };
 
 function kindNamed(name: string) {

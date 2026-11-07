@@ -6,15 +6,19 @@
  */
 
 export {
+	contentBlockKindLabels,
 	getCommentaryReviewText,
 	getDocumentCommentaryNodes,
 	isValidCitation,
+	isValidContentBlock,
 	isValidOriginalTerm,
 	isValidScriptureReference,
 } from "./commentary-nodes";
 export type {
 	CitationAttributes,
 	CitationStrength,
+	ContentBlockAttributes,
+	ContentBlockKind,
 	OriginalTermAttributes,
 	RichTextDocument,
 	RichTextNode,

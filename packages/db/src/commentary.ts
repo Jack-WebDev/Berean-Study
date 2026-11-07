@@ -1,17 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import {
-	and,
-	asc,
-	between,
-	count,
-	eq,
-	ilike,
-	inArray,
-	like,
-	ne,
-	sql,
-} from "drizzle-orm";
+import { and, between, count, eq, like, ne } from "drizzle-orm";
 import {
 	type CommentaryKind,
 	type CommentaryScope,
@@ -23,21 +12,18 @@ import {
 	startingCommentaryBody,
 } from "./commentary-body";
 import { commentaryScopeLabel } from "./commentary-kinds";
-import type { ContentRevisionStatus } from "./content-kinds";
-import { getContentState } from "./content-queues";
+import { getContentState, listContentRecords } from "./content-queues";
 import type { DbExecutor } from "./db-executor";
 import { GovernanceError } from "./governance-error";
-import { formatPassageReference } from "./passages";
 import { books } from "./schema/books";
 import { chapters } from "./schema/chapters";
 import { contentItems } from "./schema/content_items";
 import { verses } from "./schema/verses";
 import {
+	resolvePassage,
 	resolveScriptureReference,
 	splitScriptureReference,
 } from "./scripture-reference";
-
-const LIST_LIMIT = 100;
 
 async function bookSlugFor(client: DbExecutor, bookId: number) {
 	const [book] = await client
@@ -235,53 +221,15 @@ export async function listCommentaries(
 	client: DbExecutor,
 	filter: { search?: string } = {},
 ) {
-	const search = filter.search?.trim();
-	const pattern = search ? `%${search.replace(/[%_\\]/g, "\\$&")}%` : null;
-	const rows = await client
-		.select({
-			contentItemId: contentItems.id,
-			kind: contentItems.kind,
-			latestNumber: sql<
-				number | null
-			>`(select r.number from content_revisions r where r.content_item_id = content_items.id order by r.number desc limit 1)`,
-			latestStatus: sql<ContentRevisionStatus | null>`(select r.status from content_revisions r where r.content_item_id = content_items.id order by r.number desc limit 1)`,
-			liveNumber: sql<
-				number | null
-			>`(select r.number from content_revisions r where r.id = content_items.live_revision_id)`,
-			scopeKey: contentItems.scopeKey,
-			title: contentItems.title,
-		})
-		.from(contentItems)
-		.where(
-			and(
-				inArray(contentItems.kind, [...commentaryKinds]),
-				pattern ? ilike(contentItems.title, pattern) : undefined,
-			),
-		)
-		.orderBy(asc(contentItems.title))
-		.limit(LIST_LIMIT);
-	return rows.flatMap((row) =>
-		row.latestNumber === null
-			? []
-			: [{ ...row, kind: row.kind as CommentaryKind }],
-	);
+	const rows = await listContentRecords(client, {
+		kinds: commentaryKinds,
+		search: filter.search,
+	});
+	return rows.map((row) => ({ ...row, kind: row.kind as CommentaryKind }));
 }
 
 /** Checks a typed reference and writes it in full, ready to insert: "Rom 8:31" becomes "Romans 8:31". */
 export async function resolveEditorReference(client: DbExecutor, text: string) {
-	const { bookId, bookName } = await resolveScriptureReference(client, text);
-	const range = splitScriptureReference(text)?.range;
-	if (!range) throw new GovernanceError("Include a chapter, like Romans 8.");
-	const { from, to } = range;
-	const label =
-		from.verse !== null && to.verse !== null
-			? formatPassageReference(
-					bookName,
-					[from.chapter, from.verse],
-					[to.chapter, to.verse],
-				)
-			: from.chapter === to.chapter
-				? `${bookName === "Psalms" ? "Psalm" : bookName} ${from.chapter}`
-				: `${bookName} ${from.chapter}–${to.chapter}`;
-	return { bookSlug: await bookSlugFor(client, bookId), label };
+	const { label, passage } = await resolvePassage(client, text);
+	return { bookSlug: passage.bookSlug, label };
 }

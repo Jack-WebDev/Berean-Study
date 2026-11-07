@@ -14,6 +14,7 @@ import {
 import type {
 	BibleReferenceAttributes,
 	CitationAttributes,
+	ContentBlockAttributes,
 	OriginalTermAttributes,
 	RichTextDocument,
 	ScriptureReferenceAttributes,
@@ -58,6 +59,7 @@ export type EditorCommandTarget = {
 	insertVerseBlock: (attributes: VerseBlockAttributes) => boolean;
 	/** Optional so command targets written before it was added still fit. */
 	insertText?: (text: string) => boolean;
+	insertContentBlock?: (block: ContentBlockAttributes) => boolean;
 	insertOriginalTerm?: (term: OriginalTermAttributes) => boolean;
 	insertScriptureReference?: (
 		reference: ScriptureReferenceAttributes,
@@ -322,6 +324,7 @@ export function createEditorSession(editor: Editor): EditorSession {
 		insertBibleReference: (reference) =>
 			editor.commands.insertBibleReference(reference),
 		insertCitation: (citation) => editor.commands.insertCitation(citation),
+		insertContentBlock: (block) => editor.commands.insertContentBlock(block),
 		insertOriginalTerm: (term) => editor.commands.insertOriginalTerm(term),
 		insertQuote: (text, point) => {
 			const position = point

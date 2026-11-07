@@ -21,6 +21,7 @@ import {
 	contentRevisionStatusLabels,
 	openRevisionStatuses,
 } from "./content-kinds";
+import { moveSourceLinks, revisionsNamingSource } from "./content-links";
 import { getContentState } from "./content-queues";
 import { saveDraft } from "./content-workflow";
 import type { DbExecutor } from "./db-executor";
@@ -348,6 +349,20 @@ export async function sourceUsedIn(client: DbExecutor, sourceId: number) {
 			client,
 			excerpts.map(({ id }) => id),
 		)),
+		...(
+			await revisionsNamingSource(client, sourceId, currentRevisionStatuses)
+		).map(
+			(row): UsedInRow => ({
+				id: `named-${row.revisionId}`,
+				label: row.title,
+				meta: `Revision #${row.number} · ${contentRevisionStatusLabels[row.status]} · Names this source`,
+				target: {
+					contentItemId: row.contentItemId,
+					revisionId: row.revisionId,
+					type: "revision",
+				},
+			}),
+		),
 		...notes.map(
 			(note): UsedInRow => ({
 				id: `note-${note.id}`,
@@ -669,6 +684,10 @@ export async function mergeSources(
 			.delete(researchNoteSources)
 			.where(eq(researchNoteSources.sourceId, input.mergeSourceId));
 
+		await moveSourceLinks(tx, {
+			fromSourceId: input.mergeSourceId,
+			toSourceId: input.keepSourceId,
+		});
 		await tx
 			.update(sources)
 			.set({ mergedIntoSourceId: input.keepSourceId, status: "merged" })

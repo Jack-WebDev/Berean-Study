@@ -15,6 +15,7 @@ import StarterKit from "@tiptap/starter-kit";
 
 import { BibleReference } from "./bible-reference";
 import { Citation } from "./citation";
+import { ContentBlock } from "./content-block";
 import { OriginalTerm } from "./original-term";
 import { PassageMentions } from "./passage-mentions";
 import { sanitizePastedHtml } from "./paste-sanitization";
@@ -145,7 +146,7 @@ export function createRichTextExtensions(
 		BibleReference,
 		VerseBlock,
 		...(preset === "contributor"
-			? [Citation, OriginalTerm, ScriptureReference]
+			? [Citation, ContentBlock, OriginalTerm, ScriptureReference]
 			: []),
 		...(interactive
 			? [SlashCommands, PassageMentions, Placeholder.configure({ placeholder })]

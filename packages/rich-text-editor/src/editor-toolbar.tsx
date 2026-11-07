@@ -126,6 +126,11 @@ export function EditorToolbar({
 				.map((id) => catalog.find(id))
 				.filter((command) => command !== undefined)
 		: [];
+	const blockCommands = (
+		["questionBlock", "textualNoteBlock", "crossReferenceBlock"] as const
+	)
+		.map((id) => catalog.find(id))
+		.filter((command) => command !== undefined);
 	const listCommands = catalog
 		.commands("structure")
 		.filter(
@@ -277,15 +282,28 @@ export function EditorToolbar({
 							+ {command.label}
 						</button>
 					))}
-					<button
-						className={`${toolbarItemClassName} px-2 font-medium text-sm`}
-						data-toolbar-item
-						disabled
-						title="Opens with the question and textual note editors"
-						type="button"
-					>
-						Insert block
-					</button>
+					{blockCommands.length > 0 ? (
+						<DropdownMenu>
+							<DropdownMenuTrigger
+								className={`${toolbarItemClassName} px-2 font-medium text-sm`}
+								data-toolbar-item
+							>
+								Insert block
+							</DropdownMenuTrigger>
+							<DropdownMenuContent className="w-52 p-1" sideOffset={6}>
+								<DropdownMenuGroup>
+									{blockCommands.map((command) => (
+										<DropdownMenuItem
+											key={command.id}
+											onClick={() => void command.execute(session)}
+										>
+											{command.label}
+										</DropdownMenuItem>
+									))}
+								</DropdownMenuGroup>
+							</DropdownMenuContent>
+						</DropdownMenu>
+					) : null}
 				</div>
 			) : null}
 			{variant === "full" ? (

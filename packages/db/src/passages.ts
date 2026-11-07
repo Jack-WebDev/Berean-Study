@@ -1,15 +1,14 @@
 import { and, asc, between, desc, eq, inArray, lte, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
+import { parseConnectionScopeKey } from "./connection-body";
+import { contentAtPassage } from "./content-links";
 import type { db } from "./index";
+import { parsePassageKey } from "./passage-key";
 import { books } from "./schema/books";
-import { canonicalRelationships } from "./schema/canonical_relationships";
 import { chapters } from "./schema/chapters";
-import { crossReferences } from "./schema/cross_references";
 import { passageRanges } from "./schema/passage_ranges";
 import { passages } from "./schema/passages";
-import { themePassages } from "./schema/theme_passages";
-import { themes } from "./schema/themes";
 import { translations } from "./schema/translations";
 import { userPreferences } from "./schema/user_preferences";
 import { verseTexts } from "./schema/verse_texts";
@@ -55,54 +54,48 @@ export async function getPassageStudyContext(
 	db: DbClient,
 	passageId: number,
 ): Promise<PassageStudyContext | null> {
-	const [
-		passageRows,
-		passageThemes,
-		outgoingCrossReferences,
-		incomingCrossReferences,
-		outgoingCanonicalRelationships,
-		incomingCanonicalRelationships,
-	] = await Promise.all([
-		db
-			.select({ bookName: books.name, id: passages.id, title: passages.title })
-			.from(passages)
-			.innerJoin(books, eq(books.id, passages.bookId))
-			.where(eq(passages.id, passageId))
-			.limit(1),
-		db
-			.select({ name: themes.name })
-			.from(themePassages)
-			.innerJoin(themes, eq(themes.id, themePassages.themeId))
-			.where(eq(themePassages.passageId, passageId))
-			.orderBy(asc(themes.name)),
-		db
-			.select({ id: crossReferences.relatedPassageId })
-			.from(crossReferences)
-			.where(eq(crossReferences.passageId, passageId)),
-		db
-			.select({ id: crossReferences.passageId })
-			.from(crossReferences)
-			.where(eq(crossReferences.relatedPassageId, passageId)),
-		db
-			.select({ id: canonicalRelationships.targetPassageId })
-			.from(canonicalRelationships)
-			.where(eq(canonicalRelationships.sourcePassageId, passageId)),
-		db
-			.select({ id: canonicalRelationships.sourcePassageId })
-			.from(canonicalRelationships)
-			.where(eq(canonicalRelationships.targetPassageId, passageId)),
-	]);
-
-	const [passage] = passageRows;
+	const [passage] = await db
+		.select({ bookName: books.name, id: passages.id, title: passages.title })
+		.from(passages)
+		.innerJoin(books, eq(books.id, passages.bookId))
+		.where(eq(passages.id, passageId))
+		.limit(1);
 	if (!passage) return null;
 
+	const attached = (
+		await Promise.all(
+			(
+				await passageVerseRanges(db, [passageId])
+			).map((range) =>
+				contentAtPassage(db, range, {
+					kinds: ["cross_reference", "canonical_relationship", "theme"],
+					revision: "live",
+				}),
+			),
+		)
+	).flat();
+
+	const themeNames = new Set<string>();
+	const otherEnds = new Set<string>();
+	for (const { kind, scopeKey, title } of attached) {
+		if (kind === "theme") {
+			themeNames.add(title);
+			continue;
+		}
+		const ends = parseConnectionScopeKey(
+			kind === "cross_reference" ? "cross_reference" : "canonical_relationship",
+			scopeKey,
+		);
+		if (ends) {
+			otherEnds.add(ends.first);
+			otherEnds.add(ends.second);
+		}
+	}
+
 	const relatedPassageIds = new Set(
-		[
-			...outgoingCrossReferences,
-			...incomingCrossReferences,
-			...outgoingCanonicalRelationships,
-			...incomingCanonicalRelationships,
-		].map((relatedPassage) => relatedPassage.id),
+		(await passagesCovering(db, [...otherEnds])).filter(
+			(id) => id !== passageId,
+		),
 	);
 	const relatedPassages = relatedPassageIds.size
 		? await db
@@ -121,8 +114,69 @@ export async function getPassageStudyContext(
 	return {
 		passage: toPassageOption(passage),
 		relatedPassages: relatedPassages.map(toPassageOption),
-		themes: passageThemes.map((theme) => theme.name),
+		themes: [...themeNames].sort((a, b) => a.localeCompare(b)),
 	};
+}
+
+const startVerse = alias(verses, "start_verse");
+const endVerse = alias(verses, "end_verse");
+const startChapter = alias(chapters, "start_chapter");
+const endChapter = alias(chapters, "end_chapter");
+
+/** Each stored passage's ranges, as book and verse numbers. */
+function storedPassageRanges(db: DbClient) {
+	return db
+		.select({
+			bookId: startChapter.bookId,
+			fromChapter: startChapter.number,
+			fromVerse: startVerse.number,
+			passageId: passageRanges.passageId,
+			toChapter: endChapter.number,
+			toVerse: endVerse.number,
+		})
+		.from(passageRanges)
+		.innerJoin(startVerse, eq(startVerse.id, passageRanges.startVerseId))
+		.innerJoin(endVerse, eq(endVerse.id, passageRanges.endVerseId))
+		.innerJoin(startChapter, eq(startChapter.id, startVerse.chapterId))
+		.innerJoin(endChapter, eq(endChapter.id, endVerse.chapterId));
+}
+
+async function passageVerseRanges(db: DbClient, passageIds: number[]) {
+	const rows = await storedPassageRanges(db).where(
+		inArray(passageRanges.passageId, passageIds),
+	);
+	return rows.map((row) => ({
+		bookId: row.bookId,
+		from: { chapter: row.fromChapter, verse: row.fromVerse },
+		to: { chapter: row.toChapter, verse: row.toVerse },
+	}));
+}
+
+/**
+ * Stored passages that include these verses. Connections name verses directly, and
+ * the member Bible opens stored passages, so a connection with no matching passage
+ * has nothing to open and isn't listed.
+ */
+async function passagesCovering(db: DbClient, keys: readonly string[]) {
+	const wanted = keys.flatMap((key) => {
+		const passage = parsePassageKey(key);
+		return passage ? [passage] : [];
+	});
+	if (wanted.length === 0) return [];
+	const ids = new Set<number>();
+	for (const { bookSlug, from, to } of wanted) {
+		const rows = await storedPassageRanges(db)
+			.innerJoin(books, eq(books.id, startChapter.bookId))
+			.where(
+				and(
+					eq(books.slug, bookSlug),
+					sql`(${startChapter.number}, ${startVerse.number}) <= (${to.chapter}, ${to.verse})`,
+					sql`(${endChapter.number}, ${endVerse.number}) >= (${from.chapter}, ${from.verse})`,
+				),
+			);
+		for (const { passageId } of rows) ids.add(passageId);
+	}
+	return [...ids];
 }
 
 function toPassageOption(passage: {

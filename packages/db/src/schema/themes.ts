@@ -1,22 +1,35 @@
 import { sql } from "drizzle-orm";
-import { check, integer, pgTable, text, unique } from "drizzle-orm/pg-core";
+import {
+	type AnyPgColumn,
+	check,
+	integer,
+	pgTable,
+	text,
+	timestamp,
+} from "drizzle-orm/pg-core";
 
+/**
+ * A theme's identity and standing. What it says, including its name and passages,
+ * lives in its reviewed revisions.
+ */
 export const themes = pgTable(
 	"themes",
 	{
 		id: integer().primaryKey().generatedAlwaysAsIdentity(),
 
-		name: text().notNull(),
+		status: text().$type<"active" | "merged">().notNull().default("active"),
 
-		slug: text().notNull(),
+		/** Where to look instead, after two Superadmins merged this into another theme. */
+		mergedIntoThemeId: integer("merged_into_theme_id").references(
+			(): AnyPgColumn => themes.id,
+			{ onDelete: "restrict" },
+		),
+
+		createdAt: timestamp("created_at", { withTimezone: true })
+			.notNull()
+			.defaultNow(),
 	},
 	(table) => [
-		unique("themes_name_unique").on(table.name),
-
-		unique("themes_slug_unique").on(table.slug),
-
-		check("themes_name_not_empty_check", sql`btrim(${table.name}) <> ''`),
-
-		check("themes_slug_not_empty_check", sql`btrim(${table.slug}) <> ''`),
+		check("themes_status_check", sql`${table.status} IN ('active', 'merged')`),
 	],
 );

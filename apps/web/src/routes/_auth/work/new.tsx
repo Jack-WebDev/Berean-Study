@@ -9,6 +9,7 @@ export const Route = createFileRoute("/_auth/work/new")({
 		if (
 			!keys.includes("content.write") &&
 			!keys.includes("content.revise") &&
+			!keys.includes("content.original_language") &&
 			!keys.includes("sources.manage")
 		) {
 			throw redirect({ to: "/home" });

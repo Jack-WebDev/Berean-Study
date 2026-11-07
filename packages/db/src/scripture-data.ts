@@ -18,6 +18,7 @@ import {
 	parseCommentaryScopeKey,
 	rangeContains,
 } from "./commentary-body";
+import { contentAtPassage } from "./content-links";
 import type { DbExecutor } from "./db-executor";
 import { GovernanceError } from "./governance-error";
 import { createNotification } from "./notifications";
@@ -27,9 +28,6 @@ import { canonBooks } from "./schema/canon_books";
 import { canonTraditions } from "./schema/canon_traditions";
 import { chapters } from "./schema/chapters";
 import { contentItems } from "./schema/content_items";
-import { crossReferences } from "./schema/cross_references";
-import { passageRanges } from "./schema/passage_ranges";
-import { themePassages } from "./schema/theme_passages";
 import { translations } from "./schema/translations";
 import { versePresence } from "./schema/verse_presence";
 import { verseTexts } from "./schema/verse_texts";
@@ -257,47 +255,31 @@ async function commentariesCovering(client: DbExecutor, verseId: number) {
 /** How many pieces of content are attached to this verse. */
 export async function linkedContentCounts(client: DbExecutor, verseId: number) {
 	const commentary = await commentariesCovering(client, verseId);
-	const startVerse = alias(verses, "start_verse");
-	const endVerse = alias(verses, "end_verse");
-	const startChapter = alias(chapters, "start_chapter");
-	const endChapter = alias(chapters, "end_chapter");
-	const thisVerse = alias(verses, "this_verse");
-	const thisChapter = alias(chapters, "this_chapter");
+	const [verse] = await client
+		.select({
+			bookId: chapters.bookId,
+			chapter: chapters.number,
+			verse: verses.number,
+		})
+		.from(verses)
+		.innerJoin(chapters, eq(chapters.id, verses.chapterId))
+		.where(eq(verses.id, verseId));
+	if (!verse) return { commentary, crossReferences: 0, themes: 0 };
 
-	const covering = await client
-		.selectDistinct({ passageId: passageRanges.passageId })
-		.from(passageRanges)
-		.innerJoin(startVerse, eq(startVerse.id, passageRanges.startVerseId))
-		.innerJoin(endVerse, eq(endVerse.id, passageRanges.endVerseId))
-		.innerJoin(startChapter, eq(startChapter.id, startVerse.chapterId))
-		.innerJoin(endChapter, eq(endChapter.id, endVerse.chapterId))
-		.innerJoin(thisVerse, eq(thisVerse.id, verseId))
-		.innerJoin(thisChapter, eq(thisChapter.id, thisVerse.chapterId))
-		.where(
-			and(
-				eq(startChapter.bookId, thisChapter.bookId),
-				sql`(${startChapter.number}, ${startVerse.number}) <= (${thisChapter.number}, ${thisVerse.number})`,
-				sql`(${endChapter.number}, ${endVerse.number}) >= (${thisChapter.number}, ${thisVerse.number})`,
-			),
-		);
-	const passageIds = covering.map(({ passageId }) => passageId);
-	if (passageIds.length === 0) {
-		return { commentary, crossReferences: 0, themes: 0 };
-	}
-
-	const [references] = await client
-		.select({ value: count() })
-		.from(crossReferences)
-		.where(inArray(crossReferences.passageId, passageIds));
-	const [themes] = await client
-		.select({ value: count() })
-		.from(themePassages)
-		.where(inArray(themePassages.passageId, passageIds));
-
+	const point = { chapter: verse.chapter, verse: verse.verse };
+	const attached = await contentAtPassage(
+		client,
+		{ bookId: verse.bookId, from: point, to: point },
+		{
+			kinds: ["cross_reference", "canonical_relationship", "theme"],
+			revision: "latest",
+		},
+	);
+	const themes = attached.filter(({ kind }) => kind === "theme").length;
 	return {
 		commentary,
-		crossReferences: references?.value ?? 0,
-		themes: themes?.value ?? 0,
+		crossReferences: attached.length - themes,
+		themes,
 	};
 }
 

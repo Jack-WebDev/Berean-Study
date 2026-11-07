@@ -43,11 +43,13 @@ export function CitedInDraftCard({ body }: { body: CommentaryBody }) {
 
 export function BeforeReviewCard({
 	items,
+	title = "Before review",
 }: {
 	items: readonly ChecklistItem[];
+	title?: string;
 }) {
 	return (
-		<StaffCard title="Before review">
+		<StaffCard title={title}>
 			<ul className="space-y-2 text-sm">
 				{items.map(({ blocking, ok, text }) => (
 					<li className="flex items-start gap-2" key={text}>

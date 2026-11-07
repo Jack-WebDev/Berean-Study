@@ -17,6 +17,15 @@ import type { DbExecutor } from "./db-executor";
 import { claimKind, excerptKind, sourceKind } from "./evidence-kinds";
 import { GovernanceError } from "./governance-error";
 import { books } from "./schema/books";
+import {
+	canonicalRelationshipKind,
+	crossReferenceKind,
+	originalLanguageNoteKind,
+	questionKind,
+	textualNoteKind,
+	textualVariantKind,
+	themeKind,
+} from "./study-kinds";
 
 /** Everything the review engine needs to know about one kind of content. */
 export type ContentKindDefinition<TBody> = {
@@ -47,7 +56,7 @@ export type ContentKindDefinition<TBody> = {
 	/** Keeps anything derived from the wording in step, in the same transaction. */
 	afterDraftSaved?(
 		client: DbExecutor,
-		input: { body: TBody; revisionId: number },
+		input: { body: TBody; revisionId: number; scopeKey: string },
 	): Promise<void>;
 	/** Refuses publishing when something this rests on isn't ready. */
 	assertReadyToPublish?(
@@ -58,6 +67,11 @@ export type ContentKindDefinition<TBody> = {
 		client: DbExecutor,
 		input: { revisionId: number; scopeKey: string },
 	): Promise<void>;
+	/**
+	 * Says what's foundational about going from what was last published to this. If
+	 * anything is, a second Superadmin has to confirm it, not just a publisher.
+	 */
+	publicationConfirmation?(before: TBody, after: TBody): string | null;
 	/** Refuses withdrawing content that something published still depends on. */
 	assertCanWithdraw?(client: DbExecutor, scopeKey: string): Promise<void>;
 	/**
@@ -103,11 +117,11 @@ function contentKind<TBody>(definition: ContentKindDefinition<TBody>) {
 		) => definition.assertCanDraft?.(client, scopeKey, parse(raw)),
 		afterDraftSaved: async (
 			client: DbExecutor,
-			input: { body: unknown; revisionId: number },
+			input: { body: unknown; revisionId: number; scopeKey: string },
 		) =>
 			definition.afterDraftSaved?.(client, {
+				...input,
 				body: parse(input.body),
-				revisionId: input.revisionId,
 			}),
 		assertReadyToPublish: async (
 			client: DbExecutor,
@@ -121,6 +135,8 @@ function contentKind<TBody>(definition: ContentKindDefinition<TBody>) {
 			client: DbExecutor,
 			input: { revisionId: number; scopeKey: string },
 		) => definition.afterPublished?.(client, input),
+		publicationConfirmation: (before: unknown, after: unknown) =>
+			definition.publicationConfirmation?.(parse(before), parse(after)) ?? null,
 		assertCanWithdraw: async (client: DbExecutor, scopeKey: string) =>
 			definition.assertCanWithdraw?.(client, scopeKey),
 		removeWhenEmpty: definition.removeWhenEmpty,
@@ -134,6 +150,13 @@ const contentKinds = {
 	book_introduction: contentKind(bookIntroductionKind),
 	passage_commentary: contentKind(passageCommentaryKind),
 	verse_commentary: contentKind(verseCommentaryKind),
+	cross_reference: contentKind(crossReferenceKind),
+	canonical_relationship: contentKind(canonicalRelationshipKind),
+	interpretive_question: contentKind(questionKind),
+	theme: contentKind(themeKind),
+	original_language_note: contentKind(originalLanguageNoteKind),
+	textual_note: contentKind(textualNoteKind),
+	textual_variant: contentKind(textualVariantKind),
 	book_overview: contentKind<BookOverview>({
 		label: "Book overview",
 		body: bookOverviewSchema,

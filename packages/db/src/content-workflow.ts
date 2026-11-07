@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, max, ne } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, max, ne } from "drizzle-orm";
 
 import { getPermissionKeys } from "./access";
 import type { PermissionKey } from "./access-catalogue";
@@ -165,7 +165,11 @@ export async function saveDraft(
 				.update(contentRevisions)
 				.set({ body, updatedAt: new Date() })
 				.where(eq(contentRevisions.id, open.id));
-			await kind.afterDraftSaved(tx, { body, revisionId: open.id });
+			await kind.afterDraftSaved(tx, {
+				body,
+				revisionId: open.id,
+				scopeKey: input.scopeKey,
+			});
 			await followTitle(tx, item);
 			return {
 				contentItemId: item.id,
@@ -197,7 +201,11 @@ export async function saveDraft(
 			})
 			.returning({ id: contentRevisions.id });
 		if (!revision) throw new Error("Could not save the draft.");
-		await kind.afterDraftSaved(tx, { body, revisionId: revision.id });
+		await kind.afterDraftSaved(tx, {
+			body,
+			revisionId: revision.id,
+			scopeKey: input.scopeKey,
+		});
 		await followTitle(tx, item);
 		return { contentItemId: item.id, number, revisionId: revision.id };
 	});
@@ -528,94 +536,184 @@ export async function requestChanges(
 	});
 }
 
+/**
+ * What's foundational about publishing this revision, compared with what was last
+ * published, or null. Withdrawn content still counts as published before, so taking
+ * something down can't be used to change its stance without a second Superadmin.
+ */
+export async function publicationChange(
+	client: DbExecutor,
+	input: {
+		body: unknown;
+		contentItemId: number;
+		kind: string;
+		revisionId: number;
+	},
+) {
+	const [previous] = await client
+		.select({ body: contentRevisions.body })
+		.from(contentRevisions)
+		.where(
+			and(
+				eq(contentRevisions.contentItemId, input.contentItemId),
+				ne(contentRevisions.id, input.revisionId),
+				isNotNull(contentRevisions.publishedAt),
+			),
+		)
+		.orderBy(desc(contentRevisions.publishedAt))
+		.limit(1);
+	if (!previous) return null;
+	return contentKindNamed(input.kind).publicationConfirmation(
+		previous.body,
+		input.body,
+	);
+}
+
+async function assertApprovedByAnother(
+	tx: DbExecutor,
+	revision: { createdByUserId: string; id: number; status: string },
+) {
+	if (revision.status !== "approved") {
+		throw new GovernanceError(
+			"Only an approved revision can be published, and this one isn't.",
+		);
+	}
+	const [approval] = await tx
+		.select({ reviewer: editorialReviews.reviewerUserId })
+		.from(editorialReviews)
+		.where(
+			and(
+				eq(editorialReviews.contentRevisionId, revision.id),
+				eq(editorialReviews.decision, "approved"),
+				ne(editorialReviews.reviewerUserId, revision.createdByUserId),
+			),
+		);
+	if (!approval) {
+		throw new GovernanceError(
+			"This needs an approval from someone other than its author.",
+		);
+	}
+}
+
+async function publishLocked(
+	tx: DbExecutor,
+	{ item, revision }: Awaited<ReturnType<typeof lockRevision>>,
+	actorUserId: string,
+) {
+	const kind = contentKindNamed(item.kind);
+	await kind.assertReadyToPublish(tx, {
+		body: revision.body,
+		scopeKey: item.scopeKey,
+	});
+
+	const now = new Date();
+	if (item.liveRevisionId) {
+		await tx
+			.update(contentRevisions)
+			.set({ status: "superseded", updatedAt: now })
+			.where(eq(contentRevisions.id, item.liveRevisionId));
+	}
+	await tx
+		.update(contentRevisions)
+		.set({
+			publishedAt: now,
+			publishedByUserId: actorUserId,
+			status: "published",
+			updatedAt: now,
+		})
+		.where(eq(contentRevisions.id, revision.id));
+	await tx
+		.update(contentItems)
+		.set({
+			liveRevisionId: revision.id,
+			...(kind.titleFollowsBody
+				? { title: await kind.title(tx, item.scopeKey, revision.body) }
+				: {}),
+		})
+		.where(eq(contentItems.id, item.id));
+	await kind.afterPublished(tx, {
+		revisionId: revision.id,
+		scopeKey: item.scopeKey,
+	});
+	await tx.insert(publicationHistory).values({
+		action: "published",
+		contentRevisionId: revision.id,
+		performedByUserId: actorUserId,
+	});
+	await recordAudit(tx, {
+		actorUserId,
+		action: "revision.published",
+		targetType: "content_revision",
+		targetId: revision.id,
+		details: {
+			name: `${item.title} #${revision.number}`,
+			revisionId: revision.id,
+		},
+	});
+	if (revision.createdByUserId !== actorUserId) {
+		await createNotification(tx, {
+			userId: revision.createdByUserId,
+			kind: "content_review",
+			title: `${item.title} is live`,
+			body: `Revision #${revision.number} has been published.`,
+			destination: revisionAddress(item.id, revision.id),
+		});
+	}
+}
+
 /** Makes this exact revision what readers see. Whatever was live before stays on record. */
 export async function publishRevision(
 	client: DbExecutor,
 	input: { actorUserId: string; revisionId: number },
 ) {
 	await client.transaction(async (tx) => {
-		const { item, revision } = await lockRevision(tx, input.revisionId);
+		const locked = await lockRevision(tx, input.revisionId);
 		await requirePermission(tx, input.actorUserId, "publication.publish");
-		if (revision.status !== "approved") {
+		await assertApprovedByAnother(tx, locked.revision);
+		const change = await publicationChange(tx, {
+			body: locked.revision.body,
+			contentItemId: locked.item.id,
+			kind: locked.item.kind,
+			revisionId: locked.revision.id,
+		});
+		if (change) {
 			throw new GovernanceError(
-				"Only an approved revision can be published, and this one isn't.",
+				`${change} Two Superadmins have to agree before this goes live.`,
 			);
 		}
-		const [approval] = await tx
-			.select({ reviewer: editorialReviews.reviewerUserId })
-			.from(editorialReviews)
-			.where(
-				and(
-					eq(editorialReviews.contentRevisionId, revision.id),
-					eq(editorialReviews.decision, "approved"),
-					ne(editorialReviews.reviewerUserId, revision.createdByUserId),
-				),
-			);
-		if (!approval) {
-			throw new GovernanceError(
-				"This needs an approval from someone other than its author.",
-			);
-		}
-		const kind = contentKindNamed(item.kind);
-		await kind.assertReadyToPublish(tx, {
-			body: revision.body,
-			scopeKey: item.scopeKey,
-		});
-
-		const now = new Date();
-		if (item.liveRevisionId) {
-			await tx
-				.update(contentRevisions)
-				.set({ status: "superseded", updatedAt: now })
-				.where(eq(contentRevisions.id, item.liveRevisionId));
-		}
-		await tx
-			.update(contentRevisions)
-			.set({
-				publishedAt: now,
-				publishedByUserId: input.actorUserId,
-				status: "published",
-				updatedAt: now,
-			})
-			.where(eq(contentRevisions.id, revision.id));
-		await tx
-			.update(contentItems)
-			.set({
-				liveRevisionId: revision.id,
-				...(kind.titleFollowsBody
-					? { title: await kind.title(tx, item.scopeKey, revision.body) }
-					: {}),
-			})
-			.where(eq(contentItems.id, item.id));
-		await kind.afterPublished(tx, {
-			revisionId: revision.id,
-			scopeKey: item.scopeKey,
-		});
-		await tx.insert(publicationHistory).values({
-			action: "published",
-			contentRevisionId: revision.id,
-			performedByUserId: input.actorUserId,
-		});
-		await recordAudit(tx, {
-			actorUserId: input.actorUserId,
-			action: "revision.published",
-			targetType: "content_revision",
-			targetId: revision.id,
-			details: {
-				name: `${item.title} #${revision.number}`,
-				revisionId: revision.id,
-			},
-		});
-		if (revision.createdByUserId !== input.actorUserId) {
-			await createNotification(tx, {
-				userId: revision.createdByUserId,
-				kind: "content_review",
-				title: `${item.title} is live`,
-				body: `Revision #${revision.number} has been published.`,
-				destination: revisionAddress(item.id, revision.id),
-			});
-		}
+		await publishLocked(tx, locked, input.actorUserId);
 	});
+}
+
+/** Why this approved revision needs a second Superadmin. Refuses it if it no longer does. */
+export async function assertPublicationConfirmable(
+	client: DbExecutor,
+	revisionId: number,
+) {
+	const { item, revision } = await lockRevision(client, revisionId);
+	await assertApprovedByAnother(client, revision);
+	const change = await publicationChange(client, {
+		body: revision.body,
+		contentItemId: item.id,
+		kind: item.kind,
+		revisionId: revision.id,
+	});
+	if (!change) {
+		throw new GovernanceError(
+			"This doesn't need a second Superadmin. It can be published as normal.",
+		);
+	}
+	return { change, title: `${item.title} #${revision.number}` };
+}
+
+/** Publishes what a second Superadmin has just confirmed. They're the one publishing it. */
+export async function publishConfirmedRevision(
+	client: DbExecutor,
+	input: { actorUserId: string; revisionId: number },
+) {
+	await assertPublicationConfirmable(client, input.revisionId);
+	const locked = await lockRevision(client, input.revisionId);
+	await publishLocked(client, locked, input.actorUserId);
 }
 
 /** Takes content away from readers. It stays on record, and a new revision can follow. */

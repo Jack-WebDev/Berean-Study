@@ -89,7 +89,7 @@ export function rangeContains(range: VerseRange, point: VersePoint) {
 	);
 }
 
-const richTextBody = z.custom<RichTextDocument>(isRichTextDocument, {
+export const richTextBody = z.custom<RichTextDocument>(isRichTextDocument, {
 	message: "This section's text couldn't be read.",
 });
 

@@ -21,6 +21,11 @@ import {
 	parseCommentaryScopeKey,
 } from "./commentary-body";
 import type { ContentKindDefinition } from "./content-kind-registry";
+import {
+	assertLinkedContentExists,
+	assertLinkedContentLive,
+	linkedContentIn,
+} from "./content-links";
 import type { DbExecutor } from "./db-executor";
 import { GovernanceError } from "./governance-error";
 import { formatPassageReference } from "./passages";
@@ -59,6 +64,9 @@ export async function commentaryScopeLabel(
 	};
 }
 
+const linksOf = (body: CommentaryBody) =>
+	linkedContentIn(body.sections.map((section) => section.body));
+
 function commentaryKind(kind: CommentaryKind) {
 	return {
 		label: commentaryKindLabels[kind],
@@ -84,9 +92,16 @@ function commentaryKind(kind: CommentaryKind) {
 				await resolveScriptureReference(client, label);
 			}
 			await assertCitedSourcesUsable(client, collectCitations(body));
+			await assertLinkedContentExists(client, linksOf(body));
 		},
-		assertReadyToPublish: (client, { body }) =>
-			assertCitedEvidenceLive(client, collectCitations(body), "A commentary"),
+		async assertReadyToPublish(client, { body }) {
+			await assertCitedEvidenceLive(
+				client,
+				collectCitations(body),
+				"A commentary",
+			);
+			await assertLinkedContentLive(client, linksOf(body), "A commentary");
+		},
 		afterPublished: (client, { revisionId }) =>
 			pinRevisionCitations(client, revisionId),
 	} satisfies ContentKindDefinition<CommentaryBody>;

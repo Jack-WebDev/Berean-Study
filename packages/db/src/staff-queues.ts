@@ -128,6 +128,21 @@ export async function getStaffQueueCounts(
 			(await listApprovedContent(client)).length;
 	}
 
+	if (permissionKeys.includes("content.confirm_foundational")) {
+		// An approved revision waiting on a second Superadmin is already counted above.
+		const [result] = await client
+			.select({ value: count() })
+			.from(changeProposals)
+			.where(
+				and(
+					eq(changeProposals.status, "proposed"),
+					eq(changeProposals.kind, "theme_merge"),
+					ne(changeProposals.proposerUserId, userId),
+				),
+			);
+		counts.readyToPublish = (counts.readyToPublish ?? 0) + (result?.value ?? 0);
+	}
+
 	if (
 		permissionKeys.includes("editorial.review") ||
 		permissionKeys.includes("editorial.assign")

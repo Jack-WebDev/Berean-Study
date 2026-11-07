@@ -9,15 +9,21 @@ import { EvidenceField, type EvidenceStep } from "../evidence/evidence-display";
 import { staffLinkClassName } from "../staff-button";
 import { StaffCard } from "../staff-card";
 import { StaffPage } from "../staff-page";
-import { StatusChip } from "../status-chip";
+import type { ConnectionTab } from "../study/connections-page";
+import type { LanguageTab } from "../study/language-page";
 
 type ContentType = {
 	key: string;
 	name: string;
 	description: string;
 	fields: readonly string[];
-	/** Where its editor is. Types without one show as not open yet. */
-	opens?: { commentary: CommentaryKind } | { evidence: EvidenceStep };
+	/** Where its editor is. */
+	opens:
+		| { commentary: CommentaryKind }
+		| { connection: ConnectionTab }
+		| { evidence: EvidenceStep }
+		| { language: LanguageTab }
+		| { page: "questions" | "themes" };
 	needs?: PermissionKey;
 	note?: string;
 };
@@ -72,18 +78,22 @@ const families: readonly {
 				fields: ["From passage", "To passage", "Kind of link", "Note"],
 				key: "xref",
 				name: "Cross-reference",
+				opens: { connection: "cross_reference" },
 			},
 			{
 				description: "Quotation, allusion or fulfilment across the canon.",
 				fields: ["Source passage", "Target passage", "Relationship", "Note"],
 				key: "canon",
 				name: "Canonical relationship",
+				opens: { connection: "canonical_relationship" },
 			},
 			{
 				description: "Connects a passage to a theme.",
 				fields: ["Theme", "Passage", "Role in the theme", "Note"],
 				key: "themepass",
 				name: "Theme passage",
+				note: "Passages are reviewed with their theme, so this adds to the theme's draft.",
+				opens: { connection: "theme_passage" },
 			},
 		],
 	},
@@ -96,18 +106,22 @@ const families: readonly {
 				fields: ["Name", "Summary", "Description", "Theme passages"],
 				key: "theme",
 				name: "Theme",
+				opens: { page: "themes" },
 			},
 			{
 				description: "A point where faithful readers differ.",
 				fields: ["Passage", "Question", "Why it matters", "Views"],
 				key: "question",
 				name: "Interpretive question",
+				opens: { page: "questions" },
 			},
 			{
 				description: "One answer to an interpretive question.",
 				fields: ["Question", "View name", "Argument", "Held by", "Citations"],
 				key: "view",
 				name: "Interpretation view",
+				note: "Views are reviewed and published with their question, so this opens a question.",
+				opens: { page: "questions" },
 			},
 		],
 	},
@@ -120,18 +134,24 @@ const families: readonly {
 				fields: ["Passage & word", "Lemma & parsing", "Note", "Citations"],
 				key: "lang",
 				name: "Original-language note",
+				needs: "content.original_language",
+				opens: { language: "original_language_note" },
 			},
 			{
 				description: "A plain-language note about the text's history.",
 				fields: ["Passage", "Note", "Related variants"],
 				key: "tnote",
 				name: "Textual note",
+				needs: "content.original_language",
+				opens: { language: "textual_note" },
 			},
 			{
 				description: "Competing readings with their witnesses.",
 				fields: ["Passage", "Readings", "Witnesses", "Preferred reading"],
 				key: "variant",
 				name: "Textual variant",
+				needs: "content.original_language",
+				opens: { language: "textual_variant" },
 			},
 		],
 	},
@@ -179,7 +199,6 @@ const families: readonly {
 const allTypes = families.flatMap(({ types }) => types);
 
 function canOpen(type: ContentType, keys: readonly PermissionKey[]) {
-	if (!type.opens) return false;
 	if (type.needs) return keys.includes(type.needs);
 	return keys.includes("content.write") || keys.includes("content.revise");
 }
@@ -246,12 +265,7 @@ export function NewContentPage({
 										onClick={() => setPickedKey(type.key)}
 										type="button"
 									>
-										<span className="flex flex-wrap items-center gap-2 font-semibold text-sm">
-											{type.name}
-											{type.opens ? null : (
-												<StatusChip tone="neutral">Not open yet</StatusChip>
-											)}
-										</span>
+										<span className="font-semibold text-sm">{type.name}</span>
 										<span className="text-xs opacity-80">
 											{type.description}
 										</span>
@@ -317,13 +331,6 @@ function OpenEditorLink({
 		staffLinkClassName,
 		"w-full bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground",
 	);
-	if (!type.opens) {
-		return (
-			<p className="text-muted-foreground text-sm">
-				This editor isn't open yet.
-			</p>
-		);
-	}
 	if (!allowed) {
 		return (
 			<p className="text-muted-foreground text-sm">
@@ -340,6 +347,42 @@ function OpenEditorLink({
 			>
 				Open editor
 			</Link>
+		);
+	}
+	if ("connection" in type.opens) {
+		return (
+			<Link
+				className={primary}
+				search={{ passage, tab: type.opens.connection }}
+				to="/work/connections"
+			>
+				Open editor
+			</Link>
+		);
+	}
+	if ("language" in type.opens) {
+		return (
+			<Link
+				className={primary}
+				search={{ passage, tab: type.opens.language }}
+				to="/work/language"
+			>
+				Open editor
+			</Link>
+		);
+	}
+	if ("page" in type.opens) {
+		const to =
+			type.opens.page === "themes" ? "/work/themes" : "/work/questions";
+		return (
+			<div className="space-y-2">
+				<Link className={primary} search={{ new: true, passage }} to={to}>
+					Open editor
+				</Link>
+				<Link className={cn(staffLinkClassName, "w-full")} to={to}>
+					Find an existing one
+				</Link>
+			</div>
 		);
 	}
 	return (

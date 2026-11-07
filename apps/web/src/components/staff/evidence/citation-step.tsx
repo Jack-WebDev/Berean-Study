@@ -9,6 +9,7 @@ import {
 	NativeSelect,
 	NativeSelectOption,
 } from "@berean-study/ui/components/native-select";
+import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -37,7 +38,14 @@ const supportOptions = [
 	{ label: "Interpretation view", value: "view" },
 	{ label: "Textual variant", value: "variant" },
 ] as const;
-const unavailableSupports = ["commentary", "view", "variant"] as const;
+type Supports = (typeof supportOptions)[number]["value"];
+
+/** Everything but a claim cites from inside its own writing. */
+const citesInOwnEditor = {
+	commentary: { label: "the commentary editor", to: "/work/commentary" },
+	variant: { label: "the Language & text editor", to: "/work/language" },
+	view: { label: "the question editor", to: "/work/questions" },
+} as const;
 
 /**
  * A citation has no review of its own. It's part of the claim it supports, so
@@ -68,6 +76,7 @@ export function CitationStep({
 	onChooseClaim: (id: number | null) => void;
 	preferredExcerptId?: number;
 }) {
+	const [supports, setSupports] = useState<Supports>("claim");
 	const [editingIndex, setEditingIndex] = useState<number | null>(null);
 	const [excerptId, setExcerptId] = useState(preferredExcerptId ?? null);
 	const [locator, setLocator] = useState("");
@@ -251,16 +260,24 @@ export function CitationStep({
 						</EvidenceField>
 						<div className="space-y-2">
 							<OptionPills
-								disabledOptions={unavailableSupports}
 								label="Supports"
-								onChange={() => undefined}
+								onChange={setSupports}
 								options={supportOptions}
-								value="claim"
+								value={supports}
 							/>
-							<p className="text-muted-foreground text-xs">
-								Commentary adds its citations from the commentary editor. Views
-								and variants open with their own editors.
-							</p>
+							{supports === "claim" ? null : (
+								<p className="text-muted-foreground text-sm" role="status">
+									This one is added from inside its own writing, with + Citation
+									in{" "}
+									<Link
+										className="underline underline-offset-4"
+										to={citesInOwnEditor[supports].to}
+									>
+										{citesInOwnEditor[supports].label}
+									</Link>
+									, and reviewed with it.
+								</p>
+							)}
 						</div>
 						<OptionPills
 							label="Strength"
@@ -270,7 +287,7 @@ export function CitationStep({
 						/>
 						<div className="flex flex-wrap gap-2">
 							<StaffButton
-								disabled={!entry || save.isPending}
+								disabled={!entry || save.isPending || supports !== "claim"}
 								onClick={submitEntry}
 							>
 								{editingIndex === null ? "Add to claim" : "Update citation"}

@@ -11,6 +11,7 @@ import {
 	syncRevisionCitations,
 } from "./cited-evidence";
 import type { ContentKindDefinition } from "./content-kind-registry";
+import { revisionsNamingSource } from "./content-links";
 import type { DbExecutor } from "./db-executor";
 import {
 	type ClaimBody,
@@ -36,6 +37,7 @@ import { claimUsages } from "./schema/claim_usages";
 import { claims } from "./schema/claims";
 import { contentItems } from "./schema/content_items";
 import { contentRevisions } from "./schema/content_revisions";
+import { contentSourceLinks } from "./schema/content_source_links";
 import { sourceExcerpts } from "./schema/source_excerpts";
 import { sources } from "./schema/sources";
 import { resolveScriptureReference } from "./scripture-reference";
@@ -169,6 +171,14 @@ export const sourceKind: ContentKindDefinition<SourceBody> = {
 				"Published excerpts rest on this source, so it can't be withdrawn. A Superadmin can retire it instead.",
 			);
 		}
+		const [named] = await revisionsNamingSource(client, recordId(scopeKey), [
+			"published",
+		]);
+		if (named) {
+			throw new GovernanceError(
+				`"${named.title}" names this source, so it can't be withdrawn. A Superadmin can retire it instead.`,
+			);
+		}
 	},
 	async removeWhenEmpty(client, scopeKey) {
 		const id = recordId(scopeKey);
@@ -180,6 +190,16 @@ export const sourceKind: ContentKindDefinition<SourceBody> = {
 		if (excerpt) {
 			throw new GovernanceError(
 				"This source already has excerpts, so its only draft can't be thrown away.",
+			);
+		}
+		const [named] = await client
+			.select({ id: contentSourceLinks.contentRevisionId })
+			.from(contentSourceLinks)
+			.where(eq(contentSourceLinks.sourceId, id))
+			.limit(1);
+		if (named) {
+			throw new GovernanceError(
+				"Other content names this source, so its only draft can't be thrown away.",
 			);
 		}
 		await client.delete(sources).where(eq(sources.id, id));

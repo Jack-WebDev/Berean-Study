@@ -69,6 +69,13 @@ export const permissionCatalogue = [
 		description: "Draft changes to existing study content.",
 	},
 	{
+		key: "content.confirm_foundational",
+		name: "Confirm foundational content changes",
+		category: "Content",
+		description:
+			"Send, or give the second confirmation to, a stance change or a published theme rename or merge.",
+	},
+	{
 		key: "content.original_language",
 		name: "Write original-language content",
 		category: "Content",
@@ -241,6 +248,7 @@ const adminGrants = [
  * a custom role can't be used to get around the rule.
  */
 export const elevatedPermissions: ReadonlySet<PermissionKey> = new Set([
+	"content.confirm_foundational",
 	"sources.merge",
 	"sources.retire",
 	"editorial.assign",

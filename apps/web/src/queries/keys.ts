@@ -21,6 +21,11 @@ import type { listReflections } from "@/functions/reflections";
 import type { getBookStructure } from "@/functions/scripture-data";
 import type { getVerseHandling } from "@/functions/structure";
 import type {
+	getConnectionRecord,
+	getStudyRecord,
+	listStudyRecords,
+} from "@/functions/study-content";
+import type {
 	getEntryChapter,
 	getVerseAcrossTranslations,
 } from "@/functions/verse-entry";
@@ -47,6 +52,9 @@ export type RevisionPageInput = ServerFnData<typeof getRevisionPage>;
 export type CommentaryEditorInput = ServerFnData<typeof getCommentaryEditor>;
 export type CommentaryListFilters = ServerFnData<typeof listCommentaries>;
 export type CitableExcerptFilters = ServerFnData<typeof listCitableExcerpts>;
+export type StudyRecordInput = ServerFnData<typeof getStudyRecord>;
+export type StudyRecordFilters = ServerFnData<typeof listStudyRecords>;
+export type ConnectionRecordInput = ServerFnData<typeof getConnectionRecord>;
 export type EvidenceWorkbenchInput = ServerFnData<typeof getEvidenceWorkbench>;
 export type SimilarSourcesInput = ServerFnData<typeof findSimilarSources>;
 export type EvidenceSourceFilters = ServerFnData<typeof listEvidenceSources>;
@@ -146,6 +154,24 @@ export const contentKeys = {
 		[...contentKeys.all, "citable-excerpts", filters] as const,
 	bookResearch: (bookSlug: string) =>
 		[...contentKeys.all, "book-research", bookSlug] as const,
+	studyRecord: (input: StudyRecordInput) =>
+		[...contentKeys.all, "study-record", input] as const,
+	studyRecords: (filters: StudyRecordFilters) =>
+		[...contentKeys.all, "study-records", filters] as const,
+	connectionRecord: (input: ConnectionRecordInput) =>
+		[...contentKeys.all, "connection-record", input] as const,
+	passageConnections: (passage: string) =>
+		[...contentKeys.all, "passage-connections", passage] as const,
+	passageLanguage: (passage: string) =>
+		[...contentKeys.all, "passage-language", passage] as const,
+	themes: (search?: string) =>
+		[...contentKeys.all, "themes", { search }] as const,
+	themeEditor: (themeId: number | null) =>
+		[...contentKeys.all, "theme-editor", themeId] as const,
+	nameableSources: (search?: string) =>
+		[...contentKeys.all, "nameable-sources", { search }] as const,
+	foundationalConfirmations: () =>
+		[...contentKeys.all, "foundational-confirmations"] as const,
 };
 
 export const evidenceKeys = {

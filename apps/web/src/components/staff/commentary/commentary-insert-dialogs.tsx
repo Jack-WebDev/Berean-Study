@@ -4,8 +4,11 @@ import {
 	excerptFormLabels,
 } from "@berean-study/db/evidence-body";
 import type { CitationAttributes } from "@berean-study/rich-text-editor";
+import { contentBlockKindLabels } from "@berean-study/rich-text-editor/document";
 import type {
 	CitationStrength,
+	ContentBlockAttributes,
+	ContentBlockKind,
 	OriginalTermAttributes,
 	ScriptureReferenceAttributes,
 } from "@berean-study/rich-text-editor/types";
@@ -17,6 +20,7 @@ import { useDeferredValue, useState } from "react";
 
 import { resolveEditorReference } from "@/functions/commentary";
 import { citableExcerptsQueryOptions } from "@/queries/commentary";
+import { studyRecordsQueryOptions } from "@/queries/study-content";
 
 import {
 	EvidenceField,
@@ -219,7 +223,119 @@ const languageOptions = [
 	{ label: "Hebrew", value: "hebrew" },
 ] as const;
 
-/** Adds a Greek or Hebrew word, typed for now. Choosing from the text comes later. */
+/** Finds reviewed content of one kind, to place in the writing. */
+export function ContentBlockDialog({
+	kind,
+	onSettle,
+}: {
+	kind: ContentBlockKind;
+	onSettle: (block: ContentBlockAttributes | null) => void;
+}) {
+	const [search, setSearch] = useState("");
+	const deferredSearch = useDeferredValue(search);
+	const [picked, setPicked] = useState<{
+		scopeKey: string;
+		title: string;
+	} | null>(null);
+	const { data: records = [], isFetching } = useQuery(
+		studyRecordsQueryOptions({ kinds: [kind], search: deferredSearch }),
+	);
+	const name = contentBlockKindLabels[kind];
+
+	return (
+		<StaffFormDialog
+			canSubmit={picked !== null}
+			description="It's reviewed on its own, and has to be live before this can be published."
+			onOpenChange={(open) => {
+				if (!open) onSettle(null);
+			}}
+			onSubmit={() => {
+				if (!picked) return;
+				onSettle({ kind, label: picked.title, scopeKey: picked.scopeKey });
+			}}
+			open
+			pending={false}
+			submitLabel="Insert block"
+			title={`Insert: ${name}`}
+		>
+			<EvidenceField label="Search">
+				{(id) => (
+					<Input
+						autoFocus
+						className={evidenceInputClassName}
+						id={id}
+						maxLength={200}
+						onChange={(event) => setSearch(event.target.value)}
+						type="search"
+						value={search}
+					/>
+				)}
+			</EvidenceField>
+			<RecordPicker
+				emptyMessage={`No ${name.toLowerCase()} matches that search. Add it first and come back.`}
+				isFetching={isFetching}
+				label={name}
+				onPick={setPicked}
+				pickedKey={picked?.scopeKey ?? null}
+				records={records}
+			/>
+		</StaffFormDialog>
+	);
+}
+
+function RecordPicker({
+	emptyMessage,
+	isFetching,
+	label,
+	onPick,
+	pickedKey,
+	records,
+}: {
+	emptyMessage: string;
+	isFetching: boolean;
+	label: string;
+	onPick: (record: { scopeKey: string; title: string }) => void;
+	pickedKey: string | null;
+	records: readonly {
+		liveNumber: number | null;
+		scopeKey: string;
+		title: string;
+	}[];
+}) {
+	return (
+		<ul
+			aria-busy={isFetching}
+			aria-label={label}
+			className="max-h-48 space-y-1 overflow-y-auto"
+		>
+			{records.map((record) => (
+				<li key={record.scopeKey}>
+					<button
+						aria-pressed={pickedKey === record.scopeKey}
+						className={cn(
+							"flex min-h-11 w-full flex-wrap items-center gap-2 rounded-[0.625rem] border p-2.5 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+							pickedKey === record.scopeKey
+								? "border-sidebar-primary bg-sidebar-accent text-sidebar-accent-foreground"
+								: "border-border hover:bg-muted",
+						)}
+						onClick={() => onPick(record)}
+						type="button"
+					>
+						<span className="min-w-0 font-medium">{record.title}</span>
+						{record.liveNumber ? null : (
+							<StatusChip tone="attention">Not live yet</StatusChip>
+						)}
+					</button>
+				</li>
+			))}
+			{records.length === 0 && !isFetching ? (
+				<li className="text-muted-foreground text-sm">{emptyMessage}</li>
+			) : null}
+		</ul>
+	);
+}
+
+/** Adds a Greek or Hebrew word, typed for now, which can open a note about it. */
 export function OriginalTermDialog({
 	onSettle,
 }: {
@@ -229,6 +345,17 @@ export function OriginalTermDialog({
 		useState<OriginalTermAttributes["language"]>("greek");
 	const [word, setWord] = useState("");
 	const [gloss, setGloss] = useState("");
+	const [note, setNote] = useState<{ scopeKey: string; title: string } | null>(
+		null,
+	);
+	const deferredWord = useDeferredValue(word.trim());
+	const { data: notes = [], isFetching } = useQuery({
+		...studyRecordsQueryOptions({
+			kinds: ["original_language_note"],
+			search: deferredWord,
+		}),
+		enabled: deferredWord.length > 0,
+	});
 
 	return (
 		<StaffFormDialog
@@ -238,7 +365,12 @@ export function OriginalTermDialog({
 				if (!open) onSettle(null);
 			}}
 			onSubmit={() =>
-				onSettle({ gloss: gloss.trim(), language, word: word.trim() })
+				onSettle({
+					gloss: gloss.trim(),
+					language,
+					noteScopeKey: note?.scopeKey ?? null,
+					word: word.trim(),
+				})
 			}
 			open
 			pending={false}
@@ -281,6 +413,21 @@ export function OriginalTermDialog({
 					/>
 				)}
 			</EvidenceField>
+			{deferredWord ? (
+				<div className="space-y-2">
+					<p className="font-semibold text-sm">Opens a note (optional)</p>
+					<RecordPicker
+						emptyMessage="No original-language note on this word yet."
+						isFetching={isFetching}
+						label="Original-language notes"
+						onPick={(picked) =>
+							setNote(picked.scopeKey === note?.scopeKey ? null : picked)
+						}
+						pickedKey={note?.scopeKey ?? null}
+						records={notes}
+					/>
+				</div>
+			) : null}
 		</StaffFormDialog>
 	);
 }

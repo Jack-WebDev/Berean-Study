@@ -214,6 +214,31 @@ export function ChaptersPage({
 									{selectedVerse.linked.themes} themes.
 								</p>
 								<div className="mt-4 flex flex-wrap gap-2">
+									{data.chapter &&
+									(permissionKeys.includes("content.write") ||
+										permissionKeys.includes("content.revise")) ? (
+										<Link
+											className={staffLinkClassName}
+											search={{
+												passage: `${book.slug}:${data.chapter}:${selectedVerse.number}`,
+											}}
+											to="/work/connections"
+										>
+											Connections
+										</Link>
+									) : null}
+									{data.chapter &&
+									permissionKeys.includes("content.original_language") ? (
+										<Link
+											className={staffLinkClassName}
+											search={{
+												passage: `${book.slug}:${data.chapter}:${selectedVerse.number}`,
+											}}
+											to="/work/language"
+										>
+											Language & text
+										</Link>
+									) : null}
 									{canReadVerseText(permissionKeys) && data.chapter ? (
 										<Link
 											className={staffLinkClassName}

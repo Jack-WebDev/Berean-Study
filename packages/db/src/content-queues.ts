@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, ne, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import type { PermissionKey } from "./access-catalogue";
 import {
@@ -10,7 +10,11 @@ import {
 	type ContentRevisionStatus,
 	openRevisionStatuses,
 } from "./content-kinds";
-import { type ContentScope, checksFor } from "./content-workflow";
+import {
+	type ContentScope,
+	checksFor,
+	publicationChange,
+} from "./content-workflow";
 import type { DbExecutor } from "./db-executor";
 import { listRevisionCitations } from "./evidence-kinds";
 import { user } from "./schema/auth";
@@ -21,7 +25,7 @@ import { editorialAssignments } from "./schema/editorial_assignments";
 import { editorialChecks } from "./schema/editorial_checks";
 import { editorialReviews } from "./schema/editorial_reviews";
 import { publicationHistory } from "./schema/publication_history";
-import { holdersOf } from "./two-person";
+import { holdersOf, listProposals } from "./two-person";
 
 const reviewable = [
 	"submitted",
@@ -305,6 +309,29 @@ export async function getRevisionPage(
 		},
 	);
 
+	const foundationalChange =
+		current.status === "approved"
+			? await publicationChange(client, {
+					body: current.body,
+					contentItemId: row.contentItemId,
+					kind: row.kind,
+					revisionId: current.id,
+				})
+			: null;
+	const [confirmation] = foundationalChange
+		? await listProposals(client, {
+				kinds: ["guarded_publication"],
+				status: "proposed",
+				target: { id: String(current.id), type: "content_revision" },
+			})
+		: [];
+	const [confirmationProposer] = confirmation
+		? await client
+				.select({ name: user.name })
+				.from(user)
+				.where(eq(user.id, confirmation.proposerUserId))
+		: [];
+
 	return {
 		approvedAt: current.approvedAt,
 		baselineNumber: baseline?.number ?? null,
@@ -320,6 +347,19 @@ export async function getRevisionPage(
 		contentItemId: row.contentItemId,
 		createdAt: current.createdAt,
 		fields: afterFields,
+		foundationalChange: foundationalChange
+			? {
+					change: foundationalChange,
+					pending: confirmation
+						? {
+								id: confirmation.id,
+								proposedByMe: confirmation.proposerUserId === viewerUserId,
+								proposerName: confirmationProposer?.name ?? "Someone",
+								reason: confirmation.reason,
+							}
+						: null,
+				}
+			: null,
 		isAuthor: row.authorUserId === viewerUserId,
 		issues,
 		kind: row.kind,
@@ -502,6 +542,41 @@ export async function listOpenIssues(client: DbExecutor) {
 		.leftJoin(reporter, eq(reporter.id, contentIssues.reportedByUserId))
 		.where(eq(contentIssues.status, "open"))
 		.orderBy(asc(contentIssues.createdAt));
+}
+
+const RECORD_LIST_LIMIT = 100;
+
+/** Records that already exist, so people can find them to revise them. */
+export async function listContentRecords(
+	client: DbExecutor,
+	filter: { kinds: readonly string[]; search?: string },
+) {
+	const search = filter.search?.trim();
+	const pattern = search ? `%${search.replace(/[%_\\]/g, "\\$&")}%` : null;
+	const rows = await client
+		.select({
+			contentItemId: contentItems.id,
+			kind: contentItems.kind,
+			latestNumber: sql<
+				number | null
+			>`(select r.number from content_revisions r where r.content_item_id = content_items.id order by r.number desc limit 1)`,
+			latestStatus: sql<ContentRevisionStatus | null>`(select r.status from content_revisions r where r.content_item_id = content_items.id order by r.number desc limit 1)`,
+			liveNumber: sql<
+				number | null
+			>`(select r.number from content_revisions r where r.id = content_items.live_revision_id)`,
+			scopeKey: contentItems.scopeKey,
+			title: contentItems.title,
+		})
+		.from(contentItems)
+		.where(
+			and(
+				inArray(contentItems.kind, [...filter.kinds]),
+				pattern ? ilike(contentItems.title, pattern) : undefined,
+			),
+		)
+		.orderBy(asc(contentItems.title))
+		.limit(RECORD_LIST_LIMIT);
+	return rows.filter((row) => row.latestNumber !== null);
 }
 
 /** People who could be given this work. */

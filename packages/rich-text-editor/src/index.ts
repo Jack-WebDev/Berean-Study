@@ -78,6 +78,8 @@ export type {
 	CitationAttributes,
 	CitationStrength,
 	CommentaryTools,
+	ContentBlockAttributes,
+	ContentBlockKind,
 	DocumentReferences,
 	EditorToolbarVariant,
 	OriginalTermAttributes,

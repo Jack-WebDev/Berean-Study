@@ -12,27 +12,15 @@ import {
 	newCommentarySection,
 } from "@berean-study/db/commentary-body";
 import {
-	type CitationAttributes,
-	type CommentaryTools,
 	type EditorSession,
-	type OriginalTermAttributes,
 	RichTextEditor,
-	type ScriptureReferenceAttributes,
 } from "@berean-study/rich-text-editor";
 import { Input } from "@berean-study/ui/components/input";
 import { cn } from "@berean-study/ui/lib/utils";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { ArrowDownIcon, ArrowUpIcon, Trash2Icon } from "lucide-react";
-import {
-	type CSSProperties,
-	type DragEvent,
-	useCallback,
-	useEffect,
-	useMemo,
-	useRef,
-	useState,
-} from "react";
+import { type CSSProperties, type DragEvent, useMemo, useState } from "react";
 
 import { commentaryEditorQueryOptions } from "@/queries/commentary";
 
@@ -46,12 +34,7 @@ import { StaffButton, staffLinkClassName } from "../staff-button";
 import { StaffCard } from "../staff-card";
 import { StaffPage } from "../staff-page";
 import { StatusChip } from "../status-chip";
-import {
-	CitationDialog,
-	type CitationStart,
-	OriginalTermDialog,
-	ReferenceDialog,
-} from "./commentary-insert-dialogs";
+import { useCommentaryInsertTools } from "./commentary-insert-tools";
 import { CommentaryPreview } from "./commentary-preview";
 import {
 	BeforeReviewCard,
@@ -106,11 +89,6 @@ type EditorData = NonNullable<
 	>
 >;
 
-type InsertRequest =
-	| { type: "citation"; start: CitationStart }
-	| { type: "reference"; variant: ScriptureReferenceAttributes["variant"] }
-	| { type: "term" };
-
 function CommentaryEditor({
 	data,
 	onRestart,
@@ -154,46 +132,8 @@ function CommentaryEditor({
 		body.sections[0] ??
 		null;
 
-	// The toolbar waits on a promise, and the dialog that answers it lives here.
-	const pending = useRef<((value: never) => void) | null>(null);
-	const [request, setRequest] = useState<InsertRequest | null>(null);
-	const ask = useCallback(
-		<TValue,>(next: InsertRequest) =>
-			new Promise<TValue | null>((resolve) => {
-				(pending.current as ((value: TValue | null) => void) | null)?.(null);
-				pending.current = resolve as (value: never) => void;
-				setRequest(next);
-			}),
-		[],
-	);
-	const settle = useCallback((value: unknown) => {
-		(pending.current as ((next: unknown) => void) | null)?.(value);
-		pending.current = null;
-		setRequest(null);
-	}, []);
-	useEffect(() => () => settle(null), [settle]);
-
-	const commentaryTools = useMemo<CommentaryTools>(
-		() => ({
-			onRequestCrossReference: () =>
-				ask<ScriptureReferenceAttributes>({
-					type: "reference",
-					variant: "cross",
-				}),
-			onRequestOriginalTerm: () =>
-				ask<OriginalTermAttributes>({ type: "term" }),
-			onRequestScriptureReference: () =>
-				ask<ScriptureReferenceAttributes>({
-					type: "reference",
-					variant: "reference",
-				}),
-		}),
-		[ask],
-	);
-	const requestCitation = useCallback(
-		() => ask<CitationAttributes>({ start: {}, type: "citation" }),
-		[ask],
-	);
+	const { askCitation, commentaryTools, dialogs, requestCitation } =
+		useCommentaryInsertTools({ blocks: true });
 
 	const setSection = (key: string, change: Partial<CommentarySection>) =>
 		setBody((previous) => ({
@@ -236,9 +176,9 @@ function CommentaryEditor({
 		if (!session?.insertQuote(note.content, point)) return;
 		const [source] = note.sources;
 		if (!source) return;
-		const citation = await ask<CitationAttributes>({
-			start: { locator: source.locator ?? "", search: source.title },
-			type: "citation",
+		const citation = await askCitation({
+			locator: source.locator ?? "",
+			search: source.title,
 		});
 		if (citation) session.insertCitation(citation);
 	}
@@ -563,15 +503,7 @@ function CommentaryEditor({
 				</aside>
 			</div>
 
-			{request?.type === "citation" ? (
-				<CitationDialog onSettle={settle} start={request.start} />
-			) : null}
-			{request?.type === "reference" ? (
-				<ReferenceDialog onSettle={settle} variant={request.variant} />
-			) : null}
-			{request?.type === "term" ? (
-				<OriginalTermDialog onSettle={settle} />
-			) : null}
+			{dialogs}
 		</StaffPage>
 	);
 }
