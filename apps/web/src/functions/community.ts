@@ -7,10 +7,15 @@ import {
 	publishCommunityPost as publishCommunityPostInDb,
 	setCommunityPostBookmark as setCommunityPostBookmarkInDb,
 } from "@berean-study/db/community";
+import {
+	getPostingRestrictionEnd,
+	reportCommunityPost as reportCommunityPostInDb,
+} from "@berean-study/db/community-moderation";
+import { reportReasonKeys } from "@berean-study/db/community-moderation-catalogue";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-import { authMiddleware } from "@/middleware/auth";
+import { authMiddleware, requirePermission } from "@/middleware/auth";
 
 function requireUserId(session: { user: { id: string } } | null) {
 	if (!session) throw new Error("Unauthorized");
@@ -67,7 +72,7 @@ export const listCommunityPublishingResources = createServerFn({
 	);
 
 export const publishCommunityPost = createServerFn({ method: "POST" })
-	.middleware([authMiddleware])
+	.middleware([requirePermission("community.post")])
 	.validator(
 		z.object({
 			sourceId: z.number().int().positive(),
@@ -81,5 +86,25 @@ export const publishCommunityPost = createServerFn({ method: "POST" })
 		}),
 	)
 	.handler(({ context, data }) =>
-		publishCommunityPostInDb(db, requireUserId(context.session), data),
+		publishCommunityPostInDb(db, context.userId, data),
+	);
+
+/** When the signed-in person can share again, so the share page can say so up front. */
+export const getMyPostingRestriction = createServerFn({ method: "GET" })
+	.middleware([authMiddleware])
+	.handler(({ context }) =>
+		getPostingRestrictionEnd(db, requireUserId(context.session)),
+	);
+
+export const reportCommunityPost = createServerFn({ method: "POST" })
+	.middleware([requirePermission("community.post")])
+	.validator(
+		z.object({
+			details: z.string().trim().max(1000).optional(),
+			postId: z.number().int().positive(),
+			reason: z.enum(reportReasonKeys),
+		}),
+	)
+	.handler(({ context, data }) =>
+		reportCommunityPostInDb(db, { ...data, reporterUserId: context.userId }),
 	);

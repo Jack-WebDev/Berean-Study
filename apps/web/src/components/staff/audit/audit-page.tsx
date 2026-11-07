@@ -35,7 +35,7 @@ export type AuditSearch = {
 	page?: number;
 };
 
-const domainTones: Record<AuditDomain, StatusTone> = {
+export const domainTones: Record<AuditDomain, StatusTone> = {
 	editorial: "attention",
 	publication: "success",
 	scripture: "info",
@@ -184,6 +184,7 @@ export function AuditPage({
 									const detail = [
 										isRole ? undefined : entry.details.role,
 										entry.details.permission,
+										entry.details.rule,
 									]
 										.filter(Boolean)
 										.join(", ");

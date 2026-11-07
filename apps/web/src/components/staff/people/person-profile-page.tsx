@@ -280,6 +280,12 @@ export function PersonProfilePage({
 								/>
 								<Stat label="Removals" value={profile.stats.removals} />
 							</dl>
+							{profile.postingRestrictedUntil ? (
+								<p className="mt-4 text-muted-foreground text-sm" role="status">
+									Can't share with Community until{" "}
+									{formatStaffDateTime(profile.postingRestrictedUntil)}.
+								</p>
+							) : null}
 						</StaffCard>
 					</div>
 

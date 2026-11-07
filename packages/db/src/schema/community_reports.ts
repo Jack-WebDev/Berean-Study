@@ -6,6 +6,7 @@ import {
 	pgTable,
 	text,
 	timestamp,
+	uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
@@ -29,18 +30,9 @@ export const communityReports = pgTable(
 			}),
 
 		/**
-		 * Machine-readable moderation category.
-		 *
-		 * Examples:
-		 * spam
-		 * harassment
-		 * inappropriate
-		 * privacy
-		 * impersonation
-		 * other
-		 *
-		 * The allowed taxonomy should remain application-controlled
-		 * for now because Community moderation requirements may evolve.
+		 * Why the member reported the post, from `reportReasons` in
+		 * community-moderation-catalogue.ts. The list lives in the application
+		 * because Community moderation requirements may evolve.
 		 */
 		reason: text("reason").notNull(),
 
@@ -50,11 +42,8 @@ export const communityReports = pgTable(
 		details: text("details"),
 
 		/**
-		 * NULL means the report is still awaiting moderation.
-		 *
-		 * Completed values:
-		 * - dismissed
-		 * - action_taken
+		 * NULL means the report is still awaiting moderation. Otherwise, what the
+		 * moderator decided. One decision settles every open report on the post.
 		 */
 		resolution: text("resolution"),
 
@@ -95,6 +84,12 @@ export const communityReports = pgTable(
 		 */
 		index("community_reports_community_post_id_idx").on(table.communityPostId),
 
+		/** Each person reports a post once, even after a moderator has decided it. */
+		uniqueIndex("community_reports_post_reporter_unique").on(
+			table.communityPostId,
+			table.reportedByUserId,
+		),
+
 		check(
 			"community_reports_reason_not_blank",
 			sql`btrim(${table.reason}) <> ''`,
@@ -108,8 +103,10 @@ export const communityReports = pgTable(
 		check(
 			"community_reports_resolution_valid",
 			sql`${table.resolution} IS NULL OR ${table.resolution} IN (
-				'dismissed',
-				'action_taken'
+				'removed',
+				'removed_and_warned',
+				'restricted',
+				'dismissed'
 			)`,
 		),
 

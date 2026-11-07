@@ -11,6 +11,7 @@ export type DbExecutor = Pick<
 	| "insert"
 	| "select"
 	| "selectDistinct"
+	| "selectDistinctOn"
 	| "transaction"
 	| "update"
 >;

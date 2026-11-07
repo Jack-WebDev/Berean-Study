@@ -1,12 +1,16 @@
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 import {
 	type PermissionKey,
 	roleCatalogue,
 } from "@berean-study/db/access-catalogue";
+
 import { describe, expect, it } from "vitest";
 
 import {
 	accessibleStaffItem,
 	accessibleStaffSections,
+	staffNavigationSections,
 } from "../src/components/navigation/navigation-items";
 
 function grantsOf(roleName: string): readonly PermissionKey[] {
@@ -26,6 +30,19 @@ function linksFor(roleName: string) {
 }
 
 describe("staff sidebar sections", () => {
+	it("links only to pages that exist", () => {
+		const routes = resolve(import.meta.dirname, "../src/routes/_auth");
+		const missing = staffNavigationSections
+			.flatMap(({ items }) => items)
+			.map(({ href }) => href)
+			.filter(
+				(href) =>
+					!existsSync(`${routes}${href}.tsx`) &&
+					!existsSync(`${routes}${href}/index.tsx`),
+			);
+		expect(missing).toEqual([]);
+	});
+
 	it("shows a member no staff sections", () => {
 		expect(sectionsFor("Member")).toEqual([]);
 	});

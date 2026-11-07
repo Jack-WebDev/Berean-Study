@@ -19,6 +19,7 @@ import type { PermissionKey } from "./access-catalogue";
 import { recordAudit } from "./audit";
 import { readAuditDetails } from "./audit-log";
 import { applyRoleChange } from "./change-kinds/role-change";
+import { getPostingRestrictionEnd } from "./community-moderation";
 import type { DbExecutor } from "./db-executor";
 import { GovernanceError } from "./governance-error";
 import { assertActiveAccount, getRoleWithGrants } from "./role-rules";
@@ -347,6 +348,7 @@ export async function getPersonProfile(client: DbExecutor, userId: string) {
 		},
 		roles: roleRows,
 		suspension,
+		postingRestrictedUntil: await getPostingRestrictionEnd(client, userId),
 		stats: {
 			revisionsAuthored,
 			reviewsCompleted,

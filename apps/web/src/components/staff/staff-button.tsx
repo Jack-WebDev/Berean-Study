@@ -10,6 +10,9 @@ export const staffLinkClassName = cn(
 	staffButtonSize,
 );
 
+/** The same, for the one main action on a screen. */
+export const staffPrimaryLinkClassName = cn(buttonVariants(), staffButtonSize);
+
 /** Staff screens use larger buttons than the base size, so they're easy to tap. */
 export function StaffButton({
 	className,

@@ -12,6 +12,8 @@ import { formatPublishedAt, initialsFor } from "@/utils";
 
 import type { CommunityPostCardData } from "./community-post-card";
 
+import { ReportPostButton } from "./report-post-button";
+
 const fallbackCoverImage =
 	"https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1800&q=90";
 
@@ -64,16 +66,25 @@ export function FeaturedCommunityPost({
 							</div>
 						</div>
 
-						<Link
-							className={cn(
-								buttonVariants({ size: "lg" }),
-								"mt-6 h-10 rounded-lg bg-card px-4 text-card-foreground hover:bg-card/90",
+						<div className="mt-6 flex flex-wrap items-center gap-3">
+							<Link
+								className={cn(
+									buttonVariants({ size: "lg" }),
+									"h-10 rounded-lg bg-card px-4 text-card-foreground hover:bg-card/90",
+								)}
+								to={post.href}
+							>
+								Read {post.type}
+								<ArrowRightIcon aria-hidden="true" data-icon="inline-end" />
+							</Link>
+							{post.isOwn ? null : (
+								<ReportPostButton
+									className="h-10 text-white/80 hover:bg-white/10 hover:text-white"
+									postId={Number(post.id)}
+									postTitle={post.title}
+								/>
 							)}
-							to={post.href}
-						>
-							Read {post.type}
-							<ArrowRightIcon aria-hidden="true" data-icon="inline-end" />
-						</Link>
+						</div>
 					</div>
 				</div>
 			</article>

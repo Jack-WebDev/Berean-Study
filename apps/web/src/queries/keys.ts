@@ -87,6 +87,8 @@ export const noteKeys = {
 export const staffQueueKeys = {
 	all: ["staff-queues"] as const,
 	counts: () => [...staffQueueKeys.all, "counts"] as const,
+	// Built from the same queues, so anything that refreshes the counts refreshes this.
+	overview: () => [...staffQueueKeys.all, "overview"] as const,
 };
 
 export const peopleKeys = {
@@ -278,6 +280,16 @@ export const communityKeys = {
 	saved: (limit: number) => [...communityKeys.all, "saved", limit] as const,
 	publishingResources: () =>
 		[...communityKeys.all, "publishing-resources"] as const,
+	postingRestriction: () =>
+		[...communityKeys.all, "posting-restriction"] as const,
+};
+
+export const moderationKeys = {
+	all: ["moderation"] as const,
+	openReports: () => [...moderationKeys.all, "open-reports"] as const,
+	report: (postId: number) =>
+		[...moderationKeys.all, "report", postId] as const,
+	removed: (page: number) => [...moderationKeys.all, "removed", page] as const,
 };
 
 // The library overview, home and saved items summarise every other domain, so

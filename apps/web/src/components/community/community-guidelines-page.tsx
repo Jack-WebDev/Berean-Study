@@ -1,3 +1,4 @@
+import { communityRules } from "@berean-study/db/community-moderation-catalogue";
 import { buttonVariants } from "@berean-study/ui/components/button";
 import {
 	Card,
@@ -8,29 +9,6 @@ import {
 import { cn } from "@berean-study/ui/lib/utils";
 import { Link } from "@tanstack/react-router";
 import { ArrowLeftIcon } from "lucide-react";
-
-const guidelines = [
-	{
-		description:
-			"Speak with grace and humility, remembering that every person here is seeking to grow in Christ.",
-		title: "Encourage one another",
-	},
-	{
-		description:
-			"Share what is helpful, truthful, and appropriate for a study-focused Christian community.",
-		title: "Contribute thoughtfully",
-	},
-	{
-		description:
-			"Let Scripture guide our conversations, reflections, prayers, and testimonies.",
-		title: "Keep Scripture central",
-	},
-	{
-		description:
-			"Do not share personal details, private conversations, or material that belongs to someone else without permission.",
-		title: "Respect privacy",
-	},
-] as const;
 
 export function CommunityGuidelinesPage() {
 	return (
@@ -61,10 +39,11 @@ export function CommunityGuidelinesPage() {
 					aria-label="Community guidelines"
 					className="grid gap-4 sm:grid-cols-2"
 				>
-					{guidelines.map((guideline) => (
+					{communityRules.map((guideline) => (
 						<Card
-							className="rounded-xl border border-border/70 py-0 shadow-sm"
-							key={guideline.title}
+							className="scroll-mt-6 rounded-xl border border-border/70 py-0 shadow-sm"
+							id={guideline.key}
+							key={guideline.key}
 						>
 							<CardHeader className="px-5 pt-5 pb-2">
 								<CardTitle className="font-serif text-xl tracking-[-0.02em]">

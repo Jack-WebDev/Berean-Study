@@ -97,7 +97,9 @@ describeWithDatabase("Community publication", () => {
 				alreadyPublished: false,
 				id: expect.any(Number),
 			});
-			if (!published) throw new Error("Expected a Community post.");
+			if (!published || "refused" in published) {
+				throw new Error("Expected a Community post.");
+			}
 
 			const [post] = await db
 				.select({ snapshot: communityPosts.snapshot })

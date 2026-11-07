@@ -126,6 +126,7 @@ function toCardData(post: CommunityFeedPost): CommunityPostCardData {
 		href: "/community",
 		id: String(post.id),
 		isBookmarked: post.isBookmarked,
+		isOwn: post.isOwn,
 		publishedAt: post.publishedAt,
 		title: post.title,
 		type: post.type,

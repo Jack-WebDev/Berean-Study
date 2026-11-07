@@ -1,7 +1,8 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
 import { accessibleStaffItem } from "@/components/navigation/navigation-items";
-import { StaffSectionPage } from "@/components/staff/staff-section-page";
+import { OverviewPage } from "@/components/staff/overview/overview-page";
+import { adminOverviewQueryOptions } from "@/queries/staff-queues";
 
 export const Route = createFileRoute("/_auth/admin/")({
 	beforeLoad: ({ context }) => {
@@ -9,12 +10,10 @@ export const Route = createFileRoute("/_auth/admin/")({
 			throw redirect({ to: "/home" });
 		}
 	},
-	component: AdministrationOverviewPage,
+	loader: ({ context }) =>
+		context.queryClient.query({
+			...adminOverviewQueryOptions(),
+			staleTime: "static",
+		}),
+	component: OverviewPage,
 });
-
-function AdministrationOverviewPage() {
-	const { viewer } = Route.useRouteContext();
-	const item = accessibleStaffItem("/admin", viewer.permissionKeys);
-
-	return item ? <StaffSectionPage item={item} /> : null;
-}

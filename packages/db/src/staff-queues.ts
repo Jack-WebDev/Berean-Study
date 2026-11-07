@@ -1,6 +1,7 @@
-import { and, count, eq, inArray, isNull, ne } from "drizzle-orm";
+import { and, count, eq, inArray, ne } from "drizzle-orm";
 
 import type { PermissionKey } from "./access-catalogue";
+import { countReportsWaitingOn } from "./community-moderation";
 import {
 	listApprovedContent,
 	listAssignments,
@@ -8,7 +9,6 @@ import {
 } from "./content-queues";
 import type { DbExecutor } from "./db-executor";
 import { changeProposals } from "./schema/change_proposals";
-import { communityReports } from "./schema/community_reports";
 import { contentIssues } from "./schema/content_issues";
 import {
 	countChaptersReadyToPublish,
@@ -34,7 +34,7 @@ export const peopleChangeKinds = [
 ] as const;
 
 /** Decided on the Canon & Versification page. */
-const foundationChangeKinds = [
+export const foundationChangeKinds = [
 	"chapter_limits",
 	"canon_order",
 	"verse_addition",
@@ -61,11 +61,7 @@ export async function getStaffQueueCounts(
 	}
 
 	if (permissionKeys.includes("community.moderate")) {
-		const [result] = await client
-			.select({ value: count() })
-			.from(communityReports)
-			.where(isNull(communityReports.resolution));
-		counts.communityReports = result?.value ?? 0;
+		counts.communityReports = await countReportsWaitingOn(client, userId);
 	}
 
 	if (permissionKeys.includes("admins.manage")) {

@@ -20,12 +20,14 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-
 import {
 	type listCommunityPublishingResources,
 	publishCommunityPost,
 } from "@/functions/community";
-import { communityPublishingResourcesQueryOptions } from "@/queries/community";
+import {
+	communityPublishingResourcesQueryOptions,
+	myPostingRestrictionQueryOptions,
+} from "@/queries/community";
 import {
 	collectionKeys,
 	communityKeys,
@@ -33,6 +35,7 @@ import {
 	prayerKeys,
 	testimonyKeys,
 } from "@/queries/keys";
+import { formatFullDate } from "@/utils/dates";
 
 type Resource = Awaited<
 	ReturnType<typeof listCommunityPublishingResources>
@@ -83,6 +86,9 @@ export function CommunitySharePage({
 	const navigate = useNavigate({ from: "/community/share" });
 	const queryClient = useQueryClient();
 	const resourcesQuery = useQuery(communityPublishingResourcesQueryOptions());
+	const { data: restrictedUntil } = useQuery(
+		myPostingRestrictionQueryOptions(),
+	);
 	const resources = resourcesQuery.data ?? null;
 	const loadFailed = resourcesQuery.isError;
 	const [type, setType] = useState<PostType | null>(null);
@@ -101,6 +107,15 @@ export function CommunitySharePage({
 			return result;
 		},
 		onSuccess: async (result, input) => {
+			if ("refused" in result) {
+				await queryClient.invalidateQueries({ queryKey: communityKeys.all });
+				toast.error(
+					result.refused === "removed"
+						? "A moderator removed this post, so it can't be shared again."
+						: `You can share with Community again from ${formatFullDate(result.restrictedUntil)}.`,
+				);
+				return;
+			}
 			await Promise.all([
 				queryClient.invalidateQueries({ queryKey: communityKeys.all }),
 				queryClient.invalidateQueries({ queryKey: sourceKeys[input.type] }),
@@ -144,7 +159,7 @@ export function CommunitySharePage({
 		const resource = resources.find(
 			(item) => item.type === initialType && item.id === initialSourceId,
 		);
-		if (resource) {
+		if (resource && !resource.isPublished && !resource.isRemoved) {
 			setSourceId(resource.id);
 			setTitle(resource.title);
 			setExcerpt(resource.excerpt);
@@ -182,6 +197,20 @@ export function CommunitySharePage({
 						version you would like to share with the community.
 					</p>
 				</header>
+				{restrictedUntil ? (
+					<p
+						className="rounded-xl bg-status-attention p-4 text-sm text-status-attention-foreground"
+						role="status"
+					>
+						A moderator has restricted your posting, so you can't share with
+						Community until {formatFullDate(restrictedUntil)}. You can still
+						read Community. See the{" "}
+						<Link className="underline" to="/community/guidelines">
+							Community Guidelines
+						</Link>
+						.
+					</p>
+				) : null}
 				{resources === null && !loadFailed ? (
 					<p className="text-muted-foreground text-sm">Loading your library…</p>
 				) : null}
@@ -264,7 +293,7 @@ export function CommunitySharePage({
 													"rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
 													sourceId === resource.id && "ring-2 ring-primary",
 												)}
-												disabled={resource.isPublished}
+												disabled={resource.isPublished || resource.isRemoved}
 												key={resource.id}
 												onClick={() => chooseResource(resource)}
 												type="button"
@@ -277,7 +306,11 @@ export function CommunitySharePage({
 																{resource.excerpt || "No description yet."}
 															</p>
 														</div>
-														{resource.isPublished ? (
+														{resource.isRemoved ? (
+															<span className="shrink-0 text-muted-foreground text-xs">
+																Removed by a moderator
+															</span>
+														) : resource.isPublished ? (
 															<span className="shrink-0 text-muted-foreground text-xs">
 																Already shared
 															</span>
@@ -354,7 +387,7 @@ export function CommunitySharePage({
 									)}
 									{isPreviewing ? (
 										<Button
-											disabled={isPublishing}
+											disabled={isPublishing || Boolean(restrictedUntil)}
 											onClick={publish}
 											type="button"
 										>

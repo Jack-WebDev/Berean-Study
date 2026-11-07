@@ -1,6 +1,17 @@
 import { getDocumentText } from "@berean-study/rich-text-editor/document";
-import { and, asc, count, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import {
+	and,
+	asc,
+	count,
+	desc,
+	eq,
+	inArray,
+	isNotNull,
+	isNull,
+	sql,
+} from "drizzle-orm";
 
+import { getPostingRestrictionEnd } from "./community-moderation";
 import type { db } from "./index";
 import { parseStoredRichText } from "./rich-text-storage";
 import { user } from "./schema/auth";
@@ -36,6 +47,8 @@ export type CommunityPublishingResource = {
 	excerpt: string;
 	id: number;
 	isPublished: boolean;
+	/** A moderator removed this item's post, so it can't be shared again. */
+	isRemoved: boolean;
 	title: string;
 	type: CommunityPostType;
 };
@@ -81,70 +94,70 @@ export async function listCommunityPublishingResources(
 				.orderBy(desc(prayers.updatedAt), desc(prayers.id)),
 			db
 				.select({
+					removedAt: communityPosts.removedAt,
 					sourceCollectionId: communityPosts.sourceCollectionId,
 					sourceNoteId: communityPosts.sourceNoteId,
 					sourcePrayerId: communityPosts.sourcePrayerId,
 					sourceTestimonyId: communityPosts.sourceTestimonyId,
 				})
 				.from(communityPosts)
-				.where(
-					and(
-						eq(communityPosts.authorUserId, userId),
-						isNull(communityPosts.removedAt),
-					),
-				),
+				.where(eq(communityPosts.authorUserId, userId)),
 		]);
 
-	const published = {
+	const sourceIdsOf = (rows: typeof publishedRows) => ({
 		collection: new Set(
-			publishedRows.flatMap((row) =>
+			rows.flatMap((row) =>
 				row.sourceCollectionId ? [row.sourceCollectionId] : [],
 			),
 		),
 		note: new Set(
-			publishedRows.flatMap((row) =>
-				row.sourceNoteId ? [row.sourceNoteId] : [],
-			),
+			rows.flatMap((row) => (row.sourceNoteId ? [row.sourceNoteId] : [])),
 		),
 		prayer: new Set(
-			publishedRows.flatMap((row) =>
-				row.sourcePrayerId ? [row.sourcePrayerId] : [],
-			),
+			rows.flatMap((row) => (row.sourcePrayerId ? [row.sourcePrayerId] : [])),
 		),
 		testimony: new Set(
-			publishedRows.flatMap((row) =>
+			rows.flatMap((row) =>
 				row.sourceTestimonyId ? [row.sourceTestimonyId] : [],
 			),
 		),
-	};
+	});
+	const published = sourceIdsOf(publishedRows.filter((row) => !row.removedAt));
+	const removed = sourceIdsOf(publishedRows.filter((row) => row.removedAt));
+	const toResource = (
+		row: { id: number; title: string },
+		type: CommunityPostType,
+		content: string,
+	) => ({
+		excerpt: createExcerpt(content),
+		id: row.id,
+		isPublished: published[type].has(row.id),
+		isRemoved: removed[type].has(row.id),
+		title: row.title,
+		type,
+	});
 
 	return [
-		...noteRows.map((row) =>
-			toPublishingResource(row, "note", row.content, published.note),
-		),
+		...noteRows.map((row) => toResource(row, "note", row.content)),
 		...collectionRows.map((row) =>
-			toPublishingResource(
-				row,
-				"collection",
-				row.description,
-				published.collection,
-			),
+			toResource(row, "collection", row.description),
 		),
-		...testimonyRows.map((row) =>
-			toPublishingResource(row, "testimony", row.content, published.testimony),
-		),
-		...prayerRows.map((row) =>
-			toPublishingResource(row, "prayer", row.content, published.prayer),
-		),
+		...testimonyRows.map((row) => toResource(row, "testimony", row.content)),
+		...prayerRows.map((row) => toResource(row, "prayer", row.content)),
 	];
 }
+
+export type CommunityPublicationResult =
+	| { alreadyPublished: boolean; id: number }
+	| { refused: "removed" }
+	| { refused: "restricted"; restrictedUntil: Date };
 
 /** Creates one immutable Community snapshot from a resource owned by the member. */
 export async function publishCommunityPost(
 	db: DbClient,
 	userId: string,
 	input: CommunityPublicationInput,
-) {
+): Promise<CommunityPublicationResult | null> {
 	return db.transaction(async (tx) => {
 		const source = await getPublishingSource(
 			tx,
@@ -161,6 +174,12 @@ export async function publishCommunityPost(
 			input.sourceId,
 		);
 		if (existing) return { alreadyPublished: true, id: existing.id };
+
+		const restrictedUntil = await getPostingRestrictionEnd(tx, userId);
+		if (restrictedUntil) return { refused: "restricted", restrictedUntil };
+		if (await wasRemoved(tx, input.type, input.sourceId)) {
+			return { refused: "removed" };
+		}
 
 		const [post] = await tx
 			.insert(communityPosts)
@@ -219,6 +238,8 @@ export type CommunityFeedPost = {
 	excerpt: string;
 	id: number;
 	isBookmarked: boolean;
+	/** The viewer wrote this, so they can't report it. */
+	isOwn: boolean;
 	passageIds: number[];
 	publishedAt: Date;
 	title: string;
@@ -340,6 +361,7 @@ export async function listCommunityFeed(
 			excerpt: snapshot.excerpt ?? `Shared a ${type} with the Community.`,
 			id: row.id,
 			isBookmarked: row.bookmarkPostId !== null,
+			isOwn: row.authorId === viewerUserId,
 			passageIds: passageIdsByPost.get(row.id) ?? [],
 			publishedAt: row.publishedAt,
 			title: snapshot.title ?? `Untitled ${type}`,
@@ -532,27 +554,29 @@ async function getPublishingSource(
 	}
 }
 
+function isFromSource(type: CommunityPostType, sourceId: number) {
+	return type === "note"
+		? eq(communityPosts.sourceNoteId, sourceId)
+		: type === "collection"
+			? eq(communityPosts.sourceCollectionId, sourceId)
+			: type === "testimony"
+				? eq(communityPosts.sourceTestimonyId, sourceId)
+				: eq(communityPosts.sourcePrayerId, sourceId);
+}
+
 async function findPublishedPost(
 	db: DbQueryClient,
 	userId: string,
 	type: CommunityPostType,
 	sourceId: number,
 ) {
-	const sourceCondition =
-		type === "note"
-			? eq(communityPosts.sourceNoteId, sourceId)
-			: type === "collection"
-				? eq(communityPosts.sourceCollectionId, sourceId)
-				: type === "testimony"
-					? eq(communityPosts.sourceTestimonyId, sourceId)
-					: eq(communityPosts.sourcePrayerId, sourceId);
 	const [post] = await db
 		.select({ id: communityPosts.id })
 		.from(communityPosts)
 		.where(
 			and(
 				eq(communityPosts.authorUserId, userId),
-				sourceCondition,
+				isFromSource(type, sourceId),
 				isNull(communityPosts.removedAt),
 			),
 		)
@@ -560,19 +584,20 @@ async function findPublishedPost(
 	return post ?? null;
 }
 
-function toPublishingResource(
-	resource: { id: number; title: string },
+/** A removed post stays on record and can be restored, so its source can't be shared again. */
+async function wasRemoved(
+	db: DbQueryClient,
 	type: CommunityPostType,
-	content: string,
-	publishedIds: Set<number>,
-): CommunityPublishingResource {
-	return {
-		excerpt: createExcerpt(content),
-		id: resource.id,
-		isPublished: publishedIds.has(resource.id),
-		title: resource.title,
-		type,
-	};
+	sourceId: number,
+) {
+	const [post] = await db
+		.select({ id: communityPosts.id })
+		.from(communityPosts)
+		.where(
+			and(isFromSource(type, sourceId), isNotNull(communityPosts.removedAt)),
+		)
+		.limit(1);
+	return post !== undefined;
 }
 
 function createSourceSnapshot(

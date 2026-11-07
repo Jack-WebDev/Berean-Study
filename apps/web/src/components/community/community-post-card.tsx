@@ -16,6 +16,8 @@ import { BookmarkCheckIcon, BookmarkIcon, ImageIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { formatPublishedAt, initialsFor } from "@/utils";
 
+import { ReportPostButton } from "./report-post-button";
+
 export type CommunityPostType = "collection" | "note" | "testimony" | "prayer";
 
 export type CommunityPostCardData = {
@@ -29,6 +31,8 @@ export type CommunityPostCardData = {
 	href: string;
 	id: string;
 	isBookmarked: boolean;
+	/** The viewer wrote this, so there's nothing for them to report. */
+	isOwn: boolean;
 	publishedAt: Date | string;
 	title: string;
 	type: CommunityPostType;
@@ -120,21 +124,26 @@ export function CommunityPostCard({
 					</div>
 				</div>
 
-				<Button
-					aria-label={`${isBookmarked ? "Remove" : "Save"} ${post.title}`}
-					className="h-7 rounded-md px-2 text-muted-foreground hover:text-foreground"
-					onClick={handleBookmarkChange}
-					size="sm"
-					type="button"
-					variant="ghost"
-				>
-					{isBookmarked ? (
-						<BookmarkCheckIcon aria-hidden="true" data-icon="inline-start" />
-					) : (
-						<BookmarkIcon aria-hidden="true" data-icon="inline-start" />
+				<div className="flex shrink-0 items-center">
+					{post.isOwn ? null : (
+						<ReportPostButton postId={Number(post.id)} postTitle={post.title} />
 					)}
-					{isBookmarked ? "Saved" : "Save"}
-				</Button>
+					<Button
+						aria-label={`${isBookmarked ? "Remove" : "Save"} ${post.title}`}
+						className="h-7 rounded-md px-2 text-muted-foreground hover:text-foreground"
+						onClick={handleBookmarkChange}
+						size="sm"
+						type="button"
+						variant="ghost"
+					>
+						{isBookmarked ? (
+							<BookmarkCheckIcon aria-hidden="true" data-icon="inline-start" />
+						) : (
+							<BookmarkIcon aria-hidden="true" data-icon="inline-start" />
+						)}
+						{isBookmarked ? "Saved" : "Save"}
+					</Button>
+				</div>
 			</CardFooter>
 		</Card>
 	);

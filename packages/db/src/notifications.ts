@@ -244,7 +244,13 @@ function categoryCondition(category: NotificationCategory) {
 		case "security":
 			return kindsMatching("%security%", "%sign_in%", "%session%");
 		case "community":
-			return kindsMatching("%comment%", "%reply%", "%mention%", "%note%");
+			return kindsMatching(
+				"%community%",
+				"%comment%",
+				"%reply%",
+				"%mention%",
+				"%note%",
+			);
 		case "reading":
 			return kindsMatching("%reading%");
 		case "saved":

@@ -334,11 +334,12 @@ export async function listProposals(
 	client: DbExecutor,
 	filter: {
 		kinds?: readonly ChangeKindName[];
-		status?: "proposed";
+		limit?: number;
+		status?: "proposed" | "applied";
 		target?: { type: string; id: string };
 	} = {},
 ) {
-	const rows = await client
+	const query = client
 		.select()
 		.from(changeProposals)
 		.where(
@@ -356,12 +357,14 @@ export async function listProposals(
 			),
 		)
 		.orderBy(desc(changeProposals.createdAt), desc(changeProposals.id));
+	const rows = await (filter.limit ? query.limit(filter.limit) : query);
 
 	const summaries = [];
 	for (const row of rows) {
 		const kind = kindNamed(row.kind);
 		summaries.push({
 			...row,
+			decidePermission: kind.decidePermission,
 			title: kind.title,
 			description: await kind.describe(client, row.payload),
 			destination: kind.destination(row.payload),

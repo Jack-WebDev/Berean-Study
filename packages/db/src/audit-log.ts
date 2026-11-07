@@ -33,6 +33,8 @@ export type AuditDetails = {
 	permission?: string;
 	reason?: string;
 	role?: string;
+	/** The Community rule a moderation decision relied on. */
+	rule?: string;
 };
 
 /** The parts of an entry's stored details that people read. The rest stays in the export. */
@@ -46,6 +48,7 @@ export function readAuditDetails(details: unknown): AuditDetails {
 		"permission",
 		"reason",
 		"role",
+		"rule",
 	] as const) {
 		const value = (details as Record<string, unknown>)[key];
 		if (typeof value === "string") read[key] = value;
@@ -109,6 +112,21 @@ export async function listAuditEntries(
 		pageSize: AUDIT_PAGE_SIZE,
 		total: totals?.value ?? 0,
 	};
+}
+
+/** The latest entries this person may see, for a short feed. */
+export async function listRecentAuditEntries(
+	client: DbExecutor,
+	viewer: AuditViewer,
+	limit: number,
+) {
+	const entries = await entriesQuery(client, visibleEntries(viewer, {})).limit(
+		limit,
+	);
+	return entries.map((entry) => ({
+		...entry,
+		details: readAuditDetails(entry.details),
+	}));
 }
 
 /** A cell that a spreadsheet can't mistake for a formula, since reasons are free text. */

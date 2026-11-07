@@ -2,6 +2,7 @@ import { queryOptions } from "@tanstack/react-query";
 
 import {
 	getCommunityFeed,
+	getMyPostingRestriction,
 	listCommunityPublishingResources,
 	listSavedCommunityPosts,
 } from "@/functions/community";
@@ -26,4 +27,10 @@ export const communityPublishingResourcesQueryOptions = () =>
 	queryOptions({
 		queryKey: communityKeys.publishingResources(),
 		queryFn: () => listCommunityPublishingResources(),
+	});
+
+export const myPostingRestrictionQueryOptions = () =>
+	queryOptions({
+		queryKey: communityKeys.postingRestriction(),
+		queryFn: () => getMyPostingRestriction(),
 	});

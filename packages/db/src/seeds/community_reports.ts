@@ -19,7 +19,7 @@ export async function seedCommunityReports(
 			return {
 				communityPostId: numberId(context, "communityPosts", i),
 				reportedByUserId: textId(context, "users", i + 1),
-				reason: open ? "spam" : "harassment",
+				reason: open ? "spam" : "personal_attack",
 				details: sentence(),
 				resolution: open ? null : "dismissed",
 				reviewedByUserId: open ? null : textId(context, "users", i + 2),

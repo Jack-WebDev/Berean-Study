@@ -401,7 +401,7 @@ export function formatPassageReference(
  * in two queries however many passages are asked for.
  */
 export async function getPassageExcerpts(
-	db: DbClient,
+	db: Pick<DbClient, "select">,
 	passageIds: readonly number[],
 	translationId: number | null,
 	maxVerses: number,

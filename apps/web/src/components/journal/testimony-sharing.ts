@@ -2,10 +2,10 @@ import type { RichTextDocument } from "@berean-study/rich-text-editor";
 import { getExcerpt } from "@berean-study/rich-text-editor/document";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-
 import { publishCommunityPost } from "@/functions/community";
 import { communityKeys } from "@/queries/keys";
 import { invalidatePrayerJournal } from "@/queries/prayer-journal";
+import { formatFullDate } from "@/utils/dates";
 
 /**
  * Posts a testimony to Community, using its plain-text excerpt as the preview.
@@ -35,6 +35,14 @@ export function useShareTestimony() {
 			return result;
 		},
 		onSuccess: async (result) => {
+			if ("refused" in result) {
+				toast.error(
+					result.refused === "removed"
+						? "A moderator removed this testimony, so it can't be shared again."
+						: `You can share with your community again from ${formatFullDate(result.restrictedUntil)}.`,
+				);
+				return;
+			}
 			toast.success(
 				result.alreadyPublished
 					? "This testimony is already shared with your community."
