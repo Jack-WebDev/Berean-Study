@@ -1,4 +1,5 @@
 import type { PermissionKey } from "@berean-study/db/access-catalogue";
+import { bookOverviewSchema } from "@berean-study/db/book-overview";
 import {
 	type ContentIssueType,
 	type ContentRevisionStatus,
@@ -7,6 +8,7 @@ import {
 	contentRevisionStatusLabels,
 	type EditorialCheckResult,
 } from "@berean-study/db/content-kinds";
+import { citationStrengthLabels } from "@berean-study/db/evidence-body";
 import { diffWords } from "@berean-study/db/verse-text-tools";
 import { Input } from "@berean-study/ui/components/input";
 import { Textarea } from "@berean-study/ui/components/textarea";
@@ -27,7 +29,7 @@ import {
 } from "@/functions/content";
 import { formatStaffDate, formatStaffDateTime } from "@/lib/format";
 import { revisionPageQueryOptions } from "@/queries/content";
-
+import { evidenceWorkbenchSearch } from "../evidence/evidence-display";
 import { WordDiff } from "../scripture/verse-text-display";
 import { StaffButton, staffLinkClassName } from "../staff-button";
 import { StaffCard } from "../staff-card";
@@ -54,6 +56,64 @@ type RevisionData = NonNullable<
 		>
 	>
 >;
+
+/** What this revision rests on, so a reviewer can follow each link back to its source. */
+function RevisionCitations({
+	citations,
+}: {
+	citations: RevisionData["citations"];
+}) {
+	return (
+		<StaffCard title="Sources">
+			{citations.length === 0 ? (
+				<p className="text-muted-foreground text-sm">
+					This revision cites nothing.
+				</p>
+			) : (
+				<ol className="divide-y divide-border-subtle">
+					{citations.map((citation) => (
+						<li className="py-3 first:pt-0 last:pb-0" key={citation.id}>
+							<p className="flex flex-wrap items-center gap-2 font-semibold text-sm">
+								{citation.position}.{" "}
+								<Link
+									className="underline-offset-4 hover:underline"
+									search={evidenceWorkbenchSearch(
+										"source_excerpt",
+										String(citation.excerptId),
+									)}
+									to="/work/sources/evidence"
+								>
+									{citation.excerptTitle}
+								</Link>
+								<StatusChip tone="neutral">
+									{citationStrengthLabels[citation.strength]}
+								</StatusChip>
+							</p>
+							<p className="mt-1 text-muted-foreground text-sm">
+								{citation.locator ? `${citation.locator} · ` : ""}
+								{citationVersionNote(citation)}
+							</p>
+						</li>
+					))}
+				</ol>
+			)}
+		</StaffCard>
+	);
+}
+
+function citationVersionNote({
+	liveExcerptNumber,
+	pinnedExcerptNumber,
+}: RevisionData["citations"][number]) {
+	if (pinnedExcerptNumber) {
+		return liveExcerptNumber && liveExcerptNumber !== pinnedExcerptNumber
+			? `Published with excerpt revision #${pinnedExcerptNumber}. The excerpt is now on #${liveExcerptNumber}.`
+			: `Published with excerpt revision #${pinnedExcerptNumber}.`;
+	}
+	return liveExcerptNumber
+		? `Excerpt is live on revision #${liveExcerptNumber}.`
+		: "This excerpt isn't live yet, and has to be before this can be published.";
+}
 
 const publicationStatusNotes: Record<ContentRevisionStatus, string> = {
 	draft: "This is still a draft. Nobody has reviewed it yet.",
@@ -127,17 +187,19 @@ export function RevisionPage({
 		<StaffPage
 			actions={
 				<>
-					<Link
-						className={staffLinkClassName}
-						params={{
-							contentId: String(contentItemId),
-							revisionId: String(revisionId),
-						}}
-						search={searchFor("reader")}
-						to="/admin/editorial/$contentId/revisions/$revisionId"
-					>
-						View as reader
-					</Link>
+					{data.kind === "book_overview" ? (
+						<Link
+							className={staffLinkClassName}
+							params={{
+								contentId: String(contentItemId),
+								revisionId: String(revisionId),
+							}}
+							search={searchFor("reader")}
+							to="/admin/editorial/$contentId/revisions/$revisionId"
+						>
+							View as reader
+						</Link>
+					) : null}
 					{isReviewable && canReview && revision.status === "submitted" ? (
 						<StartReviewButton revisionId={revision.id} />
 					) : null}
@@ -184,7 +246,15 @@ export function RevisionPage({
 						>
 							Open the editor
 						</Link>
-					) : null}
+					) : (
+						<Link
+							className={staffLinkClassName}
+							search={evidenceWorkbenchSearch(data.kind, data.scopeKey)}
+							to="/work/sources/evidence"
+						>
+							Open the editor
+						</Link>
+					)}
 				</div>
 			) : null}
 
@@ -217,20 +287,14 @@ export function RevisionPage({
 				<div className="min-w-0 space-y-4">
 					{tab === "changes" ? <ChangesTab data={data} /> : null}
 					{tab === "full" ? <FullTextTab data={data} /> : null}
-					{tab === "reader" ? (
+					{tab === "reader" && data.kind === "book_overview" ? (
 						<BookOverviewPreview
 							bookName={data.title.replace(/ overview$/, "")}
-							overview={data.body}
+							overview={bookOverviewSchema.parse(data.body)}
 						/>
 					) : null}
 					{tab === "sources" ? (
-						<StaffCard title="Sources">
-							<p className="text-muted-foreground text-sm">
-								{data.citationCount === 0
-									? "This revision cites nothing yet. Sources, excerpts and citations arrive with the evidence tools."
-									: `This revision has ${data.citationCount} citations.`}
-							</p>
-						</StaffCard>
+						<RevisionCitations citations={data.citations} />
 					) : null}
 					{tab === "issues" ? (
 						<IssuesTab data={data} permissionKeys={permissionKeys} />
