@@ -19,6 +19,13 @@ const contentClassName = `${sharedContentClassName} ${markClassName} ${sectionHe
 const promptClassName =
 	"[&_.ProseMirror_p.is-prompt-empty::before]:pointer-events-none [&_.ProseMirror_p.is-prompt-empty::before]:float-left [&_.ProseMirror_p.is-prompt-empty::before]:h-0 [&_.ProseMirror_p.is-prompt-empty::before]:text-muted-foreground [&_.ProseMirror_p.is-prompt-empty::before]:content-[attr(data-prompt)]";
 
-export const richTextContentClassName = `${contentClassName} ${promptClassName} [&_.ProseMirror]:min-h-72 [&_.ProseMirror_.tableWrapper]:max-w-full [&_.ProseMirror_.tableWrapper]:overflow-x-auto [&_.ProseMirror_p.is-editor-empty:first-child::before]:pointer-events-none [&_.ProseMirror_p.is-editor-empty:first-child::before]:float-left [&_.ProseMirror_p.is-editor-empty:first-child::before]:h-0 [&_.ProseMirror_p.is-editor-empty:first-child::before]:text-muted-foreground [&_.ProseMirror_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]`;
+/**
+ * Numbers citations by where they fall. Commentary splits into sections shown one
+ * at a time, so a host sets --citation-offset to carry the count across sections.
+ */
+const citationNumberClassName =
+	"[&_.ProseMirror]:[counter-reset:citation_var(--citation-offset,0)] [&_[data-citation]]:[counter-increment:citation] [&_[data-citation]::before]:content-[counter(citation)]";
 
-export const richTextReaderContentClassName = contentClassName;
+export const richTextContentClassName = `${contentClassName} ${promptClassName} ${citationNumberClassName} [&_.ProseMirror]:min-h-72 [&_.ProseMirror_.tableWrapper]:max-w-full [&_.ProseMirror_.tableWrapper]:overflow-x-auto [&_.ProseMirror_p.is-editor-empty:first-child::before]:pointer-events-none [&_.ProseMirror_p.is-editor-empty:first-child::before]:float-left [&_.ProseMirror_p.is-editor-empty:first-child::before]:h-0 [&_.ProseMirror_p.is-editor-empty:first-child::before]:text-muted-foreground [&_.ProseMirror_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]`;
+
+export const richTextReaderContentClassName = `${contentClassName} ${citationNumberClassName}`;

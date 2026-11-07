@@ -1,4 +1,5 @@
 import { contentIssueTypeLabels } from "@berean-study/db/content-kinds";
+import { cn } from "@berean-study/ui/lib/utils";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useId, useState } from "react";
@@ -29,16 +30,27 @@ export function MyWorkPage() {
 	return (
 		<StaffPage
 			actions={
-				<Link className={staffLinkClassName} to="/admin/scripture">
-					Book overviews
-				</Link>
+				<>
+					<Link className={staffLinkClassName} to="/admin/scripture">
+						Book overviews
+					</Link>
+					<Link
+						className={cn(
+							staffLinkClassName,
+							"bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground",
+						)}
+						to="/work/new"
+					>
+						+ New
+					</Link>
+				</>
 			}
 			description="Your writing that's still on its way to readers. Anything sent back with changes comes first."
 			section="Contributor"
 			title="My Work"
 		>
 			<RevisionList
-				emptyMessage="Nothing in progress. Open a book in Scripture Data to write its overview, or add evidence under Sources. More kinds of content arrive with the writing tools."
+				emptyMessage="Nothing in progress. Choose + New to start something."
 				rows={data}
 				title="In progress"
 			/>

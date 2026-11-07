@@ -263,6 +263,8 @@ const inlineNodeTypes = new Set([
 	"bibleReference",
 	"citation",
 	"hardBreak",
+	"originalTerm",
+	"scriptureReference",
 	"text",
 ]);
 
@@ -273,8 +275,13 @@ function isInlineNode(node: JSONContent) {
 function getInlineText(node: JSONContent): string {
 	if (node.type === "text") return node.text ?? "";
 	if (node.type === "hardBreak") return " ";
-	if (node.type === "bibleReference" && typeof node.attrs?.label === "string")
+	if (
+		(node.type === "bibleReference" || node.type === "scriptureReference") &&
+		typeof node.attrs?.label === "string"
+	)
 		return node.attrs.label;
+	if (node.type === "originalTerm" && typeof node.attrs?.word === "string")
+		return node.attrs.word;
 	return "";
 }
 

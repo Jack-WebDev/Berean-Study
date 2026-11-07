@@ -76,7 +76,13 @@ The package never queries passages or sources. A consumer supplies picker callba
 />
 ```
 
-`onRequestBibleReference` returns `{ passageId, label }`; `onRequestCitation` returns `{ citationId, label }`. Returning `null` or omitting a callback safely leaves the document unchanged.
+`onRequestBibleReference` returns `{ passageId, label }`; `onRequestCitation` returns `{ excerptId, label, locator, strength }`. Returning `null` or omitting a callback safely leaves the document unchanged.
+
+Citations are numbered by where they fall in the text, using a CSS counter, so nothing needs renumbering when one moves. A document split across several editors can continue the count by setting `--citation-offset` on a parent element.
+
+## Commentary tools
+
+Pass `commentaryTools` with `preset="contributor"` to add a Commentary group to the `simple` toolbar and the `/` menu: Scripture references, Greek and Hebrew words, and cross-references. As with the other pickers, the host asks and returns the value. A Scripture reference stores a book and label rather than a passage id, because verses may not have been entered yet.
 
 ## Read-only content and previews
 

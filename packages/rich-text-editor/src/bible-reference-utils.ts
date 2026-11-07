@@ -1,7 +1,7 @@
 import type { JSONContent } from "@tiptap/core";
 
 import { isValidBibleReference } from "./bible-reference";
-import { isValidCitation } from "./citation";
+import { isValidCitation } from "./commentary-nodes";
 import type {
 	BibleReferenceAttributes,
 	CitationAttributes,

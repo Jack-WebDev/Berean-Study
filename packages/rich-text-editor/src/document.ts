@@ -5,7 +5,21 @@
  * editor components.
  */
 
-export type { RichTextDocument, RichTextNode } from "./document-types";
+export {
+	getCommentaryReviewText,
+	getDocumentCommentaryNodes,
+	isValidCitation,
+	isValidOriginalTerm,
+	isValidScriptureReference,
+} from "./commentary-nodes";
+export type {
+	CitationAttributes,
+	CitationStrength,
+	OriginalTermAttributes,
+	RichTextDocument,
+	RichTextNode,
+	ScriptureReferenceAttributes,
+} from "./document-types";
 export type {
 	DocumentHeading,
 	DocumentSection,

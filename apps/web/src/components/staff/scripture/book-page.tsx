@@ -149,14 +149,23 @@ export function BookPage({
 						/>
 					) : null}
 					{tab === "introduction" ? (
-						<WaitingForReviewCard
-							body={
-								book.introductionSections > 0
-									? `${book.introductionSections} sections exist. Editing them arrives with the commentary editor.`
-									: "Introductions are written in the commentary editor and reviewed like any commentary."
-							}
-							title={`Introduction to ${book.name}`}
-						/>
+						<StaffCard title={`Introduction to ${book.name}`}>
+							<p className="text-muted-foreground text-sm">
+								{book.introduction
+									? `"${book.introduction.title}" ${book.introduction.isLive ? "is live." : "isn't live yet."}`
+									: "Not written yet. Introductions are written in the commentary editor and reviewed like any commentary."}
+							</p>
+							{permissionKeys.includes("content.write") ||
+							permissionKeys.includes("content.revise") ? (
+								<Link
+									className={cn(staffLinkClassName, "mt-3")}
+									search={{ kind: "book_introduction", scope: book.slug }}
+									to="/work/commentary"
+								>
+									Open in commentary editor
+								</Link>
+							) : null}
+						</StaffCard>
 					) : null}
 					{tab === "chapters" ? <ChaptersSummary book={book} /> : null}
 					{tab === "record" ? (
@@ -169,20 +178,6 @@ export function BookPage({
 				</div>
 			</div>
 		</div>
-	);
-}
-
-function WaitingForReviewCard({
-	body,
-	title,
-}: {
-	body: string;
-	title: string;
-}) {
-	return (
-		<StaffCard title={title}>
-			<p className="max-w-[65ch] text-muted-foreground text-sm">{body}</p>
-		</StaffCard>
 	);
 }
 

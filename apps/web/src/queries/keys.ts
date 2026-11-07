@@ -1,4 +1,9 @@
 import type { listAuditEntries } from "@/functions/audit";
+import type {
+	getCommentaryEditor,
+	listCitableExcerpts,
+	listCommentaries,
+} from "@/functions/commentary";
 import type { getCommunityFeed } from "@/functions/community";
 import type { getContentState, getRevisionPage } from "@/functions/content";
 import type {
@@ -39,6 +44,9 @@ export type VerseAcrossTranslationsInput = ServerFnData<
 >;
 export type ContentScopeInput = ServerFnData<typeof getContentState>;
 export type RevisionPageInput = ServerFnData<typeof getRevisionPage>;
+export type CommentaryEditorInput = ServerFnData<typeof getCommentaryEditor>;
+export type CommentaryListFilters = ServerFnData<typeof listCommentaries>;
+export type CitableExcerptFilters = ServerFnData<typeof listCitableExcerpts>;
 export type EvidenceWorkbenchInput = ServerFnData<typeof getEvidenceWorkbench>;
 export type SimilarSourcesInput = ServerFnData<typeof findSimilarSources>;
 export type EvidenceSourceFilters = ServerFnData<typeof listEvidenceSources>;
@@ -130,6 +138,14 @@ export const contentKeys = {
 	live: () => [...contentKeys.all, "live"] as const,
 	openIssues: () => [...contentKeys.all, "open-issues"] as const,
 	assignablePeople: () => [...contentKeys.all, "assignable-people"] as const,
+	commentary: (input: CommentaryEditorInput) =>
+		[...contentKeys.all, "commentary", input] as const,
+	commentaryList: (filters: CommentaryListFilters) =>
+		[...contentKeys.all, "commentary-list", filters] as const,
+	citableExcerpts: (filters: CitableExcerptFilters) =>
+		[...contentKeys.all, "citable-excerpts", filters] as const,
+	bookResearch: (bookSlug: string) =>
+		[...contentKeys.all, "book-research", bookSlug] as const,
 };
 
 export const evidenceKeys = {

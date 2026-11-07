@@ -21,7 +21,12 @@ describe("slash commands", () => {
 
 		const contributorCatalog = createEditorCommandCatalog({
 			onRequestBibleReference: () => ({ label: "John 3:16", passageId: 316 }),
-			onRequestCitation: () => ({ citationId: 1, label: "1" }),
+			onRequestCitation: () => ({
+				excerptId: 481,
+				label: "Metzger",
+				locator: "p. 459",
+				strength: "direct" as const,
+			}),
 			preset: "contributor",
 		});
 		expect(contributorCatalog.commands().map((command) => command.id)).toEqual(

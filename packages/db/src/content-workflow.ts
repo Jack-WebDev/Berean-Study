@@ -298,15 +298,20 @@ export async function startReview(
 }
 
 /** The checks this kind of content has to pass, in order. */
-export async function checksFor(client: DbExecutor, kindName: string) {
+export async function checksFor(
+	client: DbExecutor,
+	kindName: string,
+	body: unknown,
+) {
 	const rows = await client
 		.select()
 		.from(editorialChecklists)
 		.orderBy(editorialChecklists.position);
-	const { requiresOriginalLanguageCheck } = contentKindNamed(kindName);
+	const needsOriginalLanguage =
+		contentKindNamed(kindName).requiresOriginalLanguageCheck(body);
 	return rows.filter(
 		({ originalLanguageOnly }) =>
-			!originalLanguageOnly || requiresOriginalLanguageCheck,
+			!originalLanguageOnly || needsOriginalLanguage,
 	);
 }
 
@@ -335,7 +340,7 @@ export async function recordCheck(
 			);
 		}
 
-		const applicable = await checksFor(tx, item.kind);
+		const applicable = await checksFor(tx, item.kind, revision.body);
 		const check = applicable.find(({ id }) => id === input.checklistId);
 		if (!check) {
 			throw new GovernanceError("This check doesn't apply to this content.");
@@ -415,7 +420,7 @@ export async function approveRevision(
 			throw new GovernanceError("This revision isn't waiting for review.");
 		}
 
-		const applicable = await checksFor(tx, item.kind);
+		const applicable = await checksFor(tx, item.kind, revision.body);
 		if (applicable.length === 0) {
 			throw new GovernanceError(
 				"The editorial checks haven't been set up, so this can't be approved. Run db:access:sync.",

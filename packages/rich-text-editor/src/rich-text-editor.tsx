@@ -22,6 +22,7 @@ export function RichTextEditor({
 	contentClassName,
 	editable = true,
 	emptyState,
+	commentaryTools,
 	footer,
 	id,
 	onActiveSectionChange,
@@ -73,6 +74,8 @@ export function RichTextEditor({
 	);
 	const citationRequest =
 		preset === "contributor" ? onRequestCitation : undefined;
+	const contributorTools =
+		preset === "contributor" ? commentaryTools : undefined;
 
 	useEffect(() => {
 		// Tiptap reports an "update" from setEditable unless told not to, which
@@ -110,6 +113,7 @@ export function RichTextEditor({
 		>
 			{editable && toolbar !== "docked" ? (
 				<EditorToolbar
+					commentaryTools={contributorTools}
 					session={session}
 					onExpand={onExpand}
 					onRequestBibleReference={onRequestBibleReference}
@@ -138,6 +142,7 @@ export function RichTextEditor({
 			) : null}
 			{editable ? (
 				<SlashCommandMenu
+					commentaryTools={contributorTools}
 					items={slashCommands}
 					session={session}
 					onRequestBibleReference={onRequestBibleReference}

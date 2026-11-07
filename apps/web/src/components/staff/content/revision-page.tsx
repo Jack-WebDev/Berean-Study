@@ -1,6 +1,10 @@
 import type { PermissionKey } from "@berean-study/db/access-catalogue";
 import { bookOverviewSchema } from "@berean-study/db/book-overview";
 import {
+	commentaryBodySchema,
+	isCommentaryKind,
+} from "@berean-study/db/commentary-body";
+import {
 	type ContentIssueType,
 	type ContentRevisionStatus,
 	contentIssueTypeLabels,
@@ -29,6 +33,7 @@ import {
 } from "@/functions/content";
 import { formatStaffDate, formatStaffDateTime } from "@/lib/format";
 import { revisionPageQueryOptions } from "@/queries/content";
+import { CommentaryPreview } from "../commentary/commentary-preview";
 import { evidenceWorkbenchSearch } from "../evidence/evidence-display";
 import { WordDiff } from "../scripture/verse-text-display";
 import { StaffButton, staffLinkClassName } from "../staff-button";
@@ -170,6 +175,8 @@ export function RevisionPage({
 		({ result }) => result === "passed" || result === "not_applicable",
 	);
 	const searchFor = (value: RevisionTab) => ({ tab: value });
+	const hasReaderView =
+		data.kind === "book_overview" || isCommentaryKind(data.kind);
 	const tabLinks: { label: string; value: RevisionTab }[] = [
 		{
 			label: data.baselineNumber
@@ -187,7 +194,7 @@ export function RevisionPage({
 		<StaffPage
 			actions={
 				<>
-					{data.kind === "book_overview" ? (
+					{hasReaderView ? (
 						<Link
 							className={staffLinkClassName}
 							params={{
@@ -246,6 +253,14 @@ export function RevisionPage({
 						>
 							Open the editor
 						</Link>
+					) : isCommentaryKind(data.kind) ? (
+						<Link
+							className={staffLinkClassName}
+							search={{ kind: data.kind, scope: data.scopeKey }}
+							to="/work/commentary"
+						>
+							Open the editor
+						</Link>
 					) : (
 						<Link
 							className={staffLinkClassName}
@@ -287,6 +302,9 @@ export function RevisionPage({
 				<div className="min-w-0 space-y-4">
 					{tab === "changes" ? <ChangesTab data={data} /> : null}
 					{tab === "full" ? <FullTextTab data={data} /> : null}
+					{tab === "reader" && isCommentaryKind(data.kind) ? (
+						<CommentaryPreview body={commentaryBodySchema.parse(data.body)} />
+					) : null}
 					{tab === "reader" && data.kind === "book_overview" ? (
 						<BookOverviewPreview
 							bookName={data.title.replace(/ overview$/, "")}

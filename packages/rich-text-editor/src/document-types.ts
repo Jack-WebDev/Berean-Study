@@ -25,3 +25,35 @@ export type VerseBlockAttributes = {
 
 /** Tones for template section headings; `section` is the neutral default. */
 export type SectionVariant = "apply" | "interpret" | "observe" | "section";
+
+/** How firmly a cited excerpt backs what's said. */
+export type CitationStrength = "background" | "direct" | "partial";
+
+/**
+ * A footnote to a saved source excerpt. It's numbered by where it falls in the
+ * document, so `label` only names the source, for tooltips and lists.
+ */
+export type CitationAttributes = {
+	excerptId: number;
+	label: string;
+	locator: string;
+	strength: CitationStrength;
+};
+
+/**
+ * A Scripture reference typed by a contributor. It points to a book and verses
+ * rather than a stored passage, because verses are entered over time and may
+ * not exist yet when commentary is written.
+ */
+export type ScriptureReferenceAttributes = {
+	bookSlug: string;
+	label: string;
+	variant: "cross" | "reference";
+};
+
+/** A Greek or Hebrew word quoted in contributor writing. */
+export type OriginalTermAttributes = {
+	gloss: string;
+	language: "greek" | "hebrew";
+	word: string;
+};

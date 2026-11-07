@@ -14,7 +14,7 @@ const NOTE_LIST_LIMIT = 100;
 /** Staff's shared working notes, newest first, optionally narrowed by a search. */
 export async function listResearchNotes(
 	client: DbExecutor,
-	filter: { search?: string },
+	filter: { bookSlug?: string; search?: string },
 ) {
 	const search = filter.search?.trim();
 	const pattern = search ? `%${search.replace(/[%_\\]/g, "\\$&")}%` : null;
@@ -30,12 +30,17 @@ export async function listResearchNotes(
 		.from(researchNotes)
 		.innerJoin(user, eq(user.id, researchNotes.createdByUserId))
 		.where(
-			pattern
-				? or(
-						ilike(researchNotes.reference, pattern),
-						ilike(researchNotes.content, pattern),
-					)
-				: undefined,
+			and(
+				pattern
+					? or(
+							ilike(researchNotes.reference, pattern),
+							ilike(researchNotes.content, pattern),
+						)
+					: undefined,
+				filter.bookSlug
+					? sql`${researchNotes.bookId} = (select b.id from books b where b.slug = ${filter.bookSlug})`
+					: undefined,
+			),
 		)
 		.orderBy(desc(researchNotes.updatedAt), desc(researchNotes.id))
 		.limit(NOTE_LIST_LIMIT);

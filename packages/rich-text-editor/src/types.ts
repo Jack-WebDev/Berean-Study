@@ -1,12 +1,22 @@
 import type { ReactNode } from "react";
 import type { DockedToolbarItem } from "./docked-toolbar";
-import type { RichTextDocument, VerseBlockAttributes } from "./document-types";
+import type {
+	CitationAttributes,
+	OriginalTermAttributes,
+	RichTextDocument,
+	ScriptureReferenceAttributes,
+	VerseBlockAttributes,
+} from "./document-types";
 import type { EditorSession } from "./editor-session";
 import type { SlashCommandItem } from "./slash-commands";
 
 export type {
+	CitationAttributes,
+	CitationStrength,
+	OriginalTermAttributes,
 	RichTextDocument,
 	RichTextNode,
+	ScriptureReferenceAttributes,
 	SectionVariant,
 	VerseBlockAttributes,
 } from "./document-types";
@@ -22,9 +32,11 @@ export type PassageMentionSource = {
 	search: (query: string) => readonly BibleReferenceAttributes[];
 };
 
-export type CitationAttributes = {
-	citationId: number;
-	label: string;
+/** The extra insert tools in contributor documents. The host asks and answers. */
+export type CommentaryTools = {
+	onRequestCrossReference: () => Promise<ScriptureReferenceAttributes | null>;
+	onRequestOriginalTerm: () => Promise<OriginalTermAttributes | null>;
+	onRequestScriptureReference: () => Promise<ScriptureReferenceAttributes | null>;
 };
 
 export type VerseText = { number: number; text: string };
@@ -61,6 +73,8 @@ export type RichTextEditorProps = {
 	/** Turns on "@" passage links; without it "@" is plain text. */
 	passageMentions?: PassageMentionSource;
 	className?: string;
+	/** Turns on the Commentary toolbar group; contributor preset only. */
+	commentaryTools?: CommentaryTools;
 	contentClassName?: string;
 	editable?: boolean;
 	footer?: ReactNode;

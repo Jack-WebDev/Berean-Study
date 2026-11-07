@@ -29,8 +29,8 @@ const strengthOptions = citationStrengths.map((value) => ({
 	value,
 }));
 
-// Only claims exist so far. The rest arrive with the writing tools and stay visible
-// so people can see where this is going.
+// Commentary cites from its own editor, where the footnote goes in the text. Views
+// and variants arrive with their editors, and stay visible so people can see them.
 const supportOptions = [
 	{ label: "Claim", value: "claim" },
 	{ label: "Commentary text", value: "commentary" },
@@ -258,7 +258,8 @@ export function CitationStep({
 								value="claim"
 							/>
 							<p className="text-muted-foreground text-xs">
-								The other options open with the writing tools.
+								Commentary adds its citations from the commentary editor. Views
+								and variants open with their own editors.
 							</p>
 						</div>
 						<OptionPills

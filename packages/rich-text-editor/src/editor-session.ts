@@ -14,7 +14,9 @@ import {
 import type {
 	BibleReferenceAttributes,
 	CitationAttributes,
+	OriginalTermAttributes,
 	RichTextDocument,
+	ScriptureReferenceAttributes,
 	SectionVariant,
 	VerseBlockAttributes,
 } from "./types";
@@ -56,6 +58,10 @@ export type EditorCommandTarget = {
 	insertVerseBlock: (attributes: VerseBlockAttributes) => boolean;
 	/** Optional so command targets written before it was added still fit. */
 	insertText?: (text: string) => boolean;
+	insertOriginalTerm?: (term: OriginalTermAttributes) => boolean;
+	insertScriptureReference?: (
+		reference: ScriptureReferenceAttributes,
+	) => boolean;
 };
 
 export type EditorSection = { text: string; variant: SectionVariant };
@@ -142,6 +148,8 @@ export type EditorSession = EditorToolbarSession &
 	WorkspaceEditorSession &
 	OutlineEditorSession & {
 		getDocument: () => RichTextDocument;
+		/** Adds a block quote at the cursor, or where something was dropped. */
+		insertQuote: (text: string, point?: { x: number; y: number }) => boolean;
 		isSelectionInNode: (
 			type: "bibleReference" | "citation" | "heading",
 		) => boolean;
@@ -314,6 +322,22 @@ export function createEditorSession(editor: Editor): EditorSession {
 		insertBibleReference: (reference) =>
 			editor.commands.insertBibleReference(reference),
 		insertCitation: (citation) => editor.commands.insertCitation(citation),
+		insertOriginalTerm: (term) => editor.commands.insertOriginalTerm(term),
+		insertQuote: (text, point) => {
+			const position = point
+				? editor.view.posAtCoords({ left: point.x, top: point.y })?.pos
+				: undefined;
+			const chain = editor.chain().focus();
+			if (position !== undefined) chain.setTextSelection(position);
+			return chain
+				.insertContent({
+					content: [{ content: [{ text, type: "text" }], type: "paragraph" }],
+					type: "blockquote",
+				})
+				.run();
+		},
+		insertScriptureReference: (reference) =>
+			editor.commands.insertScriptureReference(reference),
 		insertSections: (sections) => {
 			if (!sections.length) return false;
 			const content = createSectionContent(sections);

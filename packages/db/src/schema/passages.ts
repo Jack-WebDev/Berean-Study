@@ -2,7 +2,6 @@ import { relations, sql } from "drizzle-orm";
 import { check, index, integer, pgTable, text } from "drizzle-orm/pg-core";
 
 import { books } from "./books";
-import { commentaries } from "./commentaries";
 import { literaryUnits } from "./literary_units";
 import { passageRanges } from "./passage_ranges";
 
@@ -36,5 +35,4 @@ export const passagesRelations = relations(passages, ({ one, many }) => ({
 	}),
 	ranges: many(passageRanges),
 	literaryUnit: one(literaryUnits),
-	commentary: one(commentaries),
 }));

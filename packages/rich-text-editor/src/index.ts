@@ -4,7 +4,7 @@ export {
 	getDocumentCitations,
 	getDocumentReferences,
 } from "./bible-reference-utils";
-export { isValidCitation } from "./citation";
+export { isValidCitation } from "./commentary-nodes";
 export type { DockedToolbarItem, DockedToolbarProps } from "./docked-toolbar";
 export { DockedToolbar, defaultDockedToolbarItems } from "./docked-toolbar";
 export type {
@@ -76,8 +76,11 @@ export {
 export type {
 	BibleReferenceAttributes,
 	CitationAttributes,
+	CitationStrength,
+	CommentaryTools,
 	DocumentReferences,
 	EditorToolbarVariant,
+	OriginalTermAttributes,
 	PassageMentionSource,
 	RichTextDocument,
 	RichTextEditorPreset,
@@ -87,6 +90,7 @@ export type {
 	RichTextNode,
 	RichTextRendererProps,
 	RichTextSelectionResult,
+	ScriptureReferenceAttributes,
 	SectionVariant,
 	VerseBlockAttributes,
 	VerseText,

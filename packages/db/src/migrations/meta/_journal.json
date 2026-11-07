@@ -204,6 +204,13 @@
 			"when": 1794042889197,
 			"tag": "0028_evidence_chain",
 			"breakpoints": true
+		},
+		{
+			"idx": 29,
+			"version": "7",
+			"when": 1794046747260,
+			"tag": "0029_remove_old_commentary_tables",
+			"breakpoints": true
 		}
 	]
 }

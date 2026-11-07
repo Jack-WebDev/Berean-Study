@@ -579,7 +579,7 @@ function ReferencesPanel({
 							<ReferenceRow
 								session={session}
 								index={index}
-								key={`${citation.citationId}-${index}`}
+								key={`${citation.excerptId}-${index}`}
 								label={`[${citation.label}]`}
 								type="citation"
 							/>

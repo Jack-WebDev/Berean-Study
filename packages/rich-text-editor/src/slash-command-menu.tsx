@@ -17,6 +17,7 @@ type SlashCommand = EditorCommand & { hint?: string };
 export function SlashCommandMenu({
 	items,
 	session,
+	commentaryTools,
 	onRequestBibleReference,
 	onRequestCitation,
 	onRequestPerson,
@@ -29,6 +30,7 @@ export function SlashCommandMenu({
 } & EditorCommandContext) {
 	const context = useMemo(
 		() => ({
+			commentaryTools,
 			onRequestBibleReference,
 			onRequestCitation,
 			onRequestPerson,
@@ -36,6 +38,7 @@ export function SlashCommandMenu({
 			preset,
 		}),
 		[
+			commentaryTools,
 			onRequestBibleReference,
 			onRequestCitation,
 			onRequestPerson,

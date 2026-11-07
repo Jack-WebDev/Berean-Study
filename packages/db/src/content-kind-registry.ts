@@ -8,6 +8,11 @@ import {
 	emptyBookOverview,
 	overviewFields,
 } from "./book-overview";
+import {
+	bookIntroductionKind,
+	passageCommentaryKind,
+	verseCommentaryKind,
+} from "./commentary-kinds";
 import type { DbExecutor } from "./db-executor";
 import { claimKind, excerptKind, sourceKind } from "./evidence-kinds";
 import { GovernanceError } from "./governance-error";
@@ -19,7 +24,7 @@ export type ContentKindDefinition<TBody> = {
 	body: z.ZodType<TBody>;
 	empty: TBody;
 	/** Original-language and textual content needs an extra specialist check. */
-	requiresOriginalLanguageCheck: boolean;
+	requiresOriginalLanguageCheck: boolean | ((body: TBody) => boolean);
 	/** Each part of the content as text, in reading order, for comparing revisions. */
 	fields(body: TBody): { label: string; text: string }[];
 	/** Refuses a draft that isn't finished enough for someone else to review. */
@@ -72,7 +77,10 @@ function contentKind<TBody>(definition: ContentKindDefinition<TBody>) {
 	const parse = (raw: unknown) => definition.body.parse(raw);
 	return {
 		label: definition.label,
-		requiresOriginalLanguageCheck: definition.requiresOriginalLanguageCheck,
+		requiresOriginalLanguageCheck: (raw: unknown) => {
+			const needed = definition.requiresOriginalLanguageCheck;
+			return typeof needed === "function" ? needed(parse(raw)) : needed;
+		},
 		parse,
 		empty: definition.empty,
 		fields: (raw: unknown) => definition.fields(parse(raw)),
@@ -123,6 +131,9 @@ const contentKinds = {
 	source: contentKind(sourceKind),
 	source_excerpt: contentKind(excerptKind),
 	claim: contentKind(claimKind),
+	book_introduction: contentKind(bookIntroductionKind),
+	passage_commentary: contentKind(passageCommentaryKind),
+	verse_commentary: contentKind(verseCommentaryKind),
 	book_overview: contentKind<BookOverview>({
 		label: "Book overview",
 		body: bookOverviewSchema,

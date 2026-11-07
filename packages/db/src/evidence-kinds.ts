@@ -1,6 +1,15 @@
-import { and, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
+import {
+	assertCitedEvidenceLive,
+	assertCitedExcerptsExist,
+	assertCitedSourcesUsable,
+	assertSourceUsable,
+	getRecordItem,
+	pinRevisionCitations,
+	syncRevisionCitations,
+} from "./cited-evidence";
 import type { ContentKindDefinition } from "./content-kind-registry";
 import type { DbExecutor } from "./db-executor";
 import {
@@ -61,40 +70,6 @@ async function getExcerptRow(client: DbExecutor, excerptId: number) {
 		.where(eq(sourceExcerpts.id, excerptId));
 	if (!excerpt) throw new GovernanceError("This excerpt no longer exists.");
 	return excerpt;
-}
-
-/** A retired source can stay where it's already published, but nothing new can rest on it. */
-async function assertSourceUsable(client: DbExecutor, sourceId: number) {
-	const source = await getSourceRow(client, sourceId);
-	if (source.status === "retired") {
-		throw new GovernanceError(
-			"This source has been retired, so it can't be used.",
-		);
-	}
-	if (source.status === "merged") {
-		throw new GovernanceError(
-			"This source was merged into another one. Use that one instead.",
-		);
-	}
-}
-
-/** The content item behind a record, with the revision live right now, if any. */
-async function getRecordItem(
-	client: DbExecutor,
-	kind: "source" | "source_excerpt",
-	id: number,
-) {
-	const [item] = await client
-		.select({
-			id: contentItems.id,
-			liveRevisionId: contentItems.liveRevisionId,
-			title: contentItems.title,
-		})
-		.from(contentItems)
-		.where(
-			and(eq(contentItems.kind, kind), eq(contentItems.scopeKey, String(id))),
-		);
-	return item ?? null;
 }
 
 async function latestSourceBody(client: DbExecutor, sourceId: number) {
@@ -293,21 +268,6 @@ function claimTitle(body: ClaimBody) {
 		: statement;
 }
 
-/** The excerpts a claim cites, along with the source each comes from. */
-async function citedExcerpts(client: DbExecutor, body: ClaimBody) {
-	const excerptIds = [
-		...new Set(body.citations.map(({ excerptId }) => excerptId)),
-	];
-	if (excerptIds.length === 0) return [];
-	return client
-		.select({
-			id: sourceExcerpts.id,
-			sourceId: sourceExcerpts.sourceId,
-		})
-		.from(sourceExcerpts)
-		.where(inArray(sourceExcerpts.id, excerptIds));
-}
-
 export const claimKind: ContentKindDefinition<ClaimBody> = {
 	label: "Claim",
 	body: claimBodySchema,
@@ -319,73 +279,19 @@ export const claimKind: ContentKindDefinition<ClaimBody> = {
 	async title(_client, _scopeKey, body) {
 		return claimTitle(body ?? emptyClaimBody);
 	},
-	async assertCanDraft(client, _scopeKey, body) {
-		const found = await citedExcerpts(client, body);
-		const known = new Set(found.map(({ id }) => id));
-		if (body.citations.some(({ excerptId }) => !known.has(excerptId))) {
-			throw new GovernanceError(
-				"A citation here points to an excerpt that no longer exists.",
-			);
-		}
-	},
-	// The citations are checked as part of the claim, so they follow its draft exactly.
-	async afterDraftSaved(client, { body, revisionId }) {
-		await client
-			.delete(citations)
-			.where(eq(citations.contentRevisionId, revisionId));
-		if (body.citations.length === 0) return;
-		await client.insert(citations).values(
-			body.citations.map(({ excerptId, locator, strength }, index) => ({
-				contentRevisionId: revisionId,
-				excerptId,
-				locator: locator || null,
-				position: index + 1,
-				strength,
-			})),
-		);
-	},
+	assertCanDraft: (client, _scopeKey, body) =>
+		assertCitedExcerptsExist(client, body.citations),
+	afterDraftSaved: (client, { body, revisionId }) =>
+		syncRevisionCitations(client, revisionId, body.citations),
 	async assertReadyForReview(body, { client }) {
 		assertNoProblems(claimProblems(body));
 		await resolveScriptureReference(client, body.passage);
-		for (const { sourceId } of await citedExcerpts(client, body)) {
-			await assertSourceUsable(client, sourceId);
-		}
+		await assertCitedSourcesUsable(client, body.citations);
 	},
-	async assertReadyToPublish(client, { body }) {
-		for (const { id, sourceId } of await citedExcerpts(client, body)) {
-			await assertSourceUsable(client, sourceId);
-			const excerpt = await getRecordItem(client, "source_excerpt", id);
-			const source = await getRecordItem(client, "source", sourceId);
-			if (!excerpt?.liveRevisionId || !source?.liveRevisionId) {
-				throw new GovernanceError(
-					`Publish "${excerpt?.title ?? "the excerpt"}" and its source first. A claim can't go live before what it rests on.`,
-				);
-			}
-		}
-	},
-	// From here this claim keeps pointing to the versions it was published with.
-	async afterPublished(client, { revisionId }) {
-		const rows = await client
-			.select({
-				excerptId: citations.excerptId,
-				id: citations.id,
-				sourceId: sourceExcerpts.sourceId,
-			})
-			.from(citations)
-			.innerJoin(sourceExcerpts, eq(sourceExcerpts.id, citations.excerptId))
-			.where(eq(citations.contentRevisionId, revisionId));
-		for (const { excerptId, id, sourceId } of rows) {
-			const excerpt = await getRecordItem(client, "source_excerpt", excerptId);
-			const source = await getRecordItem(client, "source", sourceId);
-			await client
-				.update(citations)
-				.set({
-					pinnedExcerptRevisionId: excerpt?.liveRevisionId ?? null,
-					pinnedSourceRevisionId: source?.liveRevisionId ?? null,
-				})
-				.where(eq(citations.id, id));
-		}
-	},
+	assertReadyToPublish: (client, { body }) =>
+		assertCitedEvidenceLive(client, body.citations, "A claim"),
+	afterPublished: (client, { revisionId }) =>
+		pinRevisionCitations(client, revisionId),
 	async removeWhenEmpty(client, scopeKey) {
 		const id = recordId(scopeKey);
 		const [used] = await client

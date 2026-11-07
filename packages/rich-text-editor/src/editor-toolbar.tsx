@@ -67,7 +67,11 @@ import {
 	type EditorToolbarSession,
 	useEditorSessionState,
 } from "./editor-session";
-import type { EditorToolbarVariant, RichTextEditorPreset } from "./types";
+import type {
+	CommentaryTools,
+	EditorToolbarVariant,
+	RichTextEditorPreset,
+} from "./types";
 import { useKeyboardDock } from "./use-keyboard-dock";
 
 const toolbarItemClassName =
@@ -75,6 +79,7 @@ const toolbarItemClassName =
 
 export function EditorToolbar({
 	session,
+	commentaryTools,
 	onExpand,
 	onRequestBibleReference,
 	onRequestCitation,
@@ -82,6 +87,7 @@ export function EditorToolbar({
 	preset,
 	variant = "full",
 }: {
+	commentaryTools?: CommentaryTools;
 	session: EditorToolbarSession;
 	/** Shows an "Open full-screen editor" button at the end of the toolbar. */
 	onExpand?: () => void;
@@ -94,13 +100,32 @@ export function EditorToolbar({
 	const catalog = useMemo(
 		() =>
 			createEditorCommandCatalog({
+				commentaryTools,
 				onRequestBibleReference,
 				onRequestCitation,
 				onRequestVerse,
 				preset,
 			}),
-		[onRequestBibleReference, onRequestCitation, onRequestVerse, preset],
+		[
+			commentaryTools,
+			onRequestBibleReference,
+			onRequestCitation,
+			onRequestVerse,
+			preset,
+		],
 	);
+	const commentaryCommands = commentaryTools
+		? (
+				[
+					"scriptureReference",
+					"citation",
+					"originalTerm",
+					"crossReference",
+				] as const
+			)
+				.map((id) => catalog.find(id))
+				.filter((command) => command !== undefined)
+		: [];
 	const listCommands = catalog
 		.commands("structure")
 		.filter(
@@ -229,6 +254,39 @@ export function EditorToolbar({
 			) : null}
 			{variant === "compact" ? (
 				<LinkControl active={state.isLink} session={session} />
+			) : null}
+			{commentaryCommands.length > 0 ? (
+				// biome-ignore lint/a11y/useSemanticElements: A fieldset would break the toolbar's single row of controls.
+				<div
+					aria-label="Commentary"
+					className="flex flex-wrap items-center gap-0.5"
+					role="group"
+				>
+					<ToolbarSeparator />
+					<span className="px-1.5 font-bold text-[0.6875rem] text-muted-foreground uppercase tracking-[0.1em]">
+						Commentary
+					</span>
+					{commentaryCommands.map((command) => (
+						<button
+							className={`${toolbarItemClassName} px-2 font-medium text-sm`}
+							data-toolbar-item
+							key={command.id}
+							onClick={() => void command.execute(session)}
+							type="button"
+						>
+							+ {command.label}
+						</button>
+					))}
+					<button
+						className={`${toolbarItemClassName} px-2 font-medium text-sm`}
+						data-toolbar-item
+						disabled
+						title="Opens with the question and textual note editors"
+						type="button"
+					>
+						Insert block
+					</button>
+				</div>
 			) : null}
 			{variant === "full" ? (
 				<MoreMenu catalog={catalog} session={session} state={state} />

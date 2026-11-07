@@ -1,6 +1,8 @@
 import type { PermissionKey } from "@berean-study/db/access-catalogue";
 import {
 	citationStrengthLabels,
+	emptyClaimBody,
+	emptyExcerptBody,
 	excerptFormLabels,
 } from "@berean-study/db/evidence-body";
 import {
@@ -52,12 +54,15 @@ const roleNotes: { label: string; note: string; permission: PermissionKey }[] =
 export function WorkbenchPage({
 	claimId,
 	excerptId,
+	passage,
 	permissionKeys,
 	sourceId,
 	step,
 }: {
 	claimId?: number;
 	excerptId?: number;
+	/** Fills in a new record's passage, from "Start from a passage" on New content. */
+	passage?: string;
 	permissionKeys: readonly PermissionKey[];
 	sourceId?: number;
 	step: EvidenceStep;
@@ -227,7 +232,12 @@ export function WorkbenchPage({
 								</div>
 								<ExcerptStep
 									excerptId={excerpt?.id}
-									initial={excerpt?.state.body ?? null}
+									initial={
+										excerpt?.state.body ??
+										(passage
+											? { ...emptyExcerptBody, passages: [passage] }
+											: null)
+									}
 									key={`excerpt-${source.id}-${excerpt?.id ?? "new"}-${excerpt?.state.open?.revisionId ?? "none"}`}
 									onDiscarded={(removed) => {
 										if (removed) pick({ excerpt: undefined });
@@ -302,7 +312,10 @@ export function WorkbenchPage({
 						<ClaimStep
 							citations={claim?.citations ?? []}
 							claimId={claim?.id}
-							initial={claim?.state.body ?? null}
+							initial={
+								claim?.state.body ??
+								(passage ? { ...emptyClaimBody, passage } : null)
+							}
 							key={`claim-${claim?.id ?? "new"}-${claim?.state.open?.revisionId ?? "none"}`}
 							onAddCitation={() => pick({ step: "citation" })}
 							onDiscarded={(removed) => {

@@ -289,17 +289,21 @@ export async function getRevisionPage(
 		.where(eq(contentRevisions.contentItemId, row.contentItemId))
 		.orderBy(desc(publicationHistory.createdAt));
 
-	const checks = (await checksFor(client, row.kind)).map((check) => {
-		const result = results.find(({ checklistId }) => checklistId === check.id);
-		return {
-			checkedAt: result?.checkedAt ?? null,
-			checkedBy: result?.checkedBy ?? null,
-			id: check.id,
-			note: result?.note ?? null,
-			requirement: check.requirement,
-			result: result?.result ?? null,
-		};
-	});
+	const checks = (await checksFor(client, row.kind, current.body)).map(
+		(check) => {
+			const result = results.find(
+				({ checklistId }) => checklistId === check.id,
+			);
+			return {
+				checkedAt: result?.checkedAt ?? null,
+				checkedBy: result?.checkedBy ?? null,
+				id: check.id,
+				note: result?.note ?? null,
+				requirement: check.requirement,
+				result: result?.result ?? null,
+			};
+		},
+	);
 
 	return {
 		approvedAt: current.approvedAt,

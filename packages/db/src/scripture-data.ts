@@ -5,6 +5,7 @@ import {
 	countDistinct,
 	eq,
 	inArray,
+	like,
 	ne,
 	sql,
 } from "drizzle-orm";
@@ -12,16 +13,20 @@ import { alias } from "drizzle-orm/pg-core";
 
 import { recordAudit } from "./audit";
 import { highestChapterLimit } from "./canon-limits";
+import {
+	isCommentaryKind,
+	parseCommentaryScopeKey,
+	rangeContains,
+} from "./commentary-body";
 import type { DbExecutor } from "./db-executor";
 import { GovernanceError } from "./governance-error";
 import { createNotification } from "./notifications";
 import { bookAliases } from "./schema/book_aliases";
-import { bookIntroductionSections } from "./schema/book_introduction_sections";
 import { books } from "./schema/books";
 import { canonBooks } from "./schema/canon_books";
 import { canonTraditions } from "./schema/canon_traditions";
 import { chapters } from "./schema/chapters";
-import { commentaries } from "./schema/commentaries";
+import { contentItems } from "./schema/content_items";
 import { crossReferences } from "./schema/cross_references";
 import { passageRanges } from "./schema/passage_ranges";
 import { themePassages } from "./schema/theme_passages";
@@ -124,9 +129,17 @@ export async function getScriptureBook(client: DbExecutor, slug: string) {
 		);
 
 	const [introduction] = await client
-		.select({ value: count() })
-		.from(bookIntroductionSections)
-		.where(eq(bookIntroductionSections.bookId, book.id));
+		.select({
+			liveRevisionId: contentItems.liveRevisionId,
+			title: contentItems.title,
+		})
+		.from(contentItems)
+		.where(
+			and(
+				eq(contentItems.kind, "book_introduction"),
+				eq(contentItems.scopeKey, book.slug),
+			),
+		);
 
 	return {
 		id: book.id,
@@ -151,7 +164,12 @@ export async function getScriptureBook(client: DbExecutor, slug: string) {
 		differingVerses: differing?.value ?? 0,
 		translationsWithText: withText?.value ?? 0,
 		totalTranslations: translationCatalogue.length,
-		introductionSections: introduction?.value ?? 0,
+		introduction: introduction
+			? {
+					isLive: introduction.liveRevisionId !== null,
+					title: introduction.title,
+				}
+			: null,
 	};
 }
 
@@ -198,8 +216,47 @@ async function presenceOfVerse(
 	});
 }
 
-/** How many pieces of content are attached to passages covering this verse. */
+/**
+ * Commentaries covering this verse. They name their verses rather than pointing to
+ * stored passages, so this reads each one on the book. Books have few enough.
+ */
+async function commentariesCovering(client: DbExecutor, verseId: number) {
+	const [verse] = await client
+		.select({
+			chapter: chapters.number,
+			slug: books.slug,
+			verse: verses.number,
+		})
+		.from(verses)
+		.innerJoin(chapters, eq(chapters.id, verses.chapterId))
+		.innerJoin(books, eq(books.id, chapters.bookId))
+		.where(eq(verses.id, verseId));
+	if (!verse) return 0;
+
+	const rows = await client
+		.select({ kind: contentItems.kind, scopeKey: contentItems.scopeKey })
+		.from(contentItems)
+		.where(
+			and(
+				inArray(contentItems.kind, ["passage_commentary", "verse_commentary"]),
+				like(contentItems.scopeKey, `${verse.slug}:%`),
+			),
+		);
+	return rows.filter(({ kind, scopeKey }) => {
+		const scope = isCommentaryKind(kind)
+			? parseCommentaryScopeKey(kind, scopeKey)
+			: null;
+		return (
+			scope &&
+			scope.kind !== "book_introduction" &&
+			rangeContains(scope, { chapter: verse.chapter, verse: verse.verse })
+		);
+	}).length;
+}
+
+/** How many pieces of content are attached to this verse. */
 export async function linkedContentCounts(client: DbExecutor, verseId: number) {
+	const commentary = await commentariesCovering(client, verseId);
 	const startVerse = alias(verses, "start_verse");
 	const endVerse = alias(verses, "end_verse");
 	const startChapter = alias(chapters, "start_chapter");
@@ -225,13 +282,9 @@ export async function linkedContentCounts(client: DbExecutor, verseId: number) {
 		);
 	const passageIds = covering.map(({ passageId }) => passageId);
 	if (passageIds.length === 0) {
-		return { commentary: 0, crossReferences: 0, themes: 0 };
+		return { commentary, crossReferences: 0, themes: 0 };
 	}
 
-	const [commentary] = await client
-		.select({ value: count() })
-		.from(commentaries)
-		.where(inArray(commentaries.passageId, passageIds));
 	const [references] = await client
 		.select({ value: count() })
 		.from(crossReferences)
@@ -242,7 +295,7 @@ export async function linkedContentCounts(client: DbExecutor, verseId: number) {
 		.where(inArray(themePassages.passageId, passageIds));
 
 	return {
-		commentary: commentary?.value ?? 0,
+		commentary,
 		crossReferences: references?.value ?? 0,
 		themes: themes?.value ?? 0,
 	};

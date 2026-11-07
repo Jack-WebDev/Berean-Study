@@ -331,7 +331,15 @@ describe("Berean rich-text schema", () => {
 								attrs: { label: "Romans 8:1", passageId: 123 },
 								type: "bibleReference",
 							},
-							{ attrs: { citationId: 481, label: "1" }, type: "citation" },
+							{
+								attrs: {
+									excerptId: 481,
+									label: "Metzger",
+									locator: "p. 459",
+									strength: "direct" as const,
+								},
+								type: "citation",
+							},
 						],
 						type: "paragraph",
 					},
@@ -415,7 +423,12 @@ describe("Berean rich-text schema", () => {
 
 	it("inserts, serializes, deserializes, and deletes citations", () => {
 		const editor = createEditor("<p>Testing</p>", "contributor");
-		const citation = { citationId: 481, label: "1" };
+		const citation = {
+			excerptId: 481,
+			label: "Metzger",
+			locator: "p. 459",
+			strength: "direct" as const,
+		};
 		expect(editor.commands.insertCitation(citation)).toBe(true);
 
 		const document = editor.getJSON();
@@ -444,7 +457,15 @@ describe("Berean rich-text schema", () => {
 				content: [
 					{
 						content: [
-							{ attrs: { citationId: 481, label: "1" }, type: "citation" },
+							{
+								attrs: {
+									excerptId: 481,
+									label: "Metzger",
+									locator: "p. 459",
+									strength: "direct" as const,
+								},
+								type: "citation",
+							},
 						],
 						type: "paragraph",
 					},
@@ -457,9 +478,14 @@ describe("Berean rich-text schema", () => {
 		});
 		editors.push(editor);
 		expect(editor.getHTML()).toContain('data-citation="true"');
-		expect(editor.getHTML()).toContain("[1]");
-		expect(editor.commands.insertCitation({ citationId: 0, label: "" })).toBe(
-			false,
-		);
+		expect(editor.getHTML()).toContain('data-excerpt-id="481"');
+		expect(
+			editor.commands.insertCitation({
+				excerptId: 0,
+				label: "",
+				locator: "",
+				strength: "direct",
+			}),
+		).toBe(false);
 	});
 });

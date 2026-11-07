@@ -10,7 +10,7 @@ import { books } from "../src/schema/books";
 import { canonBooks } from "../src/schema/canon_books";
 import { canonTraditions } from "../src/schema/canon_traditions";
 import { chapters } from "../src/schema/chapters";
-import { commentaries } from "../src/schema/commentaries";
+import { contentItems } from "../src/schema/content_items";
 import { notifications } from "../src/schema/notifications";
 import { passageRanges } from "../src/schema/passage_ranges";
 import { passages } from "../src/schema/passages";
@@ -302,9 +302,11 @@ describe.runIf(process.env.DATABASE_URL)("Scripture data", () => {
 					startVerseId: startVerse.id,
 					endVerseId: endVerse.id,
 				});
-				await tx
-					.insert(commentaries)
-					.values({ passageId: passage.id, content: "Commentary" });
+				await tx.insert(contentItems).values({
+					kind: "passage_commentary",
+					scopeKey: "romans:1:2-2:2",
+					title: "Commentary",
+				});
 				const linkedAt = async (chapter: number, verse: number) =>
 					(await getBookStructure(tx, { slug: "romans", chapter, verse }))
 						?.selectedVerse?.linked.commentary;

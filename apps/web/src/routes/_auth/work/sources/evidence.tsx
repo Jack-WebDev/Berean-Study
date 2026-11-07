@@ -17,6 +17,7 @@ export const Route = createFileRoute("/_auth/work/sources/evidence")({
 	validateSearch: z.object({
 		claim: recordId,
 		excerpt: recordId,
+		passage: z.string().max(100).optional().catch(undefined),
 		source: recordId,
 		step: z.enum(evidenceSteps).optional().catch(undefined),
 	}),
@@ -44,6 +45,7 @@ function WorkbenchRoute() {
 		<WorkbenchPage
 			claimId={search.claim}
 			excerptId={search.excerpt}
+			passage={search.passage}
 			permissionKeys={viewer.permissionKeys}
 			sourceId={search.source}
 			step={search.step ?? "source"}

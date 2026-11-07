@@ -1,7 +1,6 @@
 import { relations, sql } from "drizzle-orm";
 import { check, integer, pgTable, text, unique } from "drizzle-orm/pg-core";
 import type { BookGroup } from "../scripture-catalogue";
-import { bookIntroductions } from "./book_introductions";
 import { chapters } from "./chapters";
 import { passages } from "./passages";
 
@@ -52,8 +51,7 @@ export const books = pgTable(
 	],
 );
 
-export const booksRelations = relations(books, ({ many, one }) => ({
+export const booksRelations = relations(books, ({ many }) => ({
 	chapters: many(chapters),
 	passages: many(passages),
-	introduction: one(bookIntroductions),
 }));

@@ -2,6 +2,7 @@ import type { EditorCommandTarget } from "./editor-session";
 import type {
 	BibleReferenceAttributes,
 	CitationAttributes,
+	CommentaryTools,
 	RichTextEditorPreset,
 	VerseBlockAttributes,
 } from "./types";
@@ -20,7 +21,10 @@ export type EditorCommandId =
 	| "verse"
 	| "person"
 	| "bible"
-	| "citation";
+	| "citation"
+	| "scriptureReference"
+	| "crossReference"
+	| "originalTerm";
 
 export type ReferenceRequest = () =>
 	| BibleReferenceAttributes
@@ -49,6 +53,7 @@ export type PersonRequest = () =>
 export type EditorCommandContext = {
 	onRequestBibleReference?: ReferenceRequest;
 	onRequestCitation?: CitationRequest;
+	commentaryTools?: CommentaryTools;
 	onRequestPerson?: PersonRequest;
 	onRequestVerse?: VerseRequest;
 	preset: RichTextEditorPreset;
@@ -79,6 +84,10 @@ type EditorCommandDefinition = Omit<EditorCommand, "execute"> & {
 	) => boolean | Promise<boolean>;
 	isAvailable?: (context: EditorCommandContext) => boolean;
 };
+
+function isCommentary(context: EditorCommandContext) {
+	return context.preset === "contributor" && Boolean(context.commentaryTools);
+}
 
 const commandDefinitions: readonly EditorCommandDefinition[] = [
 	{
@@ -209,6 +218,48 @@ const commandDefinitions: readonly EditorCommandDefinition[] = [
 			context.preset === "contributor" && Boolean(context.onRequestCitation),
 		keywords: ["source", "footnote"],
 		label: "Citation",
+	},
+	{
+		description: "Link to a passage of Scripture.",
+		execute: async (target, context) => {
+			const reference =
+				await context.commentaryTools?.onRequestScriptureReference();
+			return reference
+				? (target.insertScriptureReference?.(reference) ?? false)
+				: false;
+		},
+		group: "insert",
+		id: "scriptureReference",
+		isAvailable: isCommentary,
+		keywords: ["reference", "passage", "verse"],
+		label: "Scripture ref",
+	},
+	{
+		description: "Add a Greek or Hebrew word.",
+		execute: async (target, context) => {
+			const term = await context.commentaryTools?.onRequestOriginalTerm();
+			return term ? (target.insertOriginalTerm?.(term) ?? false) : false;
+		},
+		group: "insert",
+		id: "originalTerm",
+		isAvailable: isCommentary,
+		keywords: ["greek", "hebrew", "word", "language"],
+		label: "Greek / Hebrew",
+	},
+	{
+		description: "Point readers to a related passage.",
+		execute: async (target, context) => {
+			const reference =
+				await context.commentaryTools?.onRequestCrossReference();
+			return reference
+				? (target.insertScriptureReference?.(reference) ?? false)
+				: false;
+		},
+		group: "insert",
+		id: "crossReference",
+		isAvailable: isCommentary,
+		keywords: ["see also", "related"],
+		label: "Cross-reference",
 	},
 ];
 

@@ -108,7 +108,12 @@ describe("RichTextEditorWorkspace", () => {
 
 		const contributor = await mount({
 			onRequestBibleReference: () => ({ label: "John 3:16", passageId: 316 }),
-			onRequestCitation: () => ({ citationId: 1, label: "1" }),
+			onRequestCitation: () => ({
+				excerptId: 481,
+				label: "Metzger",
+				locator: "p. 459",
+				strength: "direct" as const,
+			}),
 			preset: "contributor",
 		});
 		expect(button(contributor.container, "Bible reference")).toBeTruthy();
@@ -177,7 +182,12 @@ describe("RichTextEditorWorkspace", () => {
 				{
 					content: [
 						{
-							attrs: { citationId: 1, label: "1" },
+							attrs: {
+								excerptId: 481,
+								label: "Metzger",
+								locator: "p. 459",
+								strength: "direct" as const,
+							},
 							type: "citation",
 						},
 					],
@@ -188,7 +198,12 @@ describe("RichTextEditorWorkspace", () => {
 		};
 		const { container, getSession } = await mount({
 			document,
-			onRequestCitation: () => ({ citationId: 1, label: "1" }),
+			onRequestCitation: () => ({
+				excerptId: 481,
+				label: "Metzger",
+				locator: "p. 459",
+				strength: "direct" as const,
+			}),
 			preset: "contributor",
 		});
 
@@ -207,9 +222,9 @@ describe("RichTextEditorWorkspace", () => {
 		expect(
 			getDocumentReferences(getSession().getDocument()).bibleReferences,
 		).toEqual([]);
-		await click(button(container, "[1]") as HTMLButtonElement);
+		await click(button(container, "[Metzger]") as HTMLButtonElement);
 		expect(getSession().isSelectionInNode("citation")).toBe(true);
-		await click(button(container, "Remove [1]") as HTMLButtonElement);
+		await click(button(container, "Remove [Metzger]") as HTMLButtonElement);
 		expect(getDocumentReferences(getSession().getDocument()).citations).toEqual(
 			[],
 		);

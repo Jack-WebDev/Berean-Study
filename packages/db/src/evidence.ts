@@ -134,7 +134,7 @@ export async function listSources(
 
 export async function listExcerpts(
 	client: DbExecutor,
-	filter: { search?: string; sourceId?: number } = {},
+	filter: { search?: string; sourceId?: number; usableOnly?: boolean } = {},
 ) {
 	const pattern = searchPattern(filter.search);
 	const rows = await client
@@ -149,6 +149,9 @@ export async function listExcerpts(
 				pattern ? ilike(contentItems.title, pattern) : undefined,
 				filter.sourceId
 					? sql`${contentItems.scopeKey}::int IN (select e.id from source_excerpts e where e.source_id = ${filter.sourceId})`
+					: undefined,
+				filter.usableOnly
+					? sql`${contentItems.scopeKey}::int IN (select e.id from source_excerpts e join sources s on s.id = e.source_id where s.status = 'active')`
 					: undefined,
 			),
 		)
