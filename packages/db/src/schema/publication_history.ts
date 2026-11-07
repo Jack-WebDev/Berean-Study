@@ -24,6 +24,8 @@ export const publicationHistory = pgTable(
 
 		action: text().notNull(),
 
+		reason: text(),
+
 		performedByUserId: text("performed_by_user_id")
 			.notNull()
 			.references(() => user.id, {

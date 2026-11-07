@@ -1,6 +1,11 @@
 import { and, count, eq, inArray, isNull, ne } from "drizzle-orm";
 
 import type { PermissionKey } from "./access-catalogue";
+import {
+	listApprovedContent,
+	listAssignments,
+	listReviewQueue,
+} from "./content-queues";
 import type { DbExecutor } from "./db-executor";
 import { changeProposals } from "./schema/change_proposals";
 import { communityReports } from "./schema/community_reports";
@@ -16,7 +21,9 @@ export type StaffQueue =
 	| "pendingConfirmations"
 	| "scriptureEntry"
 	| "readyToPublish"
-	| "foundationChanges";
+	| "foundationChanges"
+	| "awaitingReview"
+	| "myAssignments";
 
 /** Decided on the Users and Roles pages. */
 export const peopleChangeKinds = [
@@ -101,7 +108,23 @@ export async function getStaffQueueCounts(
 	}
 
 	if (permissionKeys.includes("publication.publish")) {
-		counts.readyToPublish = await countChaptersReadyToPublish(client);
+		counts.readyToPublish =
+			(await countChaptersReadyToPublish(client)) +
+			(await listApprovedContent(client)).length;
+	}
+
+	if (
+		permissionKeys.includes("editorial.review") ||
+		permissionKeys.includes("editorial.assign")
+	) {
+		counts.awaitingReview = (await listReviewQueue(client, userId)).length;
+	}
+
+	if (
+		permissionKeys.includes("editorial.review") ||
+		permissionKeys.includes("content.write")
+	) {
+		counts.myAssignments = (await listAssignments(client, userId)).length;
 	}
 
 	return counts;

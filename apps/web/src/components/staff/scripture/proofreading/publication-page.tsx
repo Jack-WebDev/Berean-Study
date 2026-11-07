@@ -1,5 +1,6 @@
 import type { PermissionKey } from "@berean-study/db/access-catalogue";
 
+import { ContentPublicationLists } from "../../content/content-publication-lists";
 import { StaffPage } from "../../staff-page";
 import { ReadyToPublishList } from "./ready-to-publish-list";
 
@@ -14,9 +15,12 @@ export function PublicationPage({
 			section="Administration"
 			title="Publication"
 		>
-			<ReadyToPublishList
-				canPublish={permissionKeys.includes("publication.publish")}
-			/>
+			<div className="space-y-6">
+				<ContentPublicationLists permissionKeys={permissionKeys} />
+				<ReadyToPublishList
+					canPublish={permissionKeys.includes("publication.publish")}
+				/>
+			</div>
 		</StaffPage>
 	);
 }

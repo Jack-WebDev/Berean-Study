@@ -2,8 +2,6 @@ import { relations, sql } from "drizzle-orm";
 import { check, integer, pgTable, text, unique } from "drizzle-orm/pg-core";
 
 import { commentaries } from "./commentaries";
-import { contentRevisions } from "./content_revisions";
-import { publishedCommentarySections } from "./published_commentary_sections";
 
 export const commentarySections = pgTable(
 	"commentary_sections",
@@ -45,14 +43,10 @@ export const commentarySections = pgTable(
 
 export const commentarySectionsRelations = relations(
 	commentarySections,
-	({ one, many }) => ({
+	({ one }) => ({
 		commentary: one(commentaries, {
 			fields: [commentarySections.passageId],
 			references: [commentaries.passageId],
 		}),
-		revisions: many(contentRevisions, {
-			relationName: "commentarySectionRevisions",
-		}),
-		published: one(publishedCommentarySections),
 	}),
 );

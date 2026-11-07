@@ -21,7 +21,7 @@ export async function seedEditorialChecks(
 				"passed",
 				"failed",
 				"not_applicable",
-			]),
+			] as const),
 			checkedAt: createdAt(),
 		})),
 	);

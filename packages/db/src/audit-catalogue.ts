@@ -22,6 +22,7 @@ export const editorialAuditDomains = [
 
 const auditActionDomains = {
 	"revision.submitted": "editorial",
+	"revision.assigned": "editorial",
 	"revision.approved": "editorial",
 	"revision.changes_requested": "editorial",
 	"revision.published": "publication",
@@ -67,6 +68,7 @@ const auditActionDomains = {
 	"user.suspended": "users",
 	"user.suspension_lifted": "users",
 	"user.account_retired": "users",
+	"content_issue.closed": "editorial",
 	"source.merged": "editorial",
 	"source.retired": "editorial",
 } as const satisfies Record<string, AuditDomain>;
@@ -85,6 +87,7 @@ export const auditDomainLabels: Record<AuditDomain, string> = {
 /** What readers of the audit log see for each action. */
 export const auditActionLabels: Record<AuditAction, string> = {
 	"revision.submitted": "Submitted a revision",
+	"revision.assigned": "Assigned a revision",
 	"revision.approved": "Approved a revision",
 	"revision.changes_requested": "Requested changes to a revision",
 	"revision.published": "Published a revision",
@@ -130,6 +133,7 @@ export const auditActionLabels: Record<AuditAction, string> = {
 	"user.suspended": "Suspended an account",
 	"user.suspension_lifted": "Lifted a suspension",
 	"user.account_retired": "Deleted their account",
+	"content_issue.closed": "Closed a content issue",
 	"source.merged": "Merged sources",
 	"source.retired": "Retired a source",
 };

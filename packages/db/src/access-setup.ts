@@ -2,8 +2,10 @@ import { eq, sql } from "drizzle-orm";
 
 import { permissionCatalogue, roleCatalogue } from "./access-catalogue";
 import { recordAudit } from "./audit";
+import { editorialCheckCatalogue } from "./content-kinds";
 import type { DbExecutor } from "./db-executor";
 import { user } from "./schema/auth";
+import { editorialChecklists } from "./schema/editorial_checklists";
 import { permissions } from "./schema/permissions";
 import { rolePermissions } from "./schema/role_permissions";
 import { roles } from "./schema/roles";
@@ -27,6 +29,17 @@ const FOUNDING_SUPERADMIN_LIMIT = 2;
  */
 export async function applyAccessCatalogue(client: DbExecutor) {
 	return client.transaction(async (tx) => {
+		await tx
+			.insert(editorialChecklists)
+			.values([...editorialCheckCatalogue])
+			.onConflictDoUpdate({
+				target: editorialChecklists.requirement,
+				set: {
+					originalLanguageOnly: sql`excluded.original_language_only`,
+					position: sql`excluded.position`,
+				},
+			});
+
 		const existingPermissions = await tx
 			.select({ key: permissions.key })
 			.from(permissions);

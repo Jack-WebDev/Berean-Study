@@ -2,6 +2,10 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 
 import { accessibleStaffItem } from "@/components/navigation/navigation-items";
 import { PublicationPage } from "@/components/staff/scripture/proofreading/publication-page";
+import {
+	approvedContentQueryOptions,
+	liveContentQueryOptions,
+} from "@/queries/content";
 import { readyToPublishQueryOptions } from "@/queries/verse-text";
 
 export const Route = createFileRoute("/_auth/admin/publication")({
@@ -13,7 +17,11 @@ export const Route = createFileRoute("/_auth/admin/publication")({
 		}
 	},
 	loader: ({ context }) =>
-		context.queryClient.ensureQueryData(readyToPublishQueryOptions()),
+		Promise.all([
+			context.queryClient.ensureQueryData(readyToPublishQueryOptions()),
+			context.queryClient.ensureQueryData(approvedContentQueryOptions()),
+			context.queryClient.ensureQueryData(liveContentQueryOptions()),
+		]),
 	component: PublicationRoute,
 });
 

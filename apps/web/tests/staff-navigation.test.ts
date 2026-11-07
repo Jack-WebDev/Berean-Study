@@ -62,6 +62,17 @@ describe("staff sidebar sections", () => {
 		expect(queueOf("Publication")).toBe("readyToPublish");
 	});
 
+	it("counts review work in the sidebar", () => {
+		const items = accessibleStaffSections(grantsOf("Admin")).flatMap(
+			({ items }) => items,
+		);
+		const queueOf = (label: string) =>
+			items.find((item) => item.label === label)?.queue;
+		expect(queueOf("Reviews")).toBe("awaitingReview");
+		expect(queueOf("Editorial")).toBe("awaitingReview");
+		expect(queueOf("Assignments")).toBe("myAssignments");
+	});
+
 	it("gives a Greek Reviewer the review pages but no writing pages", () => {
 		expect(linksFor("Greek Reviewer")).toEqual(["Assignments", "Reviews"]);
 	});

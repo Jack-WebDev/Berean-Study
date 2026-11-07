@@ -11,6 +11,7 @@ import {
 import { alias } from "drizzle-orm/pg-core";
 
 import { recordAudit } from "./audit";
+import { highestChapterLimit } from "./canon-limits";
 import type { DbExecutor } from "./db-executor";
 import { GovernanceError } from "./governance-error";
 import { createNotification } from "./notifications";
@@ -137,6 +138,7 @@ export async function getScriptureBook(client: DbExecutor, slug: string) {
 		fullTitle: book.fullTitle,
 		expectedChapters: book.expectedChapters,
 		expectedVerses: book.expectedVerses,
+		chapterLimit: await highestChapterLimit(client, book.id),
 		aliases: aliases.map((row) => row.alias),
 		canons: traditions.map(({ id, name }) => ({
 			name,

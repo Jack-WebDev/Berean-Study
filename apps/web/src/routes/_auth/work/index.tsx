@@ -1,7 +1,8 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
 import { accessibleStaffItem } from "@/components/navigation/navigation-items";
-import { StaffSectionPage } from "@/components/staff/staff-section-page";
+import { MyWorkPage } from "@/components/staff/content/work-pages";
+import { myWorkQueryOptions } from "@/queries/content";
 
 export const Route = createFileRoute("/_auth/work/")({
 	beforeLoad: ({ context }) => {
@@ -9,12 +10,7 @@ export const Route = createFileRoute("/_auth/work/")({
 			throw redirect({ to: "/home" });
 		}
 	},
+	loader: ({ context }) =>
+		context.queryClient.ensureQueryData(myWorkQueryOptions()),
 	component: MyWorkPage,
 });
-
-function MyWorkPage() {
-	const { viewer } = Route.useRouteContext();
-	const item = accessibleStaffItem("/work", viewer.permissionKeys);
-
-	return item ? <StaffSectionPage item={item} /> : null;
-}

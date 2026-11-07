@@ -7,9 +7,9 @@ import {
 	text,
 	timestamp,
 } from "drizzle-orm/pg-core";
-
+import type { EditorialCheckResult } from "../content-kinds";
+import { user } from "./auth";
 import { contentRevisions } from "./content_revisions";
-import { contributors } from "./contributors";
 import { editorialChecklists } from "./editorial_checklists";
 
 export const editorialChecks = pgTable(
@@ -29,11 +29,13 @@ export const editorialChecks = pgTable(
 
 		checkedByUserId: text("checked_by_user_id")
 			.notNull()
-			.references(() => contributors.userId, {
+			.references(() => user.id, {
 				onDelete: "restrict",
 			}),
 
-		result: text("result").notNull(),
+		result: text("result").$type<EditorialCheckResult>().notNull(),
+
+		note: text("note"),
 
 		checkedAt: timestamp("checked_at", {
 			withTimezone: true,

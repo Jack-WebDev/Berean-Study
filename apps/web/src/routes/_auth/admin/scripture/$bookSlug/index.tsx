@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { BookPage, bookTabs } from "@/components/staff/scripture/book-page";
 import { canReadScriptureData } from "@/components/staff/scripture/scripture-access";
+import { contentStateQueryOptions } from "@/queries/content";
 import { scriptureBookQueryOptions } from "@/queries/scripture-data";
 
 export const Route = createFileRoute("/_auth/admin/scripture/$bookSlug/")({
@@ -14,10 +15,19 @@ export const Route = createFileRoute("/_auth/admin/scripture/$bookSlug/")({
 	validateSearch: z.object({
 		tab: z.enum(bookTabs).optional().catch(undefined),
 	}),
-	loader: ({ context, params }) =>
-		context.queryClient.ensureQueryData(
+	loader: async ({ context, params }) => {
+		const book = await context.queryClient.ensureQueryData(
 			scriptureBookQueryOptions(params.bookSlug),
-		),
+		);
+		if (book) {
+			await context.queryClient.ensureQueryData(
+				contentStateQueryOptions({
+					kind: "book_overview",
+					scopeKey: params.bookSlug,
+				}),
+			);
+		}
+	},
 	component: BookRoute,
 });
 
