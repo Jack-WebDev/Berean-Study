@@ -335,6 +335,12 @@ export const readerKeys = {
 	allMarks: () => [...readerKeys.all, "marks"] as const,
 	preferences: () => [...readerKeys.all, "preferences"] as const,
 	place: () => [...readerKeys.all, "place"] as const,
+	/** Under the place, so moving through the Bible refreshes it. */
+	continueReading: () => [...readerKeys.place(), "continue-reading"] as const,
+	/** A book's chapter page, which marks the chapter last read. */
+	book: (bookSlug: string) => [...readerKeys.allBooks(), bookSlug] as const,
+	allBooks: () => [...readerKeys.all, "book"] as const,
+	about: (bookSlug: string) => [...readerKeys.all, "about", bookSlug] as const,
 	recentChapters: () => [...readerKeys.all, "recent-chapters"] as const,
 	verseWords: (input: VerseWordsInput) =>
 		[...readerKeys.all, "verse-words", input] as const,

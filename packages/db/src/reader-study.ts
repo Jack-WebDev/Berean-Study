@@ -192,7 +192,7 @@ type ChosenVerses = {
 };
 
 /** Numbers each piece of writing's citations on from the one before. */
-function numberWritings(documents: readonly RichTextDocument[]) {
+export function numberWritings(documents: readonly RichTextDocument[]) {
 	let next = 1;
 	return documents.map((document): StudyWriting => {
 		const writing = { document, firstCitation: next };
@@ -213,7 +213,7 @@ type CitationRow = {
  * they were published with, or the live ones for anything published before
  * citations were pinned.
  */
-async function citationSources(
+export async function citationSources(
 	client: DbExecutor,
 	revisionIds: readonly number[],
 ) {
@@ -281,7 +281,7 @@ function asText(column: AnyPgColumn) {
 }
 
 /** The sources a note's citations point to, numbered as they appear in its writing. */
-function sourcesFor(
+export function sourcesFor(
 	documents: readonly RichTextDocument[],
 	rows: readonly CitationRow[],
 	bodies: ReadonlyMap<number, unknown>,

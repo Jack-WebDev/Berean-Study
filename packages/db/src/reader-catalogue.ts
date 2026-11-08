@@ -108,6 +108,30 @@ export function readerBookGroup(
 	}
 }
 
+/** A line under each heading on Browse, saying what its books are. */
+export const readerBookGroupAbout: Record<string, string> = {
+	"Deuterocanonical books":
+		"Books in Catholic and Orthodox Bibles, written in the centuries before Jesus.",
+	Gospels: "Four accounts of the life of Jesus.",
+	History: "Israel in the promised land, then in exile.",
+	Law: "The beginning of the world and of Israel.",
+	Letters: "Letters to churches and to church leaders.",
+	"Poetry and wisdom": "Songs, prayers and sayings for everyday life.",
+	Prophecy: "A vision of the end and of God's victory.",
+	Prophets: "Messages from God through his messengers.",
+	"The early church": "How the good news spread after Jesus.",
+};
+
+/** "In Catholic and Eastern Orthodox Bibles", for books not every Bible has. */
+export function includedByLabel(traditions: readonly string[]) {
+	if (traditions.length === 0) return null;
+	const names =
+		traditions.length === 1
+			? traditions[0]
+			: `${traditions.slice(0, -1).join(", ")} and ${traditions.at(-1)}`;
+	return `In ${names} Bibles`;
+}
+
 /** "Psalm 23", not "Psalms 23": one psalm is a psalm. */
 export function chapterLabel(bookName: string, chapter: number) {
 	return `${bookName === "Psalms" ? "Psalm" : bookName} ${chapter}`;

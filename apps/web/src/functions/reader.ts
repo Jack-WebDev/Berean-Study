@@ -6,6 +6,7 @@ import {
 } from "@berean-study/db/collections";
 import { GovernanceError } from "@berean-study/db/governance-error";
 import {
+	chooseReaderTranslation as chooseReaderTranslationInDb,
 	getPassageStart as getPassageStartFromDb,
 	getReaderChapter as getReaderChapterFromDb,
 	getReadingPlace as getReadingPlaceFromDb,
@@ -27,6 +28,11 @@ import {
 	unsaveVerses as unsaveVersesInDb,
 	verseWords as verseWordsFromDb,
 } from "@berean-study/db/reader";
+import {
+	getAboutBook as getAboutBookFromDb,
+	getBookPage as getBookPageFromDb,
+	getContinueReading as getContinueReadingFromDb,
+} from "@berean-study/db/reader-books";
 import {
 	browseTestaments,
 	lineLengths,
@@ -111,8 +117,50 @@ export const listCanonBooks = createServerFn({ method: "GET" })
 	.middleware([authMiddleware])
 	.handler(async ({ context }) => {
 		const userId = requireUserId(context.session);
-		const { traditionSlug } = await getReadingPreferencesFromDb(db, userId);
-		return listCanonBooksFromDb(db, traditionSlug);
+		const { traditionSlug, translationAbbreviation } =
+			await getReadingPreferencesFromDb(db, userId);
+		const translation = await chooseReaderTranslationInDb(db, [
+			translationAbbreviation,
+		]);
+		return listCanonBooksFromDb(db, traditionSlug, translation?.id ?? null);
+	});
+
+/** Choose a chapter: the book, its chapters, and the one last read. */
+export const getBookPage = createServerFn({ method: "GET" })
+	.middleware([authMiddleware])
+	.validator(z.object({ bookSlug: bookSlugSchema }))
+	.handler(async ({ context, data }) => {
+		const userId = requireUserId(context.session);
+		const preferences = await getReadingPreferencesFromDb(db, userId);
+		return getBookPageFromDb(db, userId, {
+			bookSlug: data.bookSlug,
+			traditionSlug: preferences.traditionSlug,
+			translationAbbreviations: [preferences.translationAbbreviation],
+		});
+	});
+
+/** About this book: the book overview and introduction as one page. */
+export const getAboutBook = createServerFn({ method: "GET" })
+	.middleware([authMiddleware])
+	.validator(z.object({ bookSlug: bookSlugSchema }))
+	.handler(async ({ context, data }) => {
+		const userId = requireUserId(context.session);
+		const preferences = await getReadingPreferencesFromDb(db, userId);
+		return getAboutBookFromDb(db, {
+			bookSlug: data.bookSlug,
+			translationAbbreviations: [preferences.translationAbbreviation],
+		});
+	});
+
+/** The Continue reading card on Browse. */
+export const getContinueReading = createServerFn({ method: "GET" })
+	.middleware([authMiddleware])
+	.handler(async ({ context }) => {
+		const userId = requireUserId(context.session);
+		const preferences = await getReadingPreferencesFromDb(db, userId);
+		return getContinueReadingFromDb(db, userId, [
+			preferences.translationAbbreviation,
+		]);
 	});
 
 /**

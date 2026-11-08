@@ -227,7 +227,7 @@ export async function chooseReaderTranslation(
 // ---------------------------------------------------------------------------
 // Books
 
-async function findBook(client: DbExecutor, slug: string) {
+export async function findBook(client: DbExecutor, slug: string) {
 	const [book] = await client
 		.select({
 			expectedChapters: books.expectedChapters,
@@ -269,7 +269,14 @@ async function chooseTradition(client: DbExecutor, slug: string | null) {
 export type CanonBook = {
 	chapterCount: number | null;
 	group: string;
+	/** At least one chapter can be read in the reader's translation. */
+	hasText: boolean;
 	name: string;
+	/**
+	 * The traditions whose Bibles include this book, when some don't, such as
+	 * ["Catholic", "Eastern Orthodox"] for Tobit. Empty when every Bible has it.
+	 */
+	includedBy: string[];
 	/** Some Christian traditions don't include this book. */
 	notInEveryTradition: boolean;
 	slug: string;
@@ -283,6 +290,8 @@ export type CanonBook = {
 export async function listCanonBooks(
 	client: DbExecutor,
 	traditionSlug: string | null,
+	/** The translation being read, to say which books have text yet. */
+	translationId: number | null = null,
 ) {
 	const { chosen, listed } = await chooseTradition(client, traditionSlug);
 	const rows = await client
@@ -314,27 +323,68 @@ export async function listCanonBooks(
 		})
 		.from(canonBooks);
 	const listCount = new Map(listsByBook.map((row) => [row.bookId, row.lists]));
+	const includedByRows = await client
+		.select({ bookId: canonBooks.bookId, name: canonTraditions.name })
+		.from(canonBooks)
+		.innerJoin(canonTraditions, eq(canonTraditions.id, canonBooks.canonId))
+		.orderBy(asc(canonTraditions.id));
+	const includedBy = new Map<number, string[]>();
+	for (const row of includedByRows) {
+		includedBy.set(row.bookId, [
+			...(includedBy.get(row.bookId) ?? []),
+			row.name,
+		]);
+	}
+	const withText = new Set(
+		translationId === null
+			? []
+			: (
+					await client
+						.selectDistinct({ bookId: chapters.bookId })
+						.from(verseTexts)
+						.innerJoin(verses, eq(verses.id, verseTexts.verseId))
+						.innerJoin(chapters, eq(chapters.id, verses.chapterId))
+						.where(eq(verseTexts.translationId, translationId))
+				).map((row) => row.bookId),
+	);
+	const traditions = await client
+		.select({
+			hasList: sql<boolean>`count(${canonBooks.bookId}) > 0`,
+			name: canonTraditions.name,
+			slug: canonTraditions.slug,
+		})
+		.from(canonTraditions)
+		.leftJoin(canonBooks, eq(canonBooks.canonId, canonTraditions.id))
+		.groupBy(canonTraditions.id)
+		.orderBy(asc(canonTraditions.id));
 
-	const bookList: CanonBook[] = rows.map((row) => ({
-		chapterCount: row.chapterLimit ?? row.expectedChapters,
-		group: readerBookGroup(row.group, row.testament),
-		name: row.name,
-		notInEveryTradition:
-			(listCount.get(row.id) ?? 0) < (enteredLists?.value ?? 0),
-		slug: row.slug,
-		testament: row.testament,
-	}));
+	const bookList: CanonBook[] = rows.map((row) => {
+		const notInEveryTradition =
+			(listCount.get(row.id) ?? 0) < (enteredLists?.value ?? 0);
+		return {
+			chapterCount: row.chapterLimit ?? row.expectedChapters,
+			group: readerBookGroup(row.group, row.testament),
+			hasText: withText.has(row.id),
+			name: row.name,
+			includedBy: notInEveryTradition ? (includedBy.get(row.id) ?? []) : [],
+			notInEveryTradition,
+			slug: row.slug,
+			testament: row.testament,
+		};
+	});
 	return {
 		books: bookList,
 		/** The tradition the member chose. */
 		tradition: chosen,
+		/** Every tradition, for changing which list is shown. */
+		traditions,
 		/** True when that tradition's list isn't entered yet, so the Protestant one is shown. */
 		usingFallbackList: listed.slug !== chosen.slug,
 	};
 }
 
 /** How many chapters a book has for this reader. */
-async function chapterCountOf(
+export async function chapterCountOf(
 	client: DbExecutor,
 	book: { expectedChapters: number | null; id: number },
 	traditionSlug: string | null,
@@ -356,7 +406,7 @@ async function chapterCountOf(
 }
 
 /** The chapter numbers of a book that have published text in this translation. */
-async function publishedChapterNumbers(
+export async function publishedChapterNumbers(
 	client: DbExecutor,
 	bookId: number,
 	translationId: number,

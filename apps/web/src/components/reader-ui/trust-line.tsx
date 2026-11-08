@@ -5,7 +5,14 @@ import { ShieldCheckIcon } from "lucide-react";
  * Tells readers that study notes are checked (HANDOFF §4.16). Every published
  * note has passed review, which is why this can be shown wherever notes are.
  */
-export function TrustLine({ className }: { className?: string }) {
+export function TrustLine({
+	className,
+	sourceCount,
+}: {
+	className?: string;
+	/** On a page with one set of sources, how many there are. */
+	sourceCount?: number;
+}) {
 	return (
 		<p
 			className={cn(
@@ -15,7 +22,11 @@ export function TrustLine({ className }: { className?: string }) {
 		>
 			<ShieldCheckIcon aria-hidden="true" className="mt-0.5 size-5 shrink-0" />
 			<span>
-				Checked by Berean Study editors. Sources are listed with each note.
+				{sourceCount === undefined
+					? "Checked by Berean Study editors. Sources are listed with each note."
+					: sourceCount === 0
+						? "Checked by Berean Study editors."
+						: `Checked by Berean Study editors. Based on ${sourceCount} ${sourceCount === 1 ? "source" : "sources"}, listed above.`}
 			</span>
 		</p>
 	);

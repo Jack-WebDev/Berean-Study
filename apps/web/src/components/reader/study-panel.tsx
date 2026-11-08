@@ -64,7 +64,7 @@ function ReportLink({ onReport }: { onReport: () => void }) {
 }
 
 /** "Source 1" chips under a note, each opening a card with the source and a short quote. */
-function Sources({
+export function Sources({
 	idPrefix,
 	onToggle,
 	openSource,
@@ -135,7 +135,7 @@ function Sources({
 }
 
 /** Which source card is open, shared by a note's citation numbers and its chips. */
-function useOpenSource() {
+export function useOpenSource() {
 	const idPrefix = useId();
 	const [openSource, setOpenSource] = useState<number | null>(null);
 	const toggle = (number: number) =>

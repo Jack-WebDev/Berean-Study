@@ -3,181 +3,29 @@ import { afterAll, describe, expect, it } from "vitest";
 
 import { pool } from "../src";
 import { applyAccessCatalogue } from "../src/access-setup";
-import type { DbExecutor } from "../src/db-executor";
 import {
 	dailyStudyReportLimit,
 	getVerseStudy,
 	reportStudyProblem,
 } from "../src/reader-study";
-import { books } from "../src/schema/books";
-import { chapters } from "../src/schema/chapters";
 import { citations } from "../src/schema/citations";
 import { contentIssues } from "../src/schema/content_issues";
-import { contentItems } from "../src/schema/content_items";
-import { contentPassages } from "../src/schema/content_passages";
-import { contentRevisions } from "../src/schema/content_revisions";
 import { sourceExcerpts } from "../src/schema/source_excerpts";
 import { sources } from "../src/schema/sources";
-import { translations } from "../src/schema/translations";
-import { verseTexts } from "../src/schema/verse_texts";
-import { verses } from "../src/schema/verses";
-import { applyScriptureCatalogue } from "../src/scripture-setup";
+import { createPerson } from "./governance-helpers";
 import {
-	createAccount,
-	createPerson,
-	inRolledBackTransactionWithoutScripture,
-} from "./governance-helpers";
+	addContent,
+	inStudy,
+	paragraph,
+	publish,
+	type Setup,
+	text,
+} from "./reader-fixtures";
 
 afterAll(async () => {
 	await pool.end();
 });
 
-/** Publishes some verses of one chapter in the KJV. */
-async function publish(
-	tx: DbExecutor,
-	bookSlug: string,
-	chapterNumber: number,
-	texts: Record<number, string>,
-) {
-	const [translation] = await tx
-		.select({
-			id: translations.id,
-			versificationSystemId: translations.versificationSystemId,
-		})
-		.from(translations)
-		.where(eq(translations.abbreviation, "KJV"));
-	const [book] = await tx
-		.select({ id: books.id })
-		.from(books)
-		.where(eq(books.slug, bookSlug));
-	if (!translation || !book) throw new Error("Missing catalogue rows.");
-	const [chapter] = await tx
-		.insert(chapters)
-		.values({
-			bookId: book.id,
-			number: chapterNumber,
-			versificationSystemId: translation.versificationSystemId,
-		})
-		.returning({ id: chapters.id });
-	if (!chapter) throw new Error("No chapter");
-	for (const [number, text] of Object.entries(texts)) {
-		const [verse] = await tx
-			.insert(verses)
-			.values({ chapterId: chapter.id, number: Number(number) })
-			.returning({ id: verses.id });
-		if (!verse) throw new Error("No verse");
-		await tx
-			.insert(verseTexts)
-			.values({ text, translationId: translation.id, verseId: verse.id });
-	}
-	return book.id;
-}
-
-type Setup = {
-	bookId: (slug: string) => Promise<number>;
-	reviewerId: string;
-	tx: DbExecutor;
-	writerId: string;
-};
-
-/**
- * Adds reviewed content the way publishing leaves it. `live: false` leaves it
- * as a draft, which readers never see.
- */
-async function addContent(
-	{ reviewerId, tx, writerId }: Setup,
-	input: {
-		body: unknown;
-		kind: string;
-		live?: boolean;
-		passages: Array<{
-			bookId: number;
-			from: [chapter: number, verse: number];
-			showsToReaders?: boolean;
-			to: [chapter: number, verse: number];
-		}>;
-		scopeKey: string;
-		title?: string;
-	},
-) {
-	const live = input.live ?? true;
-	const [item] = await tx
-		.insert(contentItems)
-		.values({
-			kind: input.kind,
-			scopeKey: input.scopeKey,
-			title: input.title ?? "Staff title",
-		})
-		.returning({ id: contentItems.id });
-	if (!item) throw new Error("No item");
-	const now = new Date();
-	const [revision] = await tx
-		.insert(contentRevisions)
-		.values({
-			body: input.body,
-			contentItemId: item.id,
-			createdByUserId: writerId,
-			number: 1,
-			...(live
-				? {
-						approvedAt: now,
-						publishedAt: now,
-						publishedByUserId: reviewerId,
-						reviewerUserId: reviewerId,
-						status: "published" as const,
-					}
-				: {}),
-		})
-		.returning({ id: contentRevisions.id });
-	if (!revision) throw new Error("No revision");
-	if (input.passages.length > 0)
-		await tx.insert(contentPassages).values(
-			input.passages.map((passage, index) => ({
-				bookId: passage.bookId,
-				contentRevisionId: revision.id,
-				fromChapter: passage.from[0],
-				fromVerse: passage.from[1],
-				position: index + 1,
-				showsToReaders: passage.showsToReaders ?? true,
-				toChapter: passage.to[0],
-				toVerse: passage.to[1],
-			})),
-		);
-	if (live) {
-		await tx
-			.update(contentItems)
-			.set({ liveRevisionId: revision.id })
-			.where(eq(contentItems.id, item.id));
-	}
-	return { contentItemId: item.id, revisionId: revision.id };
-}
-
-function inStudy(test: (setup: Setup) => Promise<void>) {
-	return inRolledBackTransactionWithoutScripture(async (tx) => {
-		await applyScriptureCatalogue(tx);
-		const writer = await createAccount(tx);
-		const reviewer = await createAccount(tx);
-		await test({
-			bookId: async (slug) => {
-				const [book] = await tx
-					.select({ id: books.id })
-					.from(books)
-					.where(eq(books.slug, slug));
-				if (!book) throw new Error(`No book ${slug}`);
-				return book.id;
-			},
-			reviewerId: reviewer.id,
-			tx,
-			writerId: writer.id,
-		});
-	});
-}
-
-const paragraph = (...content: unknown[]) => ({
-	content: [{ content, type: "paragraph" }],
-	type: "doc",
-});
-const text = (words: string) => ({ text: words, type: "text" });
 const citation = (excerptId: number, locator = "p. 529") => ({
 	attrs: { excerptId, label: "Moo, Romans", locator, strength: "direct" },
 	type: "citation",

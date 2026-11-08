@@ -1,7 +1,10 @@
 import { type QueryClient, queryOptions } from "@tanstack/react-query";
 
 import {
+	getAboutBook,
+	getBookPage,
 	getChapterMarks,
+	getContinueReading,
 	getReaderChapter,
 	getReadingPlace,
 	getReadingPreferences,
@@ -48,6 +51,26 @@ export const canonBooksQueryOptions = () =>
 		queryKey: readerKeys.books(),
 		queryFn: () => listCanonBooks(),
 		staleTime: scriptureStaleTime,
+	});
+
+export const bookPageQueryOptions = (bookSlug: string) =>
+	queryOptions({
+		queryKey: readerKeys.book(bookSlug),
+		queryFn: () => getBookPage({ data: { bookSlug } }),
+	});
+
+/** Book overviews and introductions change only when staff publish. */
+export const aboutBookQueryOptions = (bookSlug: string) =>
+	queryOptions({
+		queryKey: readerKeys.about(bookSlug),
+		queryFn: () => getAboutBook({ data: { bookSlug } }),
+		staleTime: scriptureStaleTime,
+	});
+
+export const continueReadingQueryOptions = () =>
+	queryOptions({
+		queryKey: readerKeys.continueReading(),
+		queryFn: () => getContinueReading(),
 	});
 
 export const readerTranslationsQueryOptions = () =>
@@ -116,6 +139,7 @@ export function invalidateReaderMarks(queryClient: QueryClient) {
 export function invalidateReadingPlace(queryClient: QueryClient) {
 	return Promise.all([
 		queryClient.invalidateQueries({ queryKey: readerKeys.place() }),
+		queryClient.invalidateQueries({ queryKey: readerKeys.allBooks() }),
 		queryClient.invalidateQueries({ queryKey: readerKeys.recentChapters() }),
 		queryClient.invalidateQueries({ queryKey: libraryKeys.all }),
 	]);
