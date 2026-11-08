@@ -10,6 +10,7 @@
 		"dev": "vite dev --force"
 	},
 	"dependencies": {
+		"@base-ui/react": "^1.8.0",
 		"@berean-study/auth": "workspace:*",
 		"@berean-study/db": "workspace:*",
 		"@berean-study/env": "workspace:*",
