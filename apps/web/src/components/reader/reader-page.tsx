@@ -44,6 +44,7 @@ import {
 	readerTranslationsQueryOptions,
 	readingPlaceQueryOptions,
 	readingPreferencesQueryOptions,
+	verseStudyQueryOptions,
 } from "@/queries/reader";
 
 import { ChapterSheet } from "./chapter-sheet";
@@ -51,12 +52,18 @@ import { CollectionSheet } from "./collection-sheet";
 import { NoteSheet } from "./note-sheet";
 import { OptionsSheet } from "./options-sheet";
 import { useChangeReadingPreferences } from "./reading-preferences";
+import {
+	DesktopStudyPanel,
+	PhoneStudyPanel,
+	type StudyState,
+} from "./study-panel";
 import { TextSizeSheet } from "./text-size-sheet";
 import { TranslationSheet } from "./translation-sheet";
+import { desktopReaderQuery, useMediaQuery } from "./use-media-query";
 import { useReadingPlace } from "./use-reading-place";
 import { type ChosenVerses, useVerseActions } from "./use-verse-actions";
 import { VerseList } from "./verse-list";
-import { VerseSheet } from "./verse-sheet";
+import { type VerseActions, VerseSheet } from "./verse-sheet";
 
 /*
  * The reading page (HANDOFF Screens 1–3). It opens as just Scripture: the tools
@@ -143,7 +150,7 @@ export function ReaderPage(props: ReaderPageProps) {
 
 function ReaderMessage({ children }: { children: ReactNode }) {
 	return (
-		<div className="mx-auto w-full max-w-[680px] px-4 py-8">
+		<div className="mx-auto w-full max-w-170 px-4 py-8">
 			<BackLink className="mb-4" render={<Link to="/bible" />}>
 				Books
 			</BackLink>
@@ -158,6 +165,7 @@ type Sheet =
 	| "note"
 	| "options"
 	| "size"
+	| "study"
 	| "translation"
 	| "verse";
 
@@ -217,6 +225,7 @@ function ReaderView({
 	});
 
 	const [sheet, setSheet] = useState<Sheet | null>(null);
+	const isDesktop = useMediaQuery(desktopReaderQuery);
 	const [selected, setSelected] = useState<ReadonlySet<number>>(new Set());
 	// Worked out once, so saving the place while reading doesn't move the page.
 	const [start] = useState(() =>
@@ -243,20 +252,28 @@ function ReaderView({
 		translationAbbreviation: chapter.translation.abbreviation,
 	});
 
-	// Keeps a verse scrolled into view clear of the sticky header, whatever its height.
+	// Keeps a verse scrolled into view clear of the sticky header, whatever its
+	// height. On short screens the header scrolls away with the text, so there's
+	// nothing to keep clear of, and a verse can go right to the top.
 	useLayoutEffect(() => {
 		const header = headerRef.current;
 		const page = pageRef.current;
 		if (!header || !page) return;
-		const update = () =>
+		const update = () => {
+			const sticky = window.getComputedStyle(header).position === "sticky";
 			page.style.setProperty(
 				"--reader-header-height",
-				`${header.offsetHeight}px`,
+				`${sticky ? header.offsetHeight : 0}px`,
 			);
+		};
 		update();
 		const observer = new ResizeObserver(update);
 		observer.observe(header);
-		return () => observer.disconnect();
+		window.addEventListener("resize", update);
+		return () => {
+			observer.disconnect();
+			window.removeEventListener("resize", update);
+		};
 	}, []);
 
 	// Opens at the saved or searched-for verse without asking. This waits two
@@ -323,14 +340,17 @@ function ReaderView({
 		setSelected(new Set());
 		setSheet(next);
 	};
-	/** Tapping verses adds or removes them; the verse sheet shows while any are chosen. */
+	/**
+	 * Tapping verses adds or removes them. While any are chosen, the verse sheet
+	 * shows, or on a computer the study panel beside the text.
+	 */
 	const toggleVerse = (number: number) => {
 		settle();
 		const next = new Set(selected);
 		if (next.has(number)) next.delete(number);
 		else next.add(number);
 		setSelected(next);
-		setSheet(next.size > 0 ? "verse" : null);
+		setSheet(next.size > 0 && !isDesktop ? "verse" : null);
 	};
 	const clearSelection = () => {
 		setSelected(new Set());
@@ -364,9 +384,52 @@ function ReaderView({
 	const allHighlighted =
 		chosenVerses.length > 0 &&
 		chosenVerses.every((number) => verseMarks.highlighted.has(number));
-	const studyGroupCount =
-		marks.data?.study.find((marker) => marker.verse === chosenVerses[0])?.groups
-			.length ?? null;
+	// Kinds of notes across all the chosen verses, known from the marks beside them.
+	const studyGroupCount = marks.data
+		? new Set(
+				marks.data.study
+					.filter((marker) => selected.has(marker.verse))
+					.flatMap((marker) => marker.groups),
+			).size
+		: null;
+	const desktopPanelOpen = isDesktop && chosenVerses.length > 0;
+	const study = useQuery({
+		...verseStudyQueryOptions({
+			bookSlug,
+			chapter: chapter.chapter,
+			translationAbbreviation: chapter.translation.abbreviation,
+			verses: chosenVerses,
+		}),
+		// Only fetched when the marks say there's something to show.
+		enabled:
+			(sheet === "study" || desktopPanelOpen) && (studyGroupCount ?? 1) > 0,
+	});
+	const studyState: StudyState =
+		studyGroupCount === 0 ? { kind: "none" } : { kind: "query", query: study };
+
+	// Moving between phone and computer widths keeps the chosen verses, and shows
+	// them the way that width does.
+	useEffect(() => {
+		if (selected.size === 0) return;
+		if (isDesktop) {
+			setSheet((current) =>
+				current === "verse" || current === "study" ? null : current,
+			);
+		} else {
+			setSheet((current) => current ?? "verse");
+		}
+	}, [isDesktop, selected.size]);
+
+	// Esc closes the panel beside the text, unless a sheet over it is open.
+	useEffect(() => {
+		if (!desktopPanelOpen || sheet) return;
+		const onKey = (event: KeyboardEvent) => {
+			if (event.key !== "Escape" || event.defaultPrevented) return;
+			setSelected(new Set());
+		};
+		window.addEventListener("keydown", onKey);
+		return () => window.removeEventListener("keydown", onKey);
+	}, [desktopPanelOpen, sheet]);
 
 	const lightSheetOpen = sheet === "size" || sheet === "verse";
 	// A message about the last action would sit on top of a full-height sheet,
@@ -377,377 +440,412 @@ function ReaderView({
 	}, [dismissToast, sheet]);
 
 	const { book, translation } = chapter;
+	const chosenVerseActions: VerseActions = {
+		onAddNote: () => setSheet("note"),
+		onAddToCollection: () => setSheet("collection"),
+		onCopy: () => {
+			verseActions.copy(chosen());
+			clearSelection();
+		},
+		onHighlight: () => {
+			verseActions.highlight(chosen(), !allHighlighted);
+			clearSelection();
+		},
+		onSave: () => {
+			verseActions.save(chosen());
+			clearSelection();
+		},
+		onShare: () =>
+			void navigate({
+				search: {
+					book: bookSlug,
+					chapter: chapter.chapter,
+					translation: translation.abbreviation,
+					type: "verse",
+					verses: chosenVerses.join(","),
+				},
+				to: "/community/share",
+			}),
+	};
 	const previousLabel = chapter.previous
 		? chapterLabel(book.name, chapter.previous)
 		: null;
 	const nextLabel = chapter.next ? chapterLabel(book.name, chapter.next) : null;
 
 	return (
-		<div
-			className={cn(
-				"pb-24 md:pb-0",
-				// Room to scroll the last verses above a sheet that leaves the page in view.
-				lightSheetOpen && "pb-[340px] md:pb-[340px]",
-			)}
-			ref={pageRef}
-		>
-			{/* On short screens, such as at 200% zoom, the header scrolls away so the
-			    text has room. Previous and Next stay at the bottom either way. */}
-			<header
-				className="sticky top-0 z-30 border-border border-b bg-background px-3 pt-1 pb-3 [@media(max-height:600px)]:static"
-				ref={headerRef}
-			>
-				<div
-					className={cn(
-						"mx-auto w-full",
-						lineLengthClasses[preferences.lineLength],
-					)}
-				>
-					<div className="flex items-center justify-between gap-2">
-						<BackLink render={<Link to="/bible" />}>Books</BackLink>
-						<p className="truncate text-[15px] text-muted-foreground">
-							{translation.name}
-						</p>
-					</div>
-					<h1>
-						<button
-							aria-haspopup="dialog"
-							aria-label={`${chapter.label}, choose a chapter`}
-							className="reader-focus -ml-1 flex min-h-12 items-center gap-1 px-1 text-left font-serif text-[32px] text-foreground leading-tight"
-							onClick={() => openSheet("chapters")}
-							type="button"
-						>
-							{chapter.label}
-							<ChevronDownIcon aria-hidden="true" className="size-6 shrink-0" />
-						</button>
-					</h1>
-					<ToolbarRow className="mt-2">
-						<ToolbarTile
-							aria-expanded={sheet === "translation"}
-							aria-haspopup="dialog"
-							glyph={
-								<>
-									{translation.abbreviation}
-									<ChevronDownIcon className="size-4!" />
-								</>
-							}
-							label="Translation"
-							onClick={() => openSheet("translation")}
-						/>
-						<ToolbarTile
-							aria-expanded={sheet === "size"}
-							aria-haspopup="dialog"
-							glyph={<span className="font-serif">Aa</span>}
-							label="Text size"
-							onClick={() => openSheet("size")}
-						/>
-						<ToolbarTile
-							glyph={<Columns2Icon />}
-							label="Compare"
-							render={<Link to="/study-tools/compare-passages" />}
-						/>
-						<ToolbarTile
-							aria-expanded={sheet === "options"}
-							aria-haspopup="dialog"
-							glyph={<SlidersHorizontalIcon />}
-							label="Options"
-							onClick={() => openSheet("options")}
-						/>
-					</ToolbarRow>
-					{/* In the header, so it's on screen whichever verse the page opens at. */}
-					{notice?.kind === "resume" ? (
-						<Notice
-							action={
-								<ReaderButton
-									onClick={() => {
-										settle();
-										window.scrollTo({ behavior: "instant", top: 0 });
-									}}
-									size="compact"
-								>
-									Start at verse 1
-								</ReaderButton>
-							}
-							className="mt-3"
-							role="status"
-							title="Picked up where you left off"
-						>
-							{chapter.label}, verse {notice.verse}
-						</Notice>
-					) : null}
-					{notice?.kind === "search" ? (
-						<Notice className="mt-3" role="status">
-							<strong>
-								{chapter.label}:{notice.verse}
-							</strong>{" "}
-							is marked below. Tap it to highlight, add a note or study it.
-						</Notice>
-					) : null}
-				</div>
-			</header>
-
+		// On a computer, the study panel sits to the right of the text.
+		<div className="lg:flex lg:items-start">
 			<div
 				className={cn(
-					"mx-auto w-full px-3 pt-4",
-					lineLengthClasses[preferences.lineLength],
+					"min-w-0 pb-24 md:pb-0 lg:flex-1",
+					// Room to scroll the last verses above a sheet that leaves the page in view.
+					lightSheetOpen && "pb-[340px] md:pb-[340px]",
 				)}
+				ref={pageRef}
 			>
-				{chapter.status === "available" ? (
-					<div ref={listRef}>
-						<VerseList
-							layout={preferences.verseLayout}
-							marks={verseMarks}
-							missingVerses={chapter.missingVerses}
-							onToggleVerse={toggleVerse}
-							selected={selected}
-							showVerseNumbers={preferences.showVerseNumbers}
-							target={target}
-							textSize={preferences.textSize}
-							verses={chapter.verses}
-						/>
-					</div>
-				) : (
-					<NotAvailable
-						className="mt-4"
-						description="We're adding the Bible one chapter at a time. Go back, or choose a chapter that's ready."
-						primaryAction={
-							chapter.nearestAvailable ? (
-								<ReaderButton
-									render={
-										<Link
-											params={{
-												book: bookSlug,
-												chapter: chapter.nearestAvailable,
-											}}
-											to="/bible/$book/$chapter"
-										/>
-									}
-									variant="primary"
-								>
-									Back to {chapterLabel(book.name, chapter.nearestAvailable)}
-								</ReaderButton>
-							) : (
-								<ReaderButton render={<Link to="/bible" />} variant="primary">
-									Choose a different book
-								</ReaderButton>
-							)
-						}
-						secondaryAction={
-							<ReaderButton onClick={() => openSheet("chapters")}>
-								Choose another chapter
-							</ReaderButton>
-						}
-						title={`${chapter.label} isn't available yet`}
-					/>
-				)}
-
-				{available ? (
-					<section
-						aria-label="End of chapter"
-						className="mt-8 mb-6 flex flex-col gap-3"
+				{/* On short screens, such as at 200% zoom, the header scrolls away so the
+			    text has room. Previous and Next stay at the bottom either way. */}
+				<header
+					className="sticky top-0 z-30 border-border border-b bg-background px-3 pt-1 pb-3 [@media(max-height:600px)]:static"
+					ref={headerRef}
+				>
+					<div
+						className={cn(
+							"mx-auto w-full",
+							lineLengthClasses[preferences.lineLength],
+						)}
 					>
-						<p className="text-[15px] text-muted-foreground">
-							End of {chapter.label}
-						</p>
-						<div className="flex flex-col gap-2 lg:grid lg:grid-cols-2">
-							{chapter.next ? (
-								<ReaderButton
-									className="lg:order-2"
-									render={
-										<Link
-											params={{ book: bookSlug, chapter: chapter.next }}
-											to="/bible/$book/$chapter"
-										/>
-									}
-									variant="primary"
-								>
-									Next: {nextLabel}
-									<ChevronRightIcon aria-hidden="true" />
-								</ReaderButton>
-							) : (
-								<ReaderButton
-									className="lg:order-2"
-									render={<Link to="/bible" />}
-									variant="primary"
-								>
-									Choose another book
-								</ReaderButton>
-							)}
-							{chapter.previous ? (
-								<ReaderButton
-									className="lg:order-1"
-									render={
-										<Link
-											params={{ book: bookSlug, chapter: chapter.previous }}
-											to="/bible/$book/$chapter"
-										/>
-									}
-								>
-									<ChevronLeftIcon aria-hidden="true" />
-									Previous: {previousLabel}
-								</ReaderButton>
-							) : null}
-						</div>
-						{translation.copyrightNotice ? (
-							<p className="mt-2 text-[15px] text-muted-foreground leading-relaxed">
-								{translation.copyrightNotice}
+						<div className="flex items-center justify-between gap-2">
+							<BackLink render={<Link to="/bible" />}>Books</BackLink>
+							<p className="truncate text-[15px] text-muted-foreground">
+								{translation.name}
 							</p>
+						</div>
+						<h1>
+							<button
+								aria-haspopup="dialog"
+								aria-label={`${chapter.label}, choose a chapter`}
+								className="reader-focus -ml-1 flex min-h-12 items-center gap-1 px-1 text-left font-serif text-[32px] text-foreground leading-tight"
+								onClick={() => openSheet("chapters")}
+								type="button"
+							>
+								{chapter.label}
+								<ChevronDownIcon
+									aria-hidden="true"
+									className="size-6 shrink-0"
+								/>
+							</button>
+						</h1>
+						<ToolbarRow className="mt-2">
+							<ToolbarTile
+								aria-expanded={sheet === "translation"}
+								aria-haspopup="dialog"
+								glyph={
+									<>
+										{translation.abbreviation}
+										<ChevronDownIcon className="size-4!" />
+									</>
+								}
+								label="Translation"
+								onClick={() => openSheet("translation")}
+							/>
+							<ToolbarTile
+								aria-expanded={sheet === "size"}
+								aria-haspopup="dialog"
+								glyph={<span className="font-serif">Aa</span>}
+								label="Text size"
+								onClick={() => openSheet("size")}
+							/>
+							<ToolbarTile
+								glyph={<Columns2Icon />}
+								label="Compare"
+								render={<Link to="/study-tools/compare-passages" />}
+							/>
+							<ToolbarTile
+								aria-expanded={sheet === "options"}
+								aria-haspopup="dialog"
+								glyph={<SlidersHorizontalIcon />}
+								label="Options"
+								onClick={() => openSheet("options")}
+							/>
+						</ToolbarRow>
+						{/* In the header, so it's on screen whichever verse the page opens at. */}
+						{notice?.kind === "resume" ? (
+							<Notice
+								action={
+									<ReaderButton
+										onClick={() => {
+											settle();
+											window.scrollTo({ behavior: "instant", top: 0 });
+										}}
+										size="compact"
+									>
+										Start at verse 1
+									</ReaderButton>
+								}
+								className="mt-3"
+								role="status"
+								title="Picked up where you left off"
+							>
+								{chapter.label}, verse {notice.verse}
+							</Notice>
 						) : null}
-					</section>
-				) : null}
-			</div>
+						{notice?.kind === "search" ? (
+							<Notice className="mt-3" role="status">
+								<strong>
+									{chapter.label}:{notice.verse}
+								</strong>{" "}
+								is marked below. Tap it to highlight, add a note or study it.
+							</Notice>
+						) : null}
+					</div>
+				</header>
 
-			<nav
-				aria-label="Chapters"
-				className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 border-border border-t bg-background/95 px-3 py-2 backdrop-blur md:sticky md:bottom-0 md:py-1.5"
-			>
 				<div
 					className={cn(
-						"mx-auto grid w-full grid-cols-2 gap-2",
+						"mx-auto w-full px-3 pt-4",
 						lineLengthClasses[preferences.lineLength],
 					)}
 				>
-					{previousLabel ? (
-						<ReaderButton
-							className="md:h-12"
-							render={
-								<Link
-									params={{ book: bookSlug, chapter: chapter.previous ?? 1 }}
-									to="/bible/$book/$chapter"
-								/>
-							}
-						>
-							<ChevronLeftIcon aria-hidden="true" />
-							{previousLabel}
-						</ReaderButton>
+					{chapter.status === "available" ? (
+						<div ref={listRef}>
+							<VerseList
+								layout={preferences.verseLayout}
+								marks={verseMarks}
+								missingVerses={chapter.missingVerses}
+								onToggleVerse={toggleVerse}
+								selected={selected}
+								showVerseNumbers={preferences.showVerseNumbers}
+								target={target}
+								textSize={preferences.textSize}
+								verses={chapter.verses}
+							/>
+						</div>
 					) : (
-						<ReaderButton className="md:h-12" disabled>
-							First chapter
-						</ReaderButton>
-					)}
-					{nextLabel ? (
-						<ReaderButton
-							className="md:h-12"
-							render={
-								<Link
-									params={{ book: bookSlug, chapter: chapter.next ?? 1 }}
-									to="/bible/$book/$chapter"
-								/>
+						<NotAvailable
+							className="mt-4"
+							description="We're adding the Bible one chapter at a time. Go back, or choose a chapter that's ready."
+							primaryAction={
+								chapter.nearestAvailable ? (
+									<ReaderButton
+										render={
+											<Link
+												params={{
+													book: bookSlug,
+													chapter: chapter.nearestAvailable,
+												}}
+												to="/bible/$book/$chapter"
+											/>
+										}
+										variant="primary"
+									>
+										Back to {chapterLabel(book.name, chapter.nearestAvailable)}
+									</ReaderButton>
+								) : (
+									<ReaderButton render={<Link to="/bible" />} variant="primary">
+										Choose a different book
+									</ReaderButton>
+								)
 							}
-						>
-							{nextLabel}
-							<ChevronRightIcon aria-hidden="true" />
-						</ReaderButton>
-					) : (
-						<ReaderButton className="md:h-12" disabled>
-							Last chapter
-						</ReaderButton>
+							secondaryAction={
+								<ReaderButton onClick={() => openSheet("chapters")}>
+									Choose another chapter
+								</ReaderButton>
+							}
+							title={`${chapter.label} isn't available yet`}
+						/>
 					)}
+
+					{available ? (
+						<section
+							aria-label="End of chapter"
+							className="mt-8 mb-6 flex flex-col gap-3"
+						>
+							<p className="text-[15px] text-muted-foreground">
+								End of {chapter.label}
+							</p>
+							<div className="flex flex-col gap-2 lg:grid lg:grid-cols-2">
+								{chapter.next ? (
+									<ReaderButton
+										className="lg:order-2"
+										render={
+											<Link
+												params={{ book: bookSlug, chapter: chapter.next }}
+												to="/bible/$book/$chapter"
+											/>
+										}
+										variant="primary"
+									>
+										Next: {nextLabel}
+										<ChevronRightIcon aria-hidden="true" />
+									</ReaderButton>
+								) : (
+									<ReaderButton
+										className="lg:order-2"
+										render={<Link to="/bible" />}
+										variant="primary"
+									>
+										Choose another book
+									</ReaderButton>
+								)}
+								{chapter.previous ? (
+									<ReaderButton
+										className="lg:order-1"
+										render={
+											<Link
+												params={{ book: bookSlug, chapter: chapter.previous }}
+												to="/bible/$book/$chapter"
+											/>
+										}
+									>
+										<ChevronLeftIcon aria-hidden="true" />
+										Previous: {previousLabel}
+									</ReaderButton>
+								) : null}
+							</div>
+							{translation.copyrightNotice ? (
+								<p className="mt-2 text-[15px] text-muted-foreground leading-relaxed">
+									{translation.copyrightNotice}
+								</p>
+							) : null}
+						</section>
+					) : null}
 				</div>
-			</nav>
 
-			{/* Sits above the light sheets, which leave the page in view. */}
-			<ReaderToastRegion bottom={lightSheetOpen ? 340 : 140} />
+				<nav
+					aria-label="Chapters"
+					className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 border-border border-t bg-background/95 px-3 py-2 backdrop-blur md:sticky md:bottom-0 md:py-1.5"
+				>
+					<div
+						className={cn(
+							"mx-auto grid w-full grid-cols-2 gap-2",
+							lineLengthClasses[preferences.lineLength],
+						)}
+					>
+						{previousLabel ? (
+							<ReaderButton
+								className="md:h-12"
+								render={
+									<Link
+										params={{ book: bookSlug, chapter: chapter.previous ?? 1 }}
+										to="/bible/$book/$chapter"
+									/>
+								}
+							>
+								<ChevronLeftIcon aria-hidden="true" />
+								{previousLabel}
+							</ReaderButton>
+						) : (
+							<ReaderButton className="md:h-12" disabled>
+								First chapter
+							</ReaderButton>
+						)}
+						{nextLabel ? (
+							<ReaderButton
+								className="md:h-12"
+								render={
+									<Link
+										params={{ book: bookSlug, chapter: chapter.next ?? 1 }}
+										to="/bible/$book/$chapter"
+									/>
+								}
+							>
+								{nextLabel}
+								<ChevronRightIcon aria-hidden="true" />
+							</ReaderButton>
+						) : (
+							<ReaderButton className="md:h-12" disabled>
+								Last chapter
+							</ReaderButton>
+						)}
+					</div>
+				</nav>
 
-			<VerseSheet
-				actions={{
-					onAddNote: () => setSheet("note"),
-					onAddToCollection: () => setSheet("collection"),
-					onCopy: () => {
-						verseActions.copy(chosen());
-						clearSelection();
-					},
-					onHighlight: () => {
-						verseActions.highlight(chosen(), !allHighlighted);
-						clearSelection();
-					},
-					onSave: () => {
-						verseActions.save(chosen());
-						clearSelection();
-					},
-					onShare: () =>
-						void navigate({
-							search: {
-								book: bookSlug,
-								chapter: chapter.chapter,
-								translation: translation.abbreviation,
-								type: "verse",
-								verses: chosenVerses.join(","),
-							},
-							to: "/community/share",
-						}),
-				}}
-				allHighlighted={allHighlighted}
-				onOpenChange={(open) => {
-					if (!open) clearSelection();
-				}}
-				open={sheet === "verse"}
-				reference={reference}
-				studyGroupCount={studyGroupCount}
-			/>
-			<NoteSheet
-				chosen={{
-					bookSlug,
-					chapter: chapter.chapter,
-					translationAbbreviation: translation.abbreviation,
-					verses: chosenVerses,
-				}}
-				onDone={(kept) => {
-					if (kept) toast.show(`Note saved on ${reference}`);
-					clearSelection();
-				}}
-				onOpenChange={(open) => setSheet(open ? "note" : "verse")}
-				open={sheet === "note"}
-				reference={reference}
-			/>
-			<CollectionSheet
-				onChoose={(collection) => {
-					verseActions.addToCollection(chosen(), collection);
-					clearSelection();
-				}}
-				// Closing without choosing goes back to the verse actions.
-				onOpenChange={(open) => setSheet(open ? "collection" : "verse")}
-				open={sheet === "collection"}
-				reference={reference}
-			/>
+				{/* Sits above the light sheets, which leave the page in view. */}
+				<ReaderToastRegion bottom={lightSheetOpen ? 340 : 140} />
 
-			<TextSizeSheet
-				onOpenChange={(open) => setSheet(open ? "size" : null)}
-				onTextSizeChange={(textSize) => changePreferences({ textSize })}
-				open={sheet === "size"}
-				textSize={preferences.textSize}
-			/>
-			{translations.data ? (
-				<TranslationSheet
-					current={translation}
-					onChoose={(abbreviation) => {
-						setSheet(null);
-						changePreferences({ translationAbbreviation: abbreviation });
-						void navigate({
-							params: { book: bookSlug, chapter: chapter.chapter },
-							search: { translation: abbreviation },
-							to: "/bible/$book/$chapter",
-						});
+				<VerseSheet
+					actions={chosenVerseActions}
+					allHighlighted={allHighlighted}
+					onOpenChange={(open) => {
+						if (!open) clearSelection();
 					}}
-					onOpenChange={(open) => setSheet(open ? "translation" : null)}
-					open={sheet === "translation"}
-					translations={translations.data}
+					onStudy={() => setSheet("study")}
+					open={sheet === "verse"}
+					reference={reference}
+					studyGroupCount={studyGroupCount}
+					verseCount={chosenVerses.length}
+				/>
+				<PhoneStudyPanel
+					firstVerse={chosenVerses[0]}
+					onClose={clearSelection}
+					open={sheet === "study"}
+					reference={reference}
+					state={studyState}
+					verses={chosenVerses.map((number) => ({
+						number,
+						text: verseTexts.get(number) ?? "",
+					}))}
+				/>
+				<NoteSheet
+					chosen={{
+						bookSlug,
+						chapter: chapter.chapter,
+						translationAbbreviation: translation.abbreviation,
+						verses: chosenVerses,
+					}}
+					onDone={(kept) => {
+						if (kept) toast.show(`Note saved on ${reference}`);
+						clearSelection();
+					}}
+					// On a computer the actions stay in the panel beside the text.
+					onOpenChange={(open) =>
+						setSheet(open ? "note" : isDesktop ? null : "verse")
+					}
+					open={sheet === "note"}
+					reference={reference}
+				/>
+				<CollectionSheet
+					onChoose={(collection) => {
+						verseActions.addToCollection(chosen(), collection);
+						clearSelection();
+					}}
+					// Closing without choosing goes back to the verse actions.
+					onOpenChange={(open) =>
+						setSheet(open ? "collection" : isDesktop ? null : "verse")
+					}
+					open={sheet === "collection"}
+					reference={reference}
+				/>
+
+				<TextSizeSheet
+					onOpenChange={(open) => setSheet(open ? "size" : null)}
+					onTextSizeChange={(textSize) => changePreferences({ textSize })}
+					open={sheet === "size"}
+					textSize={preferences.textSize}
+				/>
+				{translations.data ? (
+					<TranslationSheet
+						current={translation}
+						onChoose={(abbreviation) => {
+							setSheet(null);
+							changePreferences({ translationAbbreviation: abbreviation });
+							void navigate({
+								params: { book: bookSlug, chapter: chapter.chapter },
+								search: { translation: abbreviation },
+								to: "/bible/$book/$chapter",
+							});
+						}}
+						onOpenChange={(open) => setSheet(open ? "translation" : null)}
+						open={sheet === "translation"}
+						translations={translations.data}
+					/>
+				) : null}
+				<ChapterSheet
+					bookName={book.name}
+					bookSlug={bookSlug}
+					chapter={chapter.chapter}
+					chapterCount={chapter.chapterCount}
+					onOpenChange={(open) => setSheet(open ? "chapters" : null)}
+					open={sheet === "chapters"}
+				/>
+				<OptionsSheet
+					onChange={changePreferences}
+					onOpenChange={(open) => setSheet(open ? "options" : null)}
+					open={sheet === "options"}
+					preferences={preferences}
+				/>
+			</div>
+			{desktopPanelOpen ? (
+				<DesktopStudyPanel
+					actions={chosenVerseActions}
+					allHighlighted={allHighlighted}
+					onClose={clearSelection}
+					reference={reference}
+					state={studyState}
+					verseCount={chosenVerses.length}
 				/>
 			) : null}
-			<ChapterSheet
-				bookName={book.name}
-				bookSlug={bookSlug}
-				chapter={chapter.chapter}
-				chapterCount={chapter.chapterCount}
-				onOpenChange={(open) => setSheet(open ? "chapters" : null)}
-				open={sheet === "chapters"}
-			/>
-			<OptionsSheet
-				onChange={changePreferences}
-				onOpenChange={(open) => setSheet(open ? "options" : null)}
-				open={sheet === "options"}
-				preferences={preferences}
-			/>
 		</div>
 	);
 }

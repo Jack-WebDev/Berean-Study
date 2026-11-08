@@ -3,6 +3,11 @@ import {
 	defaultReadingPreferences,
 	type ReadingPreferences,
 } from "@berean-study/db/reader-catalogue";
+import type { VerseStudy } from "@berean-study/db/reader-study";
+import type {
+	RichTextDocument,
+	RichTextNode,
+} from "@berean-study/rich-text-editor/document";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
 	cleanup,
@@ -29,11 +34,13 @@ const server = vi.hoisted(() => ({
 	getReaderChapter: vi.fn(),
 	getReadingPlace: vi.fn(),
 	getReadingPreferences: vi.fn(),
+	getVerseStudy: vi.fn(),
 	listReaderTranslations: vi.fn(),
 	listRecentChapters: vi.fn(),
 	passagesForVerses: vi.fn(),
 	recordChapterVisit: vi.fn(),
 	removeVersesFromCollection: vi.fn(),
+	reportStudyProblem: vi.fn(),
 	saveReadingPlace: vi.fn(),
 	saveReadingPreferences: vi.fn(),
 	saveVerses: vi.fn(),
@@ -712,5 +719,490 @@ describe("tapping verses", () => {
 		await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
 		expect(notesServer.saveNote).not.toHaveBeenCalled();
 		expect(screen.queryByText(/Note saved/)).toBeNull();
+	});
+});
+
+const paragraph = (...content: RichTextNode[]): RichTextDocument => ({
+	content: [{ content, type: "paragraph" }],
+	type: "doc",
+});
+
+const romans828Study: VerseStudy = {
+	groups: [
+		{
+			hint: "What this verse means",
+			items: [
+				{
+					key: "1",
+					kind: "explanation",
+					reportLabel: "Explanation: God at work in every circumstance",
+					revisionId: 501,
+					sections: [
+						{
+							aboutChosenVerses: true,
+							key: "a",
+							title: "Note",
+							writing: {
+								document: paragraph(
+									{ text: "God is at work in all of it.", type: "text" },
+									{
+										attrs: {
+											excerptId: 7,
+											label: "Moo",
+											locator: "p. 529",
+											strength: "direct",
+										},
+										type: "citation",
+									},
+								),
+								firstCitation: 1,
+							},
+						},
+						{
+							aboutChosenVerses: false,
+							key: "b",
+							title: "Nothing can separate us",
+							writing: {
+								document: paragraph({
+									text: "If God is for us, who can be against us?",
+									type: "text",
+								}),
+								firstCitation: 2,
+							},
+						},
+					],
+					sources: [
+						{
+							byline: "Douglas J. Moo · 1996",
+							detail: "p. 529 · Strongly supports this statement",
+							isSummary: false,
+							number: 1,
+							quote: "God works in all things for good.",
+							title: "The Epistle to the Romans",
+						},
+					],
+					title: "God at work in every circumstance",
+				},
+			],
+			key: "explanation",
+			name: "Explanation",
+		},
+		{
+			hint: "The Greek or Hebrew words behind the English",
+			items: [
+				{
+					gloss: "work together",
+					key: "2",
+					kind: "word_meaning",
+					language: "greek",
+					lemma: "συνεργέω",
+					note: {
+						document: paragraph({ text: "Side by side.", type: "text" }),
+						firstCitation: 1,
+					},
+					parsing: "verb, present tense",
+					reportLabel: "Word meaning: συνεργεῖ",
+					revisionId: 502,
+					sources: [],
+					word: "συνεργεῖ",
+				},
+			],
+			key: "word_meanings",
+			name: "Word meanings",
+		},
+		{
+			hint: "Where Christians read this differently",
+			items: [
+				{
+					key: "3",
+					kind: "different_views",
+					question: "Who works all things together?",
+					reportLabel: "Different views: Who works all things together?",
+					revisionId: 503,
+					sources: [],
+					takesNoSide: true,
+					views: ["All things work", "God works"].map((name, index) => ({
+						argument: {
+							document: paragraph({ text: `${name} argument`, type: "text" }),
+							firstCitation: 1,
+						},
+						heldBy: [`Scholars ${index + 1}`],
+						key: String(index),
+						name,
+						preferred: false,
+					})),
+					whyItMatters: "It shapes how we read suffering.",
+				},
+			],
+			key: "different_views",
+			name: "Different views",
+		},
+		{
+			hint: "Other verses on the same thought",
+			items: [
+				{
+					key: "4",
+					kind: "related_verse",
+					kindLabel: "An example from a story",
+					note: "Joseph saw God turn evil to good.",
+					passage: {
+						bookSlug: "genesis",
+						chapter: 50,
+						isChosen: false,
+						label: "Genesis 50:20",
+						text: "But God meant it unto good.",
+						verse: 20,
+					},
+					reportLabel: "Related verse: Genesis 50:20",
+					revisionId: 504,
+					sources: [],
+				},
+			],
+			key: "related_verses",
+			name: "Related verses",
+		},
+	],
+	reference: "Romans 8:28",
+};
+
+describe("study panel", () => {
+	beforeEach(() => {
+		server.getChapterMarks.mockResolvedValue({
+			highlighted: [],
+			noted: [],
+			study: [
+				{
+					groups: [
+						"explanation",
+						"word_meanings",
+						"different_views",
+						"related_verses",
+					],
+					verse: 28,
+				},
+			],
+		});
+		server.getVerseStudy.mockResolvedValue(romans828Study);
+		server.reportStudyProblem.mockResolvedValue({ status: "sent" });
+	});
+
+	async function openStudy(verse = /^28 And we know/) {
+		fireEvent.click(await screen.findByRole("button", { name: verse }));
+		const sheet = await screen.findByRole("dialog");
+		fireEvent.click(
+			within(sheet).getByRole("button", { name: /^Study this verse/ }),
+		);
+		return screen.findByRole("dialog", { name: "Study Romans 8:28" });
+	}
+
+	it("says how many kinds of notes a verse has before opening them", async () => {
+		renderReader(romans(8));
+		fireEvent.click(
+			await screen.findByRole("button", { name: /^28 And we know/ }),
+		);
+		const sheet = await screen.findByRole("dialog");
+		await within(sheet).findByText("4 kinds of notes for this verse");
+	});
+
+	it("fills the screen with the verse, the trust line and only groups with notes, the first open", async () => {
+		renderReader(romans(8));
+		const panel = await openStudy();
+
+		expect(within(panel).getByText("Studying")).toBeTruthy();
+		expect(
+			within(panel).getByText(
+				"And we know that all things work together for good.",
+			),
+		).toBeTruthy();
+		await within(panel).findByText(
+			"Checked by Berean Study editors. Sources are listed with each note.",
+		);
+		expect(
+			[...panel.querySelectorAll("h3 > button")].map(
+				(button) => button.querySelector("span span")?.textContent,
+			),
+		).toEqual([
+			"Explanation",
+			"Word meanings",
+			"Different views",
+			"Related verses",
+		]);
+		expect(
+			within(panel)
+				.getByRole("button", { name: "Explanation" })
+				.getAttribute("aria-expanded"),
+		).toBe("true");
+		expect(
+			within(panel)
+				.getByRole("button", { name: "Word meanings" })
+				.getAttribute("aria-expanded"),
+		).toBe("false");
+		expect(within(panel).queryByText("About the text")).toBeNull();
+		expect(server.getVerseStudy).toHaveBeenCalledWith({
+			data: {
+				bookSlug: "romans",
+				chapter: 8,
+				translationAbbreviation: "KJV",
+				verses: [28],
+			},
+		});
+	});
+
+	it("shows the rest of a passage's explanation only when asked", async () => {
+		renderReader(romans(8));
+		const panel = await openStudy();
+		await within(panel).findByText("God is at work in all of it.");
+		expect(
+			within(panel).queryByText("If God is for us, who can be against us?"),
+		).toBeNull();
+
+		fireEvent.click(
+			within(panel).getByRole("button", { name: "Read the full explanation" }),
+		);
+		expect(
+			within(panel).getByText("If God is for us, who can be against us?"),
+		).toBeTruthy();
+		expect(within(panel).getByText("Nothing can separate us")).toBeTruthy();
+	});
+
+	it("opens a source from its number in the text or its chip", async () => {
+		renderReader(romans(8));
+		const panel = await openStudy();
+		// The number in the text comes first, then the chip below.
+		const [number] = await within(panel).findAllByRole("button", {
+			name: "Source 1",
+		});
+		if (!number) throw new Error("No source number");
+		expect(number.textContent).toBe("1");
+		fireEvent.click(number);
+		const card = within(panel).getByRole("region", { name: "Source 1" });
+		expect(within(card).getByText("The Epistle to the Romans")).toBeTruthy();
+		expect(
+			within(card).getByText("p. 529 · Strongly supports this statement"),
+		).toBeTruthy();
+		expect(
+			within(card).getByText("“God works in all things for good.”"),
+		).toBeTruthy();
+		for (const button of within(panel).getAllByRole("button", {
+			name: "Source 1",
+		})) {
+			expect(button.getAttribute("aria-expanded")).toBe("true");
+		}
+	});
+
+	it("marks Greek words so screen readers say them properly", async () => {
+		renderReader(romans(8));
+		const panel = await openStudy();
+		fireEvent.click(
+			await within(panel).findByRole("button", { name: "Word meanings" }),
+		);
+		expect(within(panel).getByText("συνεργεῖ").getAttribute("lang")).toBe(
+			"grc",
+		);
+		expect(within(panel).getByText("work together")).toBeTruthy();
+	});
+
+	it("gives every view the same card, without taking a side", async () => {
+		renderReader(romans(8));
+		const panel = await openStudy();
+		fireEvent.click(
+			await within(panel).findByRole("button", { name: "Different views" }),
+		);
+		const views = within(panel).getAllByRole("listitem");
+		expect(views.map((view) => view.className)).toEqual([
+			views[0]?.className,
+			views[0]?.className,
+		]);
+		expect(within(panel).getByText("View 1")).toBeTruthy();
+		expect(within(panel).getByText("View 2")).toBeTruthy();
+		expect(
+			within(panel).getByText(
+				"Berean Study presents both views without taking a side.",
+			),
+		).toBeTruthy();
+	});
+
+	it("links each related verse to the reading page", async () => {
+		renderReader(romans(8));
+		const panel = await openStudy();
+		fireEvent.click(
+			await within(panel).findByRole("button", { name: "Related verses" }),
+		);
+		expect(
+			within(panel)
+				.getByRole("link", { name: "Read Genesis 50:20" })
+				.getAttribute("href"),
+		).toBe("/bible/genesis/50");
+		expect(within(panel).getByText("An example from a story")).toBeTruthy();
+	});
+
+	it("says kindly when a verse has no notes, without asking the server", async () => {
+		renderReader(romans(8));
+		fireEvent.click(
+			await screen.findByRole("button", { name: /^29 For whom/ }),
+		);
+		const sheet = await screen.findByRole("dialog");
+		await within(sheet).findByText("No notes for this verse yet");
+		fireEvent.click(
+			within(sheet).getByRole("button", { name: /^Study this verse/ }),
+		);
+		const panel = await screen.findByRole("dialog", {
+			name: "Study Romans 8:29",
+		});
+		expect(
+			within(panel).getByText("No study notes for this verse yet"),
+		).toBeTruthy();
+		expect(
+			within(panel)
+				.getByRole("link", { name: "Explore Study Tools" })
+				.getAttribute("href"),
+		).toBe("/study-tools");
+		expect(server.getVerseStudy).not.toHaveBeenCalled();
+	});
+
+	it("offers Try again when the notes can't be loaded", async () => {
+		server.getVerseStudy.mockRejectedValueOnce(new Error("offline"));
+		renderReader(romans(8));
+		const panel = await openStudy();
+		await within(panel).findByText("We couldn't load the notes");
+		fireEvent.click(within(panel).getByRole("button", { name: "Try again" }));
+		await within(panel).findByText("God at work in every circumstance");
+	});
+
+	it("goes back to reading with nothing chosen", async () => {
+		renderReader(romans(8));
+		const panel = await openStudy();
+		fireEvent.click(
+			within(panel).getByRole("button", { name: "Back to reading" }),
+		);
+		await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+		expect(verseButton(/^28 And we know/).getAttribute("aria-pressed")).toBe(
+			"false",
+		);
+	});
+
+	it("reports a problem with the exact note the reader saw", async () => {
+		renderReader(romans(8));
+		const panel = await openStudy();
+		fireEvent.click(
+			await within(panel).findByRole("button", {
+				name: "Report a problem with this note",
+			}),
+		);
+		const form = await screen.findByRole("dialog", {
+			name: "Report a problem",
+		});
+		expect(
+			within(form).getByText(
+				"About: Explanation: God at work in every circumstance",
+			),
+		).toBeTruthy();
+
+		fireEvent.click(within(form).getByRole("button", { name: "Send report" }));
+		expect(within(form).getByRole("alert").textContent).toBe(
+			"Choose what kind of problem it is.",
+		);
+
+		fireEvent.click(
+			within(form).getByRole("radio", { name: "A source is wrong or missing" }),
+		);
+		fireEvent.change(within(form).getByLabelText("What's wrong?"), {
+			target: { value: "Page 529 says something else." },
+		});
+		fireEvent.click(within(form).getByRole("button", { name: "Send report" }));
+
+		await waitFor(() =>
+			expect(server.reportStudyProblem).toHaveBeenCalledWith({
+				data: {
+					description: "Page 529 says something else.",
+					issueType: "citation_problem",
+					revisionId: 501,
+				},
+			}),
+		);
+		await screen.findByText("Thank you. Your report has gone to our editors.", {
+			selector: "p:not(.sr-only)",
+		});
+	});
+
+	it("shows why a report was refused", async () => {
+		server.reportStudyProblem.mockResolvedValue({
+			message: "You've sent a lot of reports today. Please try again tomorrow.",
+			status: "refused",
+		});
+		renderReader(romans(8));
+		const panel = await openStudy();
+		fireEvent.click(
+			await within(panel).findByRole("button", {
+				name: "Report a problem with this note",
+			}),
+		);
+		const form = await screen.findByRole("dialog", {
+			name: "Report a problem",
+		});
+		fireEvent.click(
+			within(form).getByRole("radio", { name: "Something else" }),
+		);
+		fireEvent.change(within(form).getByLabelText("What's wrong?"), {
+			target: { value: "Odd." },
+		});
+		fireEvent.click(within(form).getByRole("button", { name: "Send report" }));
+		await within(form).findByText(
+			"You've sent a lot of reports today. Please try again tomorrow.",
+		);
+	});
+
+	describe("on a computer", () => {
+		beforeEach(() => {
+			window.matchMedia = ((query: string) => ({
+				addEventListener: () => {},
+				matches: query === "(min-width: 1024px)",
+				removeEventListener: () => {},
+			})) as unknown as typeof window.matchMedia;
+		});
+		afterEach(() => {
+			// @ts-expect-error jsdom has no matchMedia of its own.
+			delete window.matchMedia;
+		});
+
+		it("shows the actions and notes beside the text instead of a sheet", async () => {
+			renderReader(romans(8));
+			fireEvent.click(
+				await screen.findByRole("button", { name: /^28 And we know/ }),
+			);
+			const panel = await screen.findByRole("complementary", {
+				name: "Study Romans 8:28",
+			});
+			expect(screen.queryByRole("dialog")).toBeNull();
+			expect(
+				within(panel).getByRole("button", { name: "Highlight" }),
+			).toBeTruthy();
+			await within(panel).findByText("God at work in every circumstance");
+
+			// More verses can still be tapped while it's open.
+			fireEvent.click(verseButton(/^29 For whom/));
+			await screen.findByRole("complementary", {
+				name: "Study Romans 8:28–29",
+			});
+
+			fireEvent.click(
+				within(screen.getByRole("complementary")).getByRole("button", {
+					name: "Close",
+				}),
+			);
+			expect(screen.queryByRole("complementary")).toBeNull();
+		});
+
+		it("closes with Esc", async () => {
+			renderReader(romans(8));
+			fireEvent.click(
+				await screen.findByRole("button", { name: /^28 And we know/ }),
+			);
+			await screen.findByRole("complementary");
+			fireEvent.keyDown(window, { key: "Escape" });
+			await waitFor(() =>
+				expect(screen.queryByRole("complementary")).toBeNull(),
+			);
+		});
 	});
 });

@@ -239,3 +239,64 @@ export function studyGroupOfKind(kind: string): StudyGroupKey | null {
 		)?.key ?? null
 	);
 }
+
+/*
+ * Plain words for the labels on study notes (HANDOFF §9). Staff choose from the
+ * stored kinds; readers see these.
+ */
+
+export const relatedVerseKindLabels: Record<string, string> = {
+	contrast: "Contrast",
+	illustration: "An example from a story",
+	parallel: "Same thought",
+	same_word: "Same word",
+};
+
+export const testamentLinkKindLabels: Record<string, string> = {
+	allusion: "Hinted at",
+	echo: "Echoed",
+	fulfilment: "Fulfilled",
+	quotation: "Quoted",
+	typology: "A picture of what was to come",
+};
+
+export const variantConfidenceReaderLabels: Record<string, string> = {
+	certain: "We're sure",
+	probable: "Very likely",
+	uncertain: "Not certain",
+};
+
+/** How firmly a source backs what a note says, in a reader's words. */
+export const sourceSupportLabels: Record<string, string> = {
+	background: "Gives background to this statement",
+	direct: "Strongly supports this statement",
+	partial: "Partly supports this statement",
+};
+
+/** Source quotations shown to readers are cut to this many words (HANDOFF §6). */
+export const maxReaderQuoteWords = 75;
+
+/** Cuts text to a number of words, adding "…" if anything was left out. */
+export function limitWords(text: string, maxWords: number) {
+	const words = text.trim().split(/\s+/).filter(Boolean);
+	if (words.length <= maxWords) return words.join(" ");
+	return `${words.slice(0, maxWords).join(" ")}…`;
+}
+
+/**
+ * What a reader can say is wrong with a study note (HANDOFF §5 Screen 3). Each is
+ * stored as one of the Content Issues types staff already work through.
+ */
+export const studyProblemKinds = [
+	{ type: "factual_error", label: "Something in it isn't true" },
+	{ type: "citation_problem", label: "A source is wrong or missing" },
+	{ type: "typo", label: "A spelling or typing mistake" },
+	{
+		type: "interpretation_concern",
+		label: "I'm concerned about how it explains the Bible",
+	},
+	{ type: "broken_reference", label: "A Bible reference or link is wrong" },
+	{ type: "other", label: "Something else" },
+] as const;
+
+export type StudyProblemType = (typeof studyProblemKinds)[number]["type"];

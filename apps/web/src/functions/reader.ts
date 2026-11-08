@@ -4,6 +4,7 @@ import {
 	listCollectionsForPassage as listCollectionsForPassageInDb,
 	removePassageFromCollection as removePassageFromCollectionInDb,
 } from "@berean-study/db/collections";
+import { GovernanceError } from "@berean-study/db/governance-error";
 import {
 	getPassageStart as getPassageStartFromDb,
 	getReaderChapter as getReaderChapterFromDb,
@@ -31,12 +32,17 @@ import {
 	lineLengths,
 	pageColours,
 	readingTextSizes,
+	studyProblemKinds,
 	verseLayouts,
 } from "@berean-study/db/reader-catalogue";
+import {
+	getVerseStudy as getVerseStudyFromDb,
+	reportStudyProblem as reportStudyProblemInDb,
+} from "@berean-study/db/reader-study";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-import { authMiddleware } from "@/middleware/auth";
+import { authMiddleware, requirePermission } from "@/middleware/auth";
 
 function requireUserId(session: { user: { id: string } } | null) {
 	if (!session) throw new Error("Unauthorized");
@@ -321,4 +327,44 @@ export const getVerseWords = createServerFn({ method: "GET" })
 	.handler(({ context, data }) => {
 		requireUserId(context.session);
 		return verseWordsFromDb(db, data);
+	});
+
+/** Live study notes on chosen verses, for the study panel. Null if the book doesn't exist. */
+export const getVerseStudy = createServerFn({ method: "GET" })
+	.middleware([authMiddleware])
+	.validator(chosenVersesSchema)
+	.handler(({ context, data }) => {
+		requireUserId(context.session);
+		return getVerseStudyFromDb(db, data);
+	});
+
+const studyProblemTypes = studyProblemKinds.map(({ type }) => type) as [
+	(typeof studyProblemKinds)[number]["type"],
+	...(typeof studyProblemKinds)[number]["type"][],
+];
+
+/** A member reports a problem with a study note, for staff's Content Issues list. */
+export const reportStudyProblem = createServerFn({ method: "POST" })
+	.middleware([requirePermission("issues.create")])
+	.validator(
+		z.object({
+			description: z.string().trim().min(1).max(2000),
+			issueType: z.enum(studyProblemTypes),
+			revisionId: z.number().int().positive(),
+		}),
+	)
+	.handler(async ({ context, data }) => {
+		try {
+			await reportStudyProblemInDb(db, {
+				...data,
+				actorUserId: context.userId,
+			});
+			return { status: "sent" as const };
+		} catch (error) {
+			// Refusals are written for the reader, so they're shown as they are.
+			if (error instanceof GovernanceError) {
+				return { message: error.message, status: "refused" as const };
+			}
+			throw error;
+		}
 	});

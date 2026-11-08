@@ -20,6 +20,7 @@ import type { listPeople } from "@/functions/people";
 import type {
 	getChapterMarks,
 	getReaderChapter,
+	getVerseStudy,
 	getVerseWords,
 } from "@/functions/reader";
 import type { listReflections } from "@/functions/reflections";
@@ -77,6 +78,7 @@ export type CommunityFeedParams = ServerFnData<typeof getCommunityFeed>;
 export type ReaderChapterInput = ServerFnData<typeof getReaderChapter>;
 export type ChapterMarksInput = ServerFnData<typeof getChapterMarks>;
 export type VerseWordsInput = ServerFnData<typeof getVerseWords>;
+export type VerseStudyInput = ServerFnData<typeof getVerseStudy>;
 
 export const noteKeys = {
 	all: ["notes"] as const,
@@ -336,4 +338,6 @@ export const readerKeys = {
 	recentChapters: () => [...readerKeys.all, "recent-chapters"] as const,
 	verseWords: (input: VerseWordsInput) =>
 		[...readerKeys.all, "verse-words", input] as const,
+	study: (input: VerseStudyInput) =>
+		[...readerKeys.all, "study", input] as const,
 };

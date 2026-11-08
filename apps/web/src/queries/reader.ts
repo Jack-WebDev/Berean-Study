@@ -5,6 +5,7 @@ import {
 	getReaderChapter,
 	getReadingPlace,
 	getReadingPreferences,
+	getVerseStudy,
 	getVerseWords,
 	listAvailableChapters,
 	listCanonBooks,
@@ -17,6 +18,7 @@ import {
 	libraryKeys,
 	type ReaderChapterInput,
 	readerKeys,
+	type VerseStudyInput,
 	type VerseWordsInput,
 } from "./keys";
 
@@ -65,6 +67,14 @@ export const verseWordsQueryOptions = (input: VerseWordsInput) =>
 	queryOptions({
 		queryKey: readerKeys.verseWords(input),
 		queryFn: () => getVerseWords({ data: input }),
+		staleTime: scriptureStaleTime,
+	});
+
+/** Study notes change only when staff publish, so they're kept like Scripture. */
+export const verseStudyQueryOptions = (input: VerseStudyInput) =>
+	queryOptions({
+		queryKey: readerKeys.study(input),
+		queryFn: () => getVerseStudy({ data: input }),
 		staleTime: scriptureStaleTime,
 	});
 

@@ -67,8 +67,9 @@ function ReaderRoute() {
 			arrivedFromSearch={from === "search"}
 			bookSlug={book}
 			chapter={chapter}
-			// A new chapter starts fresh: no leftover selection or open sheet.
-			key={`${book}/${chapter}/${translation ?? ""}`}
+			// A new chapter starts fresh: no leftover selection or open sheet. So does
+			// a link to another verse in the same chapter, so the page moves to it.
+			key={`${book}/${chapter}/${translation ?? ""}/${verse ?? ""}/${from ?? ""}`}
 			translationAbbreviation={translation}
 			verse={verse}
 		/>
