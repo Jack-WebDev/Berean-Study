@@ -1179,3 +1179,50 @@ export async function getPassageStart(client: DbExecutor, passageId: number) {
 		.limit(1);
 	return row ?? null;
 }
+
+/**
+ * The words of chosen verses and their reference, such as "Romans 8:28 (KJV)",
+ * read from published text. Used to show and share verses exactly as published.
+ */
+export async function verseWords(
+	client: DbExecutor,
+	input: {
+		bookSlug: string;
+		chapter: number;
+		translationAbbreviation: string;
+		verses: readonly number[];
+	},
+) {
+	const { book, chosen, translation } = await chosenVerses(client, input);
+	const ordered = [...chosen].sort((a, b) => a.number - b.number);
+	const text = ordered
+		.map((row) => {
+			const words = row.text.replace(/\s*\n\s*/g, " ");
+			return ordered.length > 1 ? `${row.number} ${words}` : words;
+		})
+		.join(" ");
+	const label = selectionLabel(
+		book.name,
+		input.chapter,
+		ordered.map((row) => row.number),
+	);
+	return { reference: `${label} (${translation.abbreviation})`, text };
+}
+
+/**
+ * The words of chosen verses for sharing with Community, read from published
+ * text rather than taken from the browser, so a shared verse can't be altered,
+ * plus the stored passages to link the post to.
+ */
+export async function versesForSharing(
+	client: DbExecutor,
+	input: Parameters<typeof verseWords>[1],
+) {
+	const { reference, text } = await verseWords(client, input);
+	const { passages: found } = await passagesForVerses(client, input);
+	return {
+		passageIds: found.map((passage) => passage.passageId),
+		reference,
+		text,
+	};
+}

@@ -1,7 +1,8 @@
 import { and, eq } from "drizzle-orm";
 import { afterAll, describe, expect, it } from "vitest";
 
-import { pool } from "../src";
+import { type db, pool } from "../src";
+import { listCommunityFeed, publishVersePost } from "../src/community";
 import type { DbExecutor } from "../src/db-executor";
 import {
 	getPassageStart,
@@ -27,12 +28,15 @@ import {
 import { bookmarks } from "../src/schema/bookmarks";
 import { books } from "../src/schema/books";
 import { chapters } from "../src/schema/chapters";
+import { communityPostPassages } from "../src/schema/community_post_passages";
+import { communityPosts } from "../src/schema/community_posts";
 import { contentItems } from "../src/schema/content_items";
 import { contentPassages } from "../src/schema/content_passages";
 import { contentRevisions } from "../src/schema/content_revisions";
 import { highlights } from "../src/schema/highlights";
 import { notePassages } from "../src/schema/note_passages";
 import { notes } from "../src/schema/notes";
+import { postingRestrictions } from "../src/schema/posting_restrictions";
 import { readingHistory } from "../src/schema/reading_history";
 import { translations } from "../src/schema/translations";
 import { versePresence } from "../src/schema/verse_presence";
@@ -665,6 +669,101 @@ describe("place and history", () => {
 			expect(
 				(await listRecentChapters(tx, userId)).map((recent) => recent.label),
 			).toEqual(["Romans 8", "John 3", "Psalm 23"]);
+		});
+	});
+});
+
+describe("sharing verses with Community", () => {
+	// The feed reads with the app's database type; inside a test it's the transaction.
+	const asDb = (tx: DbExecutor) => tx as unknown as typeof db;
+
+	it("posts the published words, the reference and an optional thought", async () => {
+		await inReader(async (tx, userId) => {
+			await publish(tx, "romans", 8, romans8);
+
+			const result = await publishVersePost(tx, userId, {
+				...chosen([28, 29]),
+				thought: "  This got me through a hard week.  ",
+			});
+			if (!("id" in result)) throw new Error("Not published");
+
+			const [post] = await tx
+				.select({
+					snapshot: communityPosts.snapshot,
+					type: communityPosts.postType,
+				})
+				.from(communityPosts)
+				.where(eq(communityPosts.id, result.id));
+			expect(post).toEqual({
+				snapshot: {
+					excerpt: "This got me through a hard week.",
+					title: "Romans 8:28–29 (KJV)",
+					verseText: `28 ${romans8[28]} 29 ${romans8[29]}`,
+				},
+				type: "verse",
+			});
+			const linked = await tx
+				.select({ id: communityPostPassages.passageId })
+				.from(communityPostPassages)
+				.where(eq(communityPostPassages.communityPostId, result.id));
+			expect(linked).toHaveLength(1);
+
+			const feed = await listCommunityFeed(asDb(tx), userId, {
+				page: 1,
+				pageSize: 50,
+				view: "verse",
+			});
+			expect(feed.posts.find((item) => item.id === result.id)).toMatchObject({
+				excerpt: "This got me through a hard week.",
+				title: "Romans 8:28–29 (KJV)",
+				type: "verse",
+				verseText: `28 ${romans8[28]} 29 ${romans8[29]}`,
+			});
+		});
+	});
+
+	it("lets the thought be left out", async () => {
+		await inReader(async (tx, userId) => {
+			await publish(tx, "romans", 8, romans8);
+			const result = await publishVersePost(tx, userId, {
+				...chosen([31]),
+				thought: "",
+			});
+			if (!("id" in result)) throw new Error("Not published");
+
+			const feed = await listCommunityFeed(asDb(tx), userId, {
+				page: 1,
+				pageSize: 50,
+				view: "recent",
+			});
+			expect(feed.posts.find((item) => item.id === result.id)?.excerpt).toBe(
+				"",
+			);
+		});
+	});
+
+	it("refuses a member whose posting is restricted", async () => {
+		await inReader(async (tx, userId) => {
+			await publish(tx, "romans", 8, romans8);
+			const moderator = await createAccount(tx);
+			await tx.insert(postingRestrictions).values({
+				endsAt: new Date(Date.now() + 86_400_000),
+				restrictedByUserId: moderator.id,
+				userId,
+			});
+
+			expect(
+				await publishVersePost(tx, userId, { ...chosen([28]), thought: "" }),
+			).toMatchObject({ refused: "restricted" });
+		});
+	});
+
+	it("won't share verses that aren't published", async () => {
+		await inReader(async (tx, userId) => {
+			await publish(tx, "romans", 8, romans8);
+			await expect(
+				publishVersePost(tx, userId, { ...chosen([32]), thought: "" }),
+			).rejects.toThrow("One of these verses isn't available.");
 		});
 	});
 });

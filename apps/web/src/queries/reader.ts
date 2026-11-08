@@ -5,6 +5,7 @@ import {
 	getReaderChapter,
 	getReadingPlace,
 	getReadingPreferences,
+	getVerseWords,
 	listAvailableChapters,
 	listCanonBooks,
 	listReaderTranslations,
@@ -16,6 +17,7 @@ import {
 	libraryKeys,
 	type ReaderChapterInput,
 	readerKeys,
+	type VerseWordsInput,
 } from "./keys";
 
 // Published text only changes when staff publish a chapter, which is rare.
@@ -57,6 +59,13 @@ export const chapterMarksQueryOptions = (input: ChapterMarksInput) =>
 	queryOptions({
 		queryKey: readerKeys.marks(input),
 		queryFn: () => getChapterMarks({ data: input }),
+	});
+
+export const verseWordsQueryOptions = (input: VerseWordsInput) =>
+	queryOptions({
+		queryKey: readerKeys.verseWords(input),
+		queryFn: () => getVerseWords({ data: input }),
+		staleTime: scriptureStaleTime,
 	});
 
 export const readingPreferencesQueryOptions = () =>

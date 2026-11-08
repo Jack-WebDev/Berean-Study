@@ -11,6 +11,7 @@ const communityFilters = [
 	{ label: "Notes", value: "note" },
 	{ label: "Testimonies", value: "testimony" },
 	{ label: "Prayers", value: "prayer" },
+	{ label: "Verses", value: "verse" },
 ] as const satisfies ReadonlyArray<{ label: string; value: CommunityFeedView }>;
 
 export type CommunityFilter = CommunityFeedView;

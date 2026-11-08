@@ -47,7 +47,12 @@ function readSnapshot(snapshot: Record<string, unknown>) {
 	const text = (value: unknown) =>
 		typeof value === "string" && value.trim() ? value.trim() : null;
 	return {
-		excerpt: text(snapshot.excerpt) ?? text(snapshot.description) ?? "",
+		// A shared verse may have no thought of its own; moderators see the verse.
+		excerpt:
+			text(snapshot.excerpt) ??
+			text(snapshot.description) ??
+			text(snapshot.verseText) ??
+			"",
 		title: text(snapshot.title) ?? "Untitled post",
 	};
 }

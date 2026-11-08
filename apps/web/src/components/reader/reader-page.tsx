@@ -2,6 +2,7 @@ import type { ReaderChapter, ReadingPlace } from "@berean-study/db/reader";
 import {
 	chapterLabel,
 	type ReadingPreferences,
+	selectionLabel,
 } from "@berean-study/db/reader-catalogue";
 import { cn } from "@berean-study/ui/lib/utils";
 import { useQuery } from "@tanstack/react-query";
@@ -29,6 +30,7 @@ import { ReaderSkeleton } from "@/components/reader-ui/reader-skeleton";
 import {
 	ReaderToastProvider,
 	ReaderToastRegion,
+	useReaderToast,
 } from "@/components/reader-ui/reader-toast";
 import {
 	EmptyState,
@@ -45,12 +47,16 @@ import {
 } from "@/queries/reader";
 
 import { ChapterSheet } from "./chapter-sheet";
+import { CollectionSheet } from "./collection-sheet";
+import { NoteSheet } from "./note-sheet";
 import { OptionsSheet } from "./options-sheet";
 import { useChangeReadingPreferences } from "./reading-preferences";
 import { TextSizeSheet } from "./text-size-sheet";
 import { TranslationSheet } from "./translation-sheet";
 import { useReadingPlace } from "./use-reading-place";
+import { type ChosenVerses, useVerseActions } from "./use-verse-actions";
 import { VerseList } from "./verse-list";
+import { VerseSheet } from "./verse-sheet";
 
 /*
  * The reading page (HANDOFF Screens 1–3). It opens as just Scripture: the tools
@@ -146,7 +152,17 @@ function ReaderMessage({ children }: { children: ReactNode }) {
 	);
 }
 
-type Sheet = "chapters" | "options" | "size" | "translation";
+type Sheet =
+	| "chapters"
+	| "collection"
+	| "note"
+	| "options"
+	| "size"
+	| "translation"
+	| "verse";
+
+/** Sheets for the reader's tools. Opening one sets aside any chosen verses. */
+type ToolSheet = "chapters" | "options" | "size" | "translation";
 
 const lineLengthClasses = {
 	default: "md:max-w-[680px]",
@@ -302,19 +318,63 @@ function ReaderView({
 		setTarget(null);
 		setNotice(null);
 	};
-	const openSheet = (next: Sheet) => {
+	const openSheet = (next: ToolSheet) => {
 		settle();
+		setSelected(new Set());
 		setSheet(next);
 	};
+	/** Tapping verses adds or removes them; the verse sheet shows while any are chosen. */
 	const toggleVerse = (number: number) => {
 		settle();
-		setSelected((current) => {
-			const next = new Set(current);
-			if (next.has(number)) next.delete(number);
-			else next.add(number);
-			return next;
-		});
+		const next = new Set(selected);
+		if (next.has(number)) next.delete(number);
+		else next.add(number);
+		setSelected(next);
+		setSheet(next.size > 0 ? "verse" : null);
 	};
+	const clearSelection = () => {
+		setSelected(new Set());
+		setSheet(null);
+	};
+
+	const verseActions = useVerseActions();
+	const toast = useReaderToast();
+	const chosenVerses = [...selected].sort((a, b) => a - b);
+	const reference =
+		chosenVerses.length > 0
+			? selectionLabel(chapter.book.name, chapter.chapter, chosenVerses)
+			: "";
+	const verseTexts = useMemo(
+		() =>
+			new Map(
+				chapter.status === "available"
+					? chapter.verses.map((item) => [item.number, item.text])
+					: [],
+			),
+		[chapter],
+	);
+	const chosen = (): ChosenVerses => ({
+		bookName: chapter.book.name,
+		bookSlug,
+		chapter: chapter.chapter,
+		translationAbbreviation: chapter.translation.abbreviation,
+		verseTexts,
+		verses: chosenVerses,
+	});
+	const allHighlighted =
+		chosenVerses.length > 0 &&
+		chosenVerses.every((number) => verseMarks.highlighted.has(number));
+	const studyGroupCount =
+		marks.data?.study.find((marker) => marker.verse === chosenVerses[0])?.groups
+			.length ?? null;
+
+	const lightSheetOpen = sheet === "size" || sheet === "verse";
+	// A message about the last action would sit on top of a full-height sheet,
+	// such as over the note box, so it goes when one opens.
+	const { dismiss: dismissToast } = toast;
+	useEffect(() => {
+		if (sheet && sheet !== "size" && sheet !== "verse") dismissToast();
+	}, [dismissToast, sheet]);
 
 	const { book, translation } = chapter;
 	const previousLabel = chapter.previous
@@ -323,7 +383,14 @@ function ReaderView({
 	const nextLabel = chapter.next ? chapterLabel(book.name, chapter.next) : null;
 
 	return (
-		<div className="pb-24 md:pb-0" ref={pageRef}>
+		<div
+			className={cn(
+				"pb-24 md:pb-0",
+				// Room to scroll the last verses above a sheet that leaves the page in view.
+				lightSheetOpen && "pb-[340px] md:pb-[340px]",
+			)}
+			ref={pageRef}
+		>
 			{/* On short screens, such as at 200% zoom, the header scrolls away so the
 			    text has room. Previous and Next stay at the bottom either way. */}
 			<header
@@ -579,7 +646,70 @@ function ReaderView({
 				</div>
 			</nav>
 
-			<ReaderToastRegion bottom={sheet === "size" ? 330 : 140} />
+			{/* Sits above the light sheets, which leave the page in view. */}
+			<ReaderToastRegion bottom={lightSheetOpen ? 340 : 140} />
+
+			<VerseSheet
+				actions={{
+					onAddNote: () => setSheet("note"),
+					onAddToCollection: () => setSheet("collection"),
+					onCopy: () => {
+						verseActions.copy(chosen());
+						clearSelection();
+					},
+					onHighlight: () => {
+						verseActions.highlight(chosen(), !allHighlighted);
+						clearSelection();
+					},
+					onSave: () => {
+						verseActions.save(chosen());
+						clearSelection();
+					},
+					onShare: () =>
+						void navigate({
+							search: {
+								book: bookSlug,
+								chapter: chapter.chapter,
+								translation: translation.abbreviation,
+								type: "verse",
+								verses: chosenVerses.join(","),
+							},
+							to: "/community/share",
+						}),
+				}}
+				allHighlighted={allHighlighted}
+				onOpenChange={(open) => {
+					if (!open) clearSelection();
+				}}
+				open={sheet === "verse"}
+				reference={reference}
+				studyGroupCount={studyGroupCount}
+			/>
+			<NoteSheet
+				chosen={{
+					bookSlug,
+					chapter: chapter.chapter,
+					translationAbbreviation: translation.abbreviation,
+					verses: chosenVerses,
+				}}
+				onDone={(kept) => {
+					if (kept) toast.show(`Note saved on ${reference}`);
+					clearSelection();
+				}}
+				onOpenChange={(open) => setSheet(open ? "note" : "verse")}
+				open={sheet === "note"}
+				reference={reference}
+			/>
+			<CollectionSheet
+				onChoose={(collection) => {
+					verseActions.addToCollection(chosen(), collection);
+					clearSelection();
+				}}
+				// Closing without choosing goes back to the verse actions.
+				onOpenChange={(open) => setSheet(open ? "collection" : "verse")}
+				open={sheet === "collection"}
+				reference={reference}
+			/>
 
 			<TextSizeSheet
 				onOpenChange={(open) => setSheet(open ? "size" : null)}

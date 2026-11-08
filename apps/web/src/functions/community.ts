@@ -5,6 +5,7 @@ import {
 	listCommunityPublishingResources as listCommunityPublishingResourcesFromDb,
 	listSavedCommunityPosts as listSavedCommunityPostsFromDb,
 	publishCommunityPost as publishCommunityPostInDb,
+	publishVersePost as publishVersePostInDb,
 	setCommunityPostBookmark as setCommunityPostBookmarkInDb,
 } from "@berean-study/db/community";
 import {
@@ -107,4 +108,27 @@ export const reportCommunityPost = createServerFn({ method: "POST" })
 	)
 	.handler(({ context, data }) =>
 		reportCommunityPostInDb(db, { ...data, reporterUserId: context.userId }),
+	);
+
+/**
+ * Shares Bible verses with Community, with an optional thought. The words are
+ * looked up from published text on the server, never taken from the browser.
+ */
+export const publishVersePost = createServerFn({ method: "POST" })
+	.middleware([requirePermission("community.post")])
+	.validator(
+		z.object({
+			bookSlug: z
+				.string()
+				.trim()
+				.regex(/^[a-z0-9-]+$/)
+				.max(60),
+			chapter: z.number().int().positive().max(200),
+			thought: z.string().max(500),
+			translationAbbreviation: z.string().trim().min(1).max(20),
+			verses: z.array(z.number().int().positive().max(200)).min(1).max(200),
+		}),
+	)
+	.handler(({ context, data }) =>
+		publishVersePostInDb(db, context.userId, data),
 	);

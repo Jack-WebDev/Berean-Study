@@ -85,7 +85,8 @@ export const communityPosts = pgTable(
 				'collection',
 				'note',
 				'testimony',
-				'prayer'
+				'prayer',
+				'verse'
 			)`,
 		),
 

@@ -52,6 +52,7 @@ const communityBookmarkTypes = {
 	note: { icon: FileTextIcon, tone: "blue" },
 	prayer: { icon: HandHeartIcon, tone: "purple" },
 	testimony: { icon: UsersRoundIcon, tone: "green" },
+	verse: { icon: BookOpenIcon, tone: "gold" },
 } as const satisfies Record<
 	CommunityPostType,
 	{ icon: typeof BookOpenIcon; tone: BadgeTone }

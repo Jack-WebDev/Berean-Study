@@ -17,7 +17,11 @@ import type { countNoteViews, listNotes } from "@/functions/notes";
 import type { getNotificationPage } from "@/functions/notifications";
 import type { getVerseRangeText } from "@/functions/passages";
 import type { listPeople } from "@/functions/people";
-import type { getChapterMarks, getReaderChapter } from "@/functions/reader";
+import type {
+	getChapterMarks,
+	getReaderChapter,
+	getVerseWords,
+} from "@/functions/reader";
 import type { listReflections } from "@/functions/reflections";
 import type { getBookStructure } from "@/functions/scripture-data";
 import type { getVerseHandling } from "@/functions/structure";
@@ -72,6 +76,7 @@ export type NotificationPageParams = ServerFnData<typeof getNotificationPage>;
 export type CommunityFeedParams = ServerFnData<typeof getCommunityFeed>;
 export type ReaderChapterInput = ServerFnData<typeof getReaderChapter>;
 export type ChapterMarksInput = ServerFnData<typeof getChapterMarks>;
+export type VerseWordsInput = ServerFnData<typeof getVerseWords>;
 
 export const noteKeys = {
 	all: ["notes"] as const,
@@ -329,4 +334,6 @@ export const readerKeys = {
 	preferences: () => [...readerKeys.all, "preferences"] as const,
 	place: () => [...readerKeys.all, "place"] as const,
 	recentChapters: () => [...readerKeys.all, "recent-chapters"] as const,
+	verseWords: (input: VerseWordsInput) =>
+		[...readerKeys.all, "verse-words", input] as const,
 };

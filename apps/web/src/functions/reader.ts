@@ -1,5 +1,10 @@
 import { db } from "@berean-study/db";
 import {
+	addPassageToCollection as addPassageToCollectionInDb,
+	listCollectionsForPassage as listCollectionsForPassageInDb,
+	removePassageFromCollection as removePassageFromCollectionInDb,
+} from "@berean-study/db/collections";
+import {
 	getPassageStart as getPassageStartFromDb,
 	getReaderChapter as getReaderChapterFromDb,
 	getReadingPlace as getReadingPlaceFromDb,
@@ -19,6 +24,7 @@ import {
 	setVersesHighlighted as setVersesHighlightedInDb,
 	undoHighlightChange as undoHighlightChangeInDb,
 	unsaveVerses as unsaveVersesInDb,
+	verseWords as verseWordsFromDb,
 } from "@berean-study/db/reader";
 import {
 	browseTestaments,
@@ -248,4 +254,71 @@ export const getPassageStart = createServerFn({ method: "GET" })
 	.handler(({ context, data }) => {
 		requireUserId(context.session);
 		return getPassageStartFromDb(db, data.passageId);
+	});
+
+/**
+ * Adds chosen verses to one of the member's collections. Verses already in it are
+ * left alone, and only what this added is returned, so Undo removes exactly that.
+ */
+export const addVersesToCollection = createServerFn({ method: "POST" })
+	.middleware([authMiddleware])
+	.validator(
+		chosenVersesSchema.extend({ collectionId: z.number().int().positive() }),
+	)
+	.handler(async ({ context, data }) => {
+		const userId = requireUserId(context.session);
+		const { collectionId, ...verses } = data;
+		const { label, passages } = await passagesForVersesInDb(db, verses);
+		const addedPassageIds: number[] = [];
+		let collectionName = "";
+		for (const { passageId } of passages) {
+			const collections = await listCollectionsForPassageInDb(
+				db,
+				userId,
+				passageId,
+			);
+			const collection = collections.find((item) => item.id === collectionId);
+			if (!collection) throw new Error("This collection no longer exists.");
+			collectionName = collection.name;
+			if (collection.isSelected) continue;
+			await addPassageToCollectionInDb(
+				db,
+				userId,
+				collectionId,
+				passageId,
+				null,
+			);
+			addedPassageIds.push(passageId);
+		}
+		return { addedPassageIds, collectionName, label };
+	});
+
+/** Undo for adding verses to a collection. */
+export const removeVersesFromCollection = createServerFn({ method: "POST" })
+	.middleware([authMiddleware])
+	.validator(
+		z.object({
+			collectionId: z.number().int().positive(),
+			passageIds: idListSchema,
+		}),
+	)
+	.handler(async ({ context, data }) => {
+		const userId = requireUserId(context.session);
+		for (const passageId of data.passageIds) {
+			await removePassageFromCollectionInDb(
+				db,
+				userId,
+				data.collectionId,
+				passageId,
+			);
+		}
+	});
+
+/** The published words of chosen verses, for showing before they're shared. */
+export const getVerseWords = createServerFn({ method: "GET" })
+	.middleware([authMiddleware])
+	.validator(chosenVersesSchema)
+	.handler(({ context, data }) => {
+		requireUserId(context.session);
+		return verseWordsFromDb(db, data);
 	});

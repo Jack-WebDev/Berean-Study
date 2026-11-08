@@ -12,7 +12,9 @@ import {
 } from "drizzle-orm";
 
 import { getPostingRestrictionEnd } from "./community-moderation";
+import type { DbExecutor } from "./db-executor";
 import type { db } from "./index";
+import { versesForSharing } from "./reader";
 import { parseStoredRichText } from "./rich-text-storage";
 import { user } from "./schema/auth";
 import { collectionPassages } from "./schema/collection_passages";
@@ -30,7 +32,16 @@ import { testimonyPassages } from "./schema/testimony_passages";
 type DbClient = typeof db;
 type DbQueryClient = Pick<DbClient, "select">;
 
-export type CommunityPostType = "collection" | "note" | "testimony" | "prayer";
+export type CommunityPostType =
+	| "collection"
+	| "note"
+	| "testimony"
+	| "prayer"
+	/** Bible verses shared straight from the reader, with an optional thought. */
+	| "verse";
+
+/** Posts that come from something in the member's own library. */
+type LibraryPostType = Exclude<CommunityPostType, "verse">;
 
 export type CommunityPostSnapshot = {
 	excerpt: string;
@@ -40,7 +51,7 @@ export type CommunityPostSnapshot = {
 export type CommunityPublicationInput = {
 	snapshot?: CommunityPostSnapshot;
 	sourceId: number;
-	type: CommunityPostType;
+	type: LibraryPostType;
 };
 
 export type CommunityPublishingResource = {
@@ -50,7 +61,7 @@ export type CommunityPublishingResource = {
 	/** A moderator removed this item's post, so it can't be shared again. */
 	isRemoved: boolean;
 	title: string;
-	type: CommunityPostType;
+	type: LibraryPostType;
 };
 
 /** Lists only the current member's private resources that can be published. */
@@ -126,7 +137,7 @@ export async function listCommunityPublishingResources(
 	const removed = sourceIdsOf(publishedRows.filter((row) => row.removedAt));
 	const toResource = (
 		row: { id: number; title: string },
-		type: CommunityPostType,
+		type: LibraryPostType,
 		content: string,
 	) => ({
 		excerpt: createExcerpt(content),
@@ -228,6 +239,53 @@ export async function publishCommunityPost(
 	});
 }
 
+/**
+ * Shares Bible verses with Community, straight from the reader, with an optional
+ * thought in the member's own words. The verse words are looked up from published
+ * text, never taken from the browser. Posting restrictions apply as for any post.
+ */
+export async function publishVersePost(
+	client: DbExecutor,
+	userId: string,
+	input: {
+		bookSlug: string;
+		chapter: number;
+		thought: string;
+		translationAbbreviation: string;
+		verses: readonly number[];
+	},
+): Promise<CommunityPublicationResult> {
+	return client.transaction(async (tx) => {
+		const restrictedUntil = await getPostingRestrictionEnd(tx, userId);
+		if (restrictedUntil) return { refused: "restricted", restrictedUntil };
+
+		const { passageIds, reference, text } = await versesForSharing(tx, input);
+		const [post] = await tx
+			.insert(communityPosts)
+			.values({
+				authorUserId: userId,
+				postType: "verse",
+				snapshot: {
+					excerpt: input.thought.trim(),
+					title: reference,
+					verseText: text,
+				},
+			})
+			.returning({ id: communityPosts.id });
+		if (!post) throw new Error("Unable to publish Community post.");
+		await tx
+			.insert(communityPostPassages)
+			.values(
+				passageIds.map((passageId) => ({
+					communityPostId: post.id,
+					passageId,
+				})),
+			)
+			.onConflictDoNothing();
+		return { alreadyPublished: false, id: post.id };
+	});
+}
+
 export type CommunityFeedPost = {
 	author: {
 		id: string;
@@ -244,6 +302,8 @@ export type CommunityFeedPost = {
 	publishedAt: Date;
 	title: string;
 	type: CommunityPostType;
+	/** The Bible words of a shared verse. Null for every other kind of post. */
+	verseText: string | null;
 };
 
 export const communityFeedViews = [
@@ -253,6 +313,7 @@ export const communityFeedViews = [
 	"note",
 	"testimony",
 	"prayer",
+	"verse",
 ] as const;
 
 export type CommunityFeedView = (typeof communityFeedViews)[number];
@@ -358,7 +419,10 @@ export async function listCommunityFeed(
 				name: row.authorName,
 			},
 			coverImage: snapshot.coverImage,
-			excerpt: snapshot.excerpt ?? `Shared a ${type} with the Community.`,
+			// A shared verse speaks for itself, so its thought can be left empty.
+			excerpt:
+				snapshot.excerpt ??
+				(type === "verse" ? "" : `Shared a ${type} with the Community.`),
 			id: row.id,
 			isBookmarked: row.bookmarkPostId !== null,
 			isOwn: row.authorId === viewerUserId,
@@ -366,6 +430,7 @@ export async function listCommunityFeed(
 			publishedAt: row.publishedAt,
 			title: snapshot.title ?? `Untitled ${type}`,
 			type,
+			verseText: snapshot.verseText,
 		};
 	});
 	const featuredPost =
@@ -475,7 +540,7 @@ export async function listSavedCommunityPosts(
 async function getPublishingSource(
 	db: DbQueryClient,
 	userId: string,
-	type: CommunityPostType,
+	type: LibraryPostType,
 	sourceId: number,
 ) {
 	switch (type) {
@@ -567,7 +632,7 @@ function isFromSource(type: CommunityPostType, sourceId: number) {
 async function findPublishedPost(
 	db: DbQueryClient,
 	userId: string,
-	type: CommunityPostType,
+	type: LibraryPostType,
 	sourceId: number,
 ) {
 	const [post] = await db
@@ -587,7 +652,7 @@ async function findPublishedPost(
 /** A removed post stays on record and can be restored, so its source can't be shared again. */
 async function wasRemoved(
 	db: DbQueryClient,
-	type: CommunityPostType,
+	type: LibraryPostType,
 	sourceId: number,
 ) {
 	const [post] = await db
@@ -626,7 +691,8 @@ function asCommunityPostType(value: string): CommunityPostType | null {
 	return value === "collection" ||
 		value === "note" ||
 		value === "testimony" ||
-		value === "prayer"
+		value === "prayer" ||
+		value === "verse"
 		? value
 		: null;
 }
@@ -638,6 +704,7 @@ function readSnapshot(snapshot: Record<string, unknown>) {
 			readSnapshotText(snapshot.excerpt) ??
 			readSnapshotText(snapshot.description),
 		title: readSnapshotText(snapshot.title),
+		verseText: readSnapshotText(snapshot.verseText),
 	};
 }
 

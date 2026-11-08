@@ -29,9 +29,19 @@ const communitySearchSchema = z
 	.object({
 		page: z.coerce.number().int().positive().default(1),
 		pageSize: z.coerce.number().int().min(1).max(50).default(12),
-		type: z.enum(["collection", "note", "testimony", "prayer"]).optional(),
+		type: z
+			.enum(["collection", "note", "testimony", "prayer", "verse"])
+			.optional(),
 		view: z
-			.enum(["featured", "recent", "collection", "note", "testimony", "prayer"])
+			.enum([
+				"featured",
+				"recent",
+				"collection",
+				"note",
+				"testimony",
+				"prayer",
+				"verse",
+			])
 			.optional(),
 	})
 	.transform(({ type, view, ...selection }) => ({
@@ -130,5 +140,6 @@ function toCardData(post: CommunityFeedPost): CommunityPostCardData {
 		publishedAt: post.publishedAt,
 		title: post.title,
 		type: post.type,
+		verseText: post.verseText,
 	};
 }

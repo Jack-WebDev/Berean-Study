@@ -24,18 +24,35 @@ import {
 } from "vitest";
 
 const server = vi.hoisted(() => ({
+	addVersesToCollection: vi.fn(),
 	getChapterMarks: vi.fn(),
 	getReaderChapter: vi.fn(),
 	getReadingPlace: vi.fn(),
 	getReadingPreferences: vi.fn(),
 	listReaderTranslations: vi.fn(),
 	listRecentChapters: vi.fn(),
+	passagesForVerses: vi.fn(),
 	recordChapterVisit: vi.fn(),
+	removeVersesFromCollection: vi.fn(),
 	saveReadingPlace: vi.fn(),
 	saveReadingPreferences: vi.fn(),
+	saveVerses: vi.fn(),
+	setVersesHighlighted: vi.fn(),
+	undoHighlightChange: vi.fn(),
+	unsaveVerses: vi.fn(),
+}));
+const navigate = vi.hoisted(() => vi.fn());
+const notesServer = vi.hoisted(() => ({
+	deleteNote: vi.fn(),
+	saveNote: vi.fn(),
+}));
+const collectionsServer = vi.hoisted(() => ({
+	listCollectionsForNotes: vi.fn(),
 }));
 
 vi.mock("@/functions/reader", () => server);
+vi.mock("@/functions/notes", () => notesServer);
+vi.mock("@/functions/collections", () => collectionsServer);
 
 vi.mock("@tanstack/react-router", () => ({
 	Link: ({
@@ -63,7 +80,7 @@ vi.mock("@tanstack/react-router", () => ({
 			{children}
 		</a>
 	),
-	useNavigate: () => vi.fn(),
+	useNavigate: () => navigate,
 }));
 
 import { ReaderPage } from "../src/components/reader/reader-page";
@@ -418,5 +435,282 @@ describe("reading page", () => {
 				.getByRole("link", { name: "Romans 8" })
 				.getAttribute("aria-current"),
 		).toBe("page");
+	});
+});
+
+describe("tapping verses", () => {
+	const clipboard = { writeText: vi.fn() };
+
+	beforeEach(() => {
+		Object.defineProperty(navigator, "clipboard", {
+			configurable: true,
+			value: clipboard,
+		});
+		clipboard.writeText.mockResolvedValue(undefined);
+		server.setVersesHighlighted.mockResolvedValue({
+			label: "Romans 8:28",
+			undo: { remove: [41] },
+		});
+		server.undoHighlightChange.mockResolvedValue(undefined);
+		server.saveVerses.mockResolvedValue({
+			addedPassageIds: [7],
+			label: "Romans 8:28",
+		});
+		server.unsaveVerses.mockResolvedValue(undefined);
+		server.passagesForVerses.mockResolvedValue({
+			label: "Romans 8:28",
+			passages: [{ label: "Romans 8:28", passageId: 7 }],
+		});
+		server.addVersesToCollection.mockResolvedValue({
+			addedPassageIds: [7],
+			collectionName: "Favourites",
+			label: "Romans 8:28",
+		});
+		server.removeVersesFromCollection.mockResolvedValue(undefined);
+		collectionsServer.listCollectionsForNotes.mockResolvedValue([
+			{ id: 3, name: "Favourites" },
+			{ id: 4, name: "Hope" },
+		]);
+		notesServer.saveNote.mockResolvedValue({ id: 99 });
+	});
+
+	async function choose(...verses: RegExp[]) {
+		for (const verse of verses) {
+			fireEvent.click(await screen.findByRole("button", { name: verse }));
+		}
+		return screen.findByRole("dialog");
+	}
+
+	it("opens the verse sheet, adds more verses as they're tapped, and closes when none are left", async () => {
+		renderReader(romans(8));
+
+		let sheet = await choose(/^28 And we know/);
+		expect(within(sheet).getByText("Romans 8:28")).toBeTruthy();
+		expect(
+			within(sheet).getByText("Tap other verses to add them."),
+		).toBeTruthy();
+
+		sheet = await choose(/^30 Moreover/, /^29 For whom/);
+		expect(within(sheet).getByText("Romans 8:28–30")).toBeTruthy();
+
+		fireEvent.click(verseButton(/^28 And we know/));
+		fireEvent.click(verseButton(/^29 For whom/));
+		fireEvent.click(verseButton(/^30 Moreover/));
+		await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+	});
+
+	it("clears the chosen verses with Done", async () => {
+		renderReader(romans(8));
+		const sheet = await choose(/^28 And we know/);
+
+		fireEvent.click(within(sheet).getByRole("button", { name: "Done" }));
+		await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+		expect(verseButton(/^28 And we know/).getAttribute("aria-pressed")).toBe(
+			"false",
+		);
+	});
+
+	it("highlights at once, and Undo takes it away", async () => {
+		renderReader(romans(8));
+		const sheet = await choose(/^28 And we know/);
+		fireEvent.click(within(sheet).getByRole("button", { name: "Highlight" }));
+
+		await waitFor(() =>
+			expect(server.setVersesHighlighted).toHaveBeenCalledWith({
+				data: {
+					bookSlug: "romans",
+					chapter: 8,
+					highlighted: true,
+					translationAbbreviation: "KJV",
+					verses: [28],
+				},
+			}),
+		);
+		await screen.findByText("Highlighted Romans 8:28");
+		fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+		await waitFor(() =>
+			expect(server.undoHighlightChange).toHaveBeenCalledWith({
+				data: { remove: [41] },
+			}),
+		);
+	});
+
+	it("offers to remove a highlight when every chosen verse has one", async () => {
+		server.getChapterMarks.mockResolvedValue({
+			highlighted: [28],
+			noted: [],
+			study: [],
+		});
+		renderReader(romans(8));
+		await waitFor(() =>
+			expect(verseButton(/^28 And we know/).textContent).toContain(
+				"highlighted",
+			),
+		);
+		const sheet = await choose(/^28 And we know/);
+
+		expect(
+			within(sheet).getByRole("button", { name: "Remove highlight" }),
+		).toBeTruthy();
+	});
+
+	it("saves, and says so when the verse was already saved", async () => {
+		renderReader(romans(8));
+		let sheet = await choose(/^28 And we know/);
+		fireEvent.click(within(sheet).getByRole("button", { name: "Save" }));
+		await screen.findByText("Saved Romans 8:28 to your Saved verses");
+		fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+		await waitFor(() =>
+			expect(server.unsaveVerses).toHaveBeenCalledWith({
+				data: { passageIds: [7] },
+			}),
+		);
+
+		server.saveVerses.mockResolvedValue({
+			addedPassageIds: [],
+			label: "Romans 8:28",
+		});
+		sheet = await choose(/^28 And we know/);
+		fireEvent.click(within(sheet).getByRole("button", { name: "Save" }));
+		await screen.findByText("Romans 8:28 is already in your Saved verses");
+		expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
+	});
+
+	it("copies the words with where they're from", async () => {
+		renderReader(romans(8));
+		const sheet = await choose(/^28 And we know/, /^29 For whom/);
+		fireEvent.click(within(sheet).getByRole("button", { name: "Copy" }));
+
+		await screen.findByText("Copied Romans 8:28–29 (KJV)");
+		expect(clipboard.writeText).toHaveBeenCalledWith(
+			"“28 And we know that all things work together for good. 29 For whom he did foreknow, he also did predestinate.” Romans 8:28–29 (KJV)",
+		);
+	});
+
+	it("lets the reader choose a collection, and Undo takes the verse out again", async () => {
+		renderReader(romans(8));
+		const sheet = await choose(/^28 And we know/);
+		fireEvent.click(
+			within(sheet).getByRole("button", { name: "Add to collection" }),
+		);
+		const picker = await screen.findByRole("dialog", {
+			name: "Add to collection",
+		});
+
+		fireEvent.click(
+			await within(picker).findByRole("button", { name: "Favourites" }),
+		);
+		await screen.findByText("Added Romans 8:28 to “Favourites”");
+		expect(server.addVersesToCollection).toHaveBeenCalledWith({
+			data: expect.objectContaining({ collectionId: 3, verses: [28] }),
+		});
+		fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+		await waitFor(() =>
+			expect(server.removeVersesFromCollection).toHaveBeenCalledWith({
+				data: { collectionId: 3, passageIds: [7] },
+			}),
+		);
+	});
+
+	it("goes back to the verse actions when the collection picker closes without a choice", async () => {
+		renderReader(romans(8));
+		const sheet = await choose(/^28 And we know/);
+		fireEvent.click(
+			within(sheet).getByRole("button", { name: "Add to collection" }),
+		);
+		const picker = await screen.findByRole("dialog", {
+			name: "Add to collection",
+		});
+
+		fireEvent.click(within(picker).getByRole("button", { name: "Close" }));
+		expect(
+			await screen.findByRole("dialog", { name: "Romans 8:28" }),
+		).toBeTruthy();
+	});
+
+	it("saves a note on the verses, titled with their reference", async () => {
+		renderReader(romans(8));
+		const sheet = await choose(/^28 And we know/);
+		fireEvent.click(within(sheet).getByRole("button", { name: "Add a note" }));
+		const note = await screen.findByRole("dialog", { name: "Add a note" });
+
+		fireEvent.change(within(note).getByLabelText("Your note on Romans 8:28"), {
+			target: { value: "God is at work.\nEven now." },
+		});
+		fireEvent.click(within(note).getByRole("button", { name: "Done" }));
+
+		await screen.findByText("Note saved on Romans 8:28");
+		expect(notesServer.saveNote).toHaveBeenCalledTimes(1);
+		expect(notesServer.saveNote).toHaveBeenCalledWith({
+			data: {
+				content: {
+					content: [
+						{
+							content: [{ text: "God is at work.", type: "text" }],
+							type: "paragraph",
+						},
+						{
+							content: [{ text: "Even now.", type: "text" }],
+							type: "paragraph",
+						},
+					],
+					type: "doc",
+				},
+				id: undefined,
+				passageIds: [7],
+				status: "saved",
+				tags: [],
+				title: "Note on Romans 8:28",
+			},
+		});
+	});
+
+	it("clears the last message when a full-height sheet opens over it", async () => {
+		renderReader(romans(8));
+		server.saveVerses.mockResolvedValue({
+			addedPassageIds: [8],
+			label: "Romans 8:30",
+		});
+		let sheet = await choose(/^30 Moreover/);
+		fireEvent.click(within(sheet).getByRole("button", { name: "Save" }));
+		await screen.findByText("Saved Romans 8:30 to your Saved verses");
+
+		sheet = await choose(/^28 And we know/);
+		fireEvent.click(within(sheet).getByRole("button", { name: "Add a note" }));
+		await screen.findByRole("dialog", { name: "Add a note" });
+		await waitFor(() =>
+			expect(
+				screen.queryByText("Saved Romans 8:30 to your Saved verses"),
+			).toBeNull(),
+		);
+	});
+
+	it("opens the Community share page with the chosen verses", async () => {
+		renderReader(romans(8));
+		const sheet = await choose(/^29 For whom/, /^28 And we know/);
+		fireEvent.click(within(sheet).getByRole("button", { name: "Share" }));
+
+		expect(navigate).toHaveBeenCalledWith({
+			search: {
+				book: "romans",
+				chapter: 8,
+				translation: "KJV",
+				type: "verse",
+				verses: "28,29",
+			},
+			to: "/community/share",
+		});
+	});
+
+	it("keeps nothing when the note is left empty", async () => {
+		renderReader(romans(8));
+		const sheet = await choose(/^28 And we know/);
+		fireEvent.click(within(sheet).getByRole("button", { name: "Add a note" }));
+		const note = await screen.findByRole("dialog", { name: "Add a note" });
+		fireEvent.click(within(note).getByRole("button", { name: "Done" }));
+
+		await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+		expect(notesServer.saveNote).not.toHaveBeenCalled();
+		expect(screen.queryByText(/Note saved/)).toBeNull();
 	});
 });

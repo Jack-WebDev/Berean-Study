@@ -18,7 +18,12 @@ import { formatPublishedAt, initialsFor } from "@/utils";
 
 import { ReportPostButton } from "./report-post-button";
 
-export type CommunityPostType = "collection" | "note" | "testimony" | "prayer";
+export type CommunityPostType =
+	| "collection"
+	| "note"
+	| "testimony"
+	| "prayer"
+	| "verse";
 
 export type CommunityPostCardData = {
 	author: {
@@ -36,6 +41,8 @@ export type CommunityPostCardData = {
 	publishedAt: Date | string;
 	title: string;
 	type: CommunityPostType;
+	/** The Bible words of a shared verse, shown in place of a cover picture. */
+	verseText?: string | null;
 };
 
 export function CommunityPostCard({
@@ -71,7 +78,13 @@ export function CommunityPostCard({
 				className="group block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
 				to={post.href}
 			>
-				{post.coverImage ? (
+				{post.verseText ? (
+					<blockquote className="flex aspect-16/7 items-center overflow-hidden bg-scripture px-5 py-4">
+						<p className="line-clamp-4 font-serif text-[17px] text-foreground leading-relaxed">
+							“{post.verseText}”
+						</p>
+					</blockquote>
+				) : post.coverImage ? (
 					<img
 						alt=""
 						className="aspect-16/7 w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
@@ -101,9 +114,11 @@ export function CommunityPostCard({
 			</CardHeader>
 
 			<CardContent className="flex-1 px-4">
-				<p className="line-clamp-3 text-muted-foreground text-sm leading-5">
-					{post.excerpt}
-				</p>
+				{post.excerpt ? (
+					<p className="line-clamp-3 text-muted-foreground text-sm leading-5">
+						{post.excerpt}
+					</p>
+				) : null}
 			</CardContent>
 
 			<CardFooter className="flex items-end justify-between gap-3 border-0 bg-transparent px-4 pt-0 pb-4">
