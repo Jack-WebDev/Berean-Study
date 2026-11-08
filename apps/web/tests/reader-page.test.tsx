@@ -865,6 +865,61 @@ const romans828Study: VerseStudy = {
 	reference: "Romans 8:28",
 };
 
+describe("first-time tip", () => {
+	const tip =
+		"Tap any verse to highlight it, add a note, or learn more about it.";
+
+	it("shows once, without covering the words, until Got it", async () => {
+		renderReader(romans(8));
+		const text = await screen.findByText(tip);
+		expect(text.closest("header")).toBeTruthy();
+		fireEvent.click(screen.getByRole("button", { name: "Got it" }));
+
+		await waitFor(() => expect(screen.queryByText(tip)).toBeNull());
+		await waitFor(() =>
+			expect(server.saveReadingPreferences).toHaveBeenCalledWith({
+				data: { readerHintSeen: true },
+			}),
+		);
+	});
+
+	it("goes once the reader taps a verse, since that's what it teaches", async () => {
+		renderReader(romans(8));
+		await screen.findByText(tip);
+		fireEvent.click(verseButton(/^28 And we know/));
+		await waitFor(() => expect(screen.queryByText(tip)).toBeNull());
+		await waitFor(() =>
+			expect(server.saveReadingPreferences).toHaveBeenCalledWith({
+				data: { readerHintSeen: true },
+			}),
+		);
+	});
+
+	it("isn't shown again once seen", async () => {
+		server.getReadingPreferences.mockResolvedValue({
+			...defaultReadingPreferences,
+			readerHintSeen: true,
+		});
+		renderReader(romans(8));
+		await screen.findByRole("button", { name: /^28 And we know/ });
+		expect(screen.queryByText(tip)).toBeNull();
+	});
+
+	it("waits while the picked-up-where-you-left-off message is showing", async () => {
+		server.getReadingPlace.mockResolvedValue({
+			book: { name: "Romans", slug: "romans" },
+			chapter: 8,
+			label: "Romans 8",
+			translationAbbreviation: "KJV",
+			updatedAt: new Date(),
+			verse: 29,
+		});
+		renderReader(romans(8));
+		await screen.findByText("Picked up where you left off");
+		expect(screen.queryByText(tip)).toBeNull();
+	});
+});
+
 describe("study panel", () => {
 	beforeEach(() => {
 		server.getChapterMarks.mockResolvedValue({

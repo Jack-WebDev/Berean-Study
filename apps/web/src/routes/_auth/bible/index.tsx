@@ -1,7 +1,9 @@
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { z } from "zod";
 
 import { BrowsePage } from "@/components/bible/browse-page";
+import { Welcome } from "@/components/bible/welcome";
 import { getPassageStart } from "@/functions/reader";
 import {
 	canonBooksQueryOptions,
@@ -46,6 +48,20 @@ export const Route = createFileRoute("/_auth/bible/")({
 
 function BrowseRoute() {
 	const { passage } = Route.useSearch();
-	// Reaching here with a passage means its verses couldn't be found.
-	return <BrowsePage passageNotFound={passage !== undefined} />;
+	const preferences = useQuery(readingPreferencesQueryOptions());
+	const place = useQuery(continueReadingQueryOptions());
+	// The welcome is for someone opening the Bible for the first time. Anyone
+	// who has already read a chapter has found their way, so they skip it.
+	const firstVisit =
+		preferences.data &&
+		!preferences.data.welcomeCompleted &&
+		place.isSuccess &&
+		place.data === null;
+	return (
+		<>
+			{/* Reaching here with a passage means its verses couldn't be found. */}
+			<BrowsePage passageNotFound={passage !== undefined} />
+			{firstVisit ? <Welcome preferences={preferences.data} /> : null}
+		</>
+	);
 }

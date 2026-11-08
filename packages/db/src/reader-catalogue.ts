@@ -122,6 +122,14 @@ export const readerBookGroupAbout: Record<string, string> = {
 	"The early church": "How the good news spread after Jesus.",
 };
 
+/** A line under each tradition in the first-time welcome, by tradition slug. */
+export const traditionDescriptions: Record<string, string> = {
+	catholic: "Includes Tobit, Judith and other books",
+	"eastern-orthodox": "Greek, Russian and other Orthodox churches",
+	"ethiopian-orthodox": "The widest list, including Enoch",
+	protestant: "Most evangelical and mainline churches",
+};
+
 /** "In Catholic and Eastern Orthodox Bibles", for books not every Bible has. */
 export function includedByLabel(traditions: readonly string[]) {
 	if (traditions.length === 0) return null;

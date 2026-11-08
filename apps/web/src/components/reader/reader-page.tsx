@@ -330,6 +330,10 @@ function ReaderView({
 		[marks.data],
 	);
 
+	// The resume or search message comes first; the tip waits for a later visit.
+	const showHint = available && !preferences.readerHintSeen && notice === null;
+	const markHintSeen = () => changePreferences({ readerHintSeen: true });
+
 	/** The search mark and the resume notice go once the reader does anything. */
 	const settle = () => {
 		setTarget(null);
@@ -346,6 +350,8 @@ function ReaderView({
 	 */
 	const toggleVerse = (number: number) => {
 		settle();
+		// Tapping a verse is what the tip teaches, so it isn't needed again.
+		if (showHint) markHintSeen();
 		const next = new Set(selected);
 		if (next.has(number)) next.delete(number);
 		else next.add(number);
@@ -569,6 +575,26 @@ function ReaderView({
 							>
 								{chapter.label}, verse {notice.verse}
 							</Notice>
+						) : null}
+						{/* Once, the first time someone reads: how to do more with a verse.
+					    It sits in the header, so it never covers the words. */}
+						{showHint ? (
+							<div
+								className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl bg-primary px-4 py-3 text-primary-foreground"
+								role="note"
+							>
+								<p className="min-w-[12rem] flex-1 text-[16px] leading-snug">
+									Tap any verse to highlight it, add a note, or learn more about
+									it.
+								</p>
+								<button
+									className="reader-focus h-12 shrink-0 rounded-[var(--ios-control-radius)] border-[1.5px] border-primary-foreground/60 px-4 font-semibold text-[16px] hover:bg-primary-foreground/10"
+									onClick={markHintSeen}
+									type="button"
+								>
+									Got it
+								</button>
+							</div>
 						) : null}
 						{notice?.kind === "search" ? (
 							<Notice className="mt-3" role="status">

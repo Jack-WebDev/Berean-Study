@@ -8,7 +8,7 @@ import { BottomSheet } from "@/components/reader-ui/bottom-sheet";
 import { ChoiceGroup, ChoiceTile } from "@/components/reader-ui/choice-group";
 
 /** The "A" on each tile, drawn bigger for each size. */
-const glyphPixels: Record<ReadingTextSize, number> = {
+export const glyphPixels: Record<ReadingTextSize, number> = {
 	standard: 20,
 	large: 25,
 	larger: 30,
