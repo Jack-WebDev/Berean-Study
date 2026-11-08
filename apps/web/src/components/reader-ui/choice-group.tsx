@@ -58,7 +58,7 @@ export function ChoiceTile({
 	return (
 		<Radio.Root
 			className={cn(
-				"reader-focus group/choice relative flex min-h-[52px] cursor-pointer flex-col items-center justify-center gap-1 border-[1.5px] px-3 py-2 text-center",
+				"reader-focus group/choice relative flex min-h-[52px] cursor-pointer flex-col items-center justify-center gap-1 rounded-[var(--ios-control-radius)] border-[1.5px] px-3 py-2 text-center",
 				variant === "filled"
 					? "border-border-strong bg-card text-foreground data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground"
 					: "border-border-strong bg-card text-foreground data-checked:border-verse-selected-ring data-checked:bg-verse-selected data-checked:shadow-[inset_0_0_0_2px_var(--verse-selected-ring)]",

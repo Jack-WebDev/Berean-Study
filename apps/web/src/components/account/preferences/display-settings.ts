@@ -1,3 +1,8 @@
+import {
+	readingTextSizeFromOldSetting,
+	readingTextSizes,
+} from "@berean-study/db/reader-catalogue";
+
 import type { ReadingWidth, TextSize, Theme } from "./types";
 
 const STORAGE_KEY = "berean-study.display-preferences.v1";
@@ -8,9 +13,10 @@ export const displaySettingsInitializer = `(() => {
 		const theme = ["light", "dark", "system"].includes(value.theme)
 			? value.theme
 			: "light";
-		const textSize = ["small", "default", "large"].includes(value.textSize)
+		const oldSizes = ${JSON.stringify(readingTextSizeFromOldSetting)};
+		const textSize = ${JSON.stringify(readingTextSizes)}.includes(value.textSize)
 			? value.textSize
-			: "default";
+			: oldSizes[value.textSize] || "large";
 		const readingWidth = ["narrow", "default", "wide"].includes(value.readingWidth)
 			? value.readingWidth
 			: "default";
@@ -37,7 +43,7 @@ export type DisplaySettings = {
 
 export const defaultDisplaySettings: DisplaySettings = {
 	theme: "light",
-	textSize: "default",
+	textSize: "large",
 	readingWidth: "default",
 };
 
@@ -49,7 +55,19 @@ function syncFavicon(isDark: boolean) {
 }
 
 const themes = new Set<Theme>(["light", "dark", "system"]);
-const textSizes = new Set<TextSize>(["small", "default", "large"]);
+const textSizes = new Set<string>(readingTextSizes);
+
+/** A size saved before there were four keeps about the same size. */
+function readTextSize(value: unknown): TextSize {
+	if (typeof value !== "string") return defaultDisplaySettings.textSize;
+	if (textSizes.has(value)) return value as TextSize;
+	if (value in readingTextSizeFromOldSetting) {
+		return readingTextSizeFromOldSetting[
+			value as keyof typeof readingTextSizeFromOldSetting
+		];
+	}
+	return defaultDisplaySettings.textSize;
+}
 const readingWidths = new Set<ReadingWidth>(["narrow", "default", "wide"]);
 
 export function readDisplaySettings(): DisplaySettings {
@@ -67,10 +85,7 @@ export function readDisplaySettings(): DisplaySettings {
 				settings.theme && themes.has(settings.theme)
 					? settings.theme
 					: defaultDisplaySettings.theme,
-			textSize:
-				settings.textSize && textSizes.has(settings.textSize)
-					? settings.textSize
-					: defaultDisplaySettings.textSize,
+			textSize: readTextSize(settings.textSize),
 			readingWidth:
 				settings.readingWidth && readingWidths.has(settings.readingWidth)
 					? settings.readingWidth

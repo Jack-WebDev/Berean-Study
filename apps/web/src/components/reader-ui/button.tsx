@@ -20,7 +20,7 @@ export function readerButtonClass({
 	variant?: ReaderButtonVariant;
 } = {}) {
 	return cn(
-		"reader-focus inline-flex min-w-12 select-none items-center justify-center gap-2 text-center font-semibold [&_svg]:size-5 [&_svg]:shrink-0",
+		"reader-focus inline-flex min-w-12 select-none items-center justify-center gap-2 rounded-[var(--ios-control-radius)] text-center font-semibold [&_svg]:size-5 [&_svg]:shrink-0",
 		variant === "link"
 			? "min-h-12 px-1 text-[17px] text-primary underline underline-offset-4"
 			: [

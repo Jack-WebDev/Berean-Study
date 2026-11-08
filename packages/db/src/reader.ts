@@ -1158,3 +1158,24 @@ export async function listRecentChapters(
 				],
 	);
 }
+
+/**
+ * Where a stored passage starts, so older links such as /bible?passage=12 can open
+ * the reading page at the right verse. Null if the passage has no verses mapped.
+ */
+export async function getPassageStart(client: DbExecutor, passageId: number) {
+	const [row] = await client
+		.select({
+			bookSlug: books.slug,
+			chapter: chapters.number,
+			verse: verses.number,
+		})
+		.from(passageRanges)
+		.innerJoin(verses, eq(verses.id, passageRanges.startVerseId))
+		.innerJoin(chapters, eq(chapters.id, verses.chapterId))
+		.innerJoin(books, eq(books.id, chapters.bookId))
+		.where(eq(passageRanges.passageId, passageId))
+		.orderBy(asc(chapters.number), asc(verses.number))
+		.limit(1);
+	return row ?? null;
+}

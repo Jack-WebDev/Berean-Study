@@ -1,3 +1,5 @@
+import type { ReadingTextSize } from "@berean-study/db/reader-catalogue";
+
 export const traditions = [
 	{
 		value: "protestant",
@@ -43,5 +45,6 @@ export const translations = [
 export type Tradition = (typeof traditions)[number]["value"];
 export type Translation = (typeof translations)[number];
 export type Theme = "light" | "dark" | "system";
-export type TextSize = "small" | "default" | "large";
+/** The four text sizes. The app had three; see readingTextSizeFromOldSetting. */
+export type TextSize = ReadingTextSize;
 export type ReadingWidth = "narrow" | "default" | "wide";

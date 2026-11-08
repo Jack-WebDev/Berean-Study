@@ -1,3 +1,7 @@
+import {
+	readingTextSizeDetails,
+	readingTextSizes,
+} from "@berean-study/db/reader-catalogue";
 import { Separator } from "@berean-study/ui/components/separator";
 import {
 	ToggleGroup,
@@ -54,11 +58,11 @@ export function DisplayPreferences({
 				>
 					<PreferenceToggle
 						onValueChange={(value) => onTextSizeChange(value as TextSize)}
-						options={[
-							{ label: "A", value: "small" },
-							{ label: "A", value: "default" },
-							{ label: "A", value: "large" },
-						]}
+						options={readingTextSizes.map((size) => ({
+							label: "A",
+							name: readingTextSizeDetails[size].label,
+							value: size,
+						}))}
 						textSizes
 						value={textSize}
 					/>
@@ -112,7 +116,8 @@ function PreferenceToggle({
 	onValueChange,
 	textSizes = false,
 }: {
-	options: readonly { label: string; value: string }[];
+	/** `name` is read out when the label alone, such as "A", isn't enough. */
+	options: readonly { label: string; name?: string; value: string }[];
 	value: string;
 	onValueChange: (value: string) => void;
 	textSizes?: boolean;
@@ -133,13 +138,15 @@ function PreferenceToggle({
 					className={cn(
 						"h-9 min-w-16 rounded-none border-0 border-border/70 border-l px-3 text-muted-foreground first:border-l-0 data-pressed:bg-secondary data-pressed:text-secondary-foreground",
 						textSizes &&
-							(index === 0
-								? "min-w-11 text-xs"
-								: index === 1
-									? "min-w-11 text-sm"
-									: "min-w-11 text-base"),
+							[
+								"min-w-11 text-xs",
+								"min-w-11 text-sm",
+								"min-w-11 text-base",
+								"min-w-11 text-lg",
+							][index],
 						!textSizes && "text-xs",
 					)}
+					aria-label={option.name}
 					key={option.value}
 					value={option.value}
 				>

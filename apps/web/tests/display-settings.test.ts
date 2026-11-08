@@ -16,14 +16,14 @@ describe("applyDisplaySettings", () => {
 
 		applyDisplaySettings({
 			readingWidth: "default",
-			textSize: "default",
+			textSize: "large",
 			theme: "dark",
 		});
 		expect(favicon.getAttribute("href")).toBe("/favicon-dark.png");
 
 		applyDisplaySettings({
 			readingWidth: "default",
-			textSize: "default",
+			textSize: "large",
 			theme: "light",
 		});
 		expect(favicon.getAttribute("href")).toBe("/favicon.png");

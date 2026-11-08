@@ -4,6 +4,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { pool } from "../src";
 import type { DbExecutor } from "../src/db-executor";
 import {
+	getPassageStart,
 	getReaderChapter,
 	getReadingPlace,
 	getReadingPreferences,
@@ -492,6 +493,20 @@ describe("saving chosen verses", () => {
 			expect(again.passages.map((passage) => passage.passageId)).toEqual(
 				first.passages.map((passage) => passage.passageId),
 			);
+		});
+	});
+
+	it("finds where a stored passage starts, for older links", async () => {
+		await inReader(async (tx) => {
+			await publish(tx, "romans", 8, romans8);
+			const { passages } = await passagesForVerses(tx, chosen([29, 30]));
+
+			expect(await getPassageStart(tx, passages[0]?.passageId ?? 0)).toEqual({
+				bookSlug: "romans",
+				chapter: 8,
+				verse: 29,
+			});
+			expect(await getPassageStart(tx, 0)).toBeNull();
 		});
 	});
 

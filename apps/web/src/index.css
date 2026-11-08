@@ -9,12 +9,17 @@ html {
 	--reading-width: 65ch;
 }
 
-html[data-text-size="small"] {
+/* "Large" is the default size. The Bible reader uses its own, larger sizes. */
+html[data-text-size="standard"] {
 	--reading-text-size: 0.875rem;
 }
 
-html[data-text-size="large"] {
+html[data-text-size="larger"] {
 	--reading-text-size: 1.125rem;
+}
+
+html[data-text-size="largest"] {
+	--reading-text-size: 1.25rem;
 }
 
 html[data-reading-width="narrow"] {

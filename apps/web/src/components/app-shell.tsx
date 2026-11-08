@@ -30,12 +30,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { ChevronRightIcon, MoonIcon, SearchIcon, SunIcon } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 
-import {
-	applyDisplaySettings,
-	type DisplaySettings,
-	readDisplaySettings,
-	saveDisplaySettings,
-} from "./account/preferences/display-settings";
+import type { DisplaySettings } from "./account/preferences/display-settings";
 import { isCurrentLocation } from "./navigation/is-current-location";
 import { MobileNavigation } from "./navigation/mobile-navigation";
 import {
@@ -47,6 +42,10 @@ import {
 } from "./navigation/navigation-items";
 import { NavigationQueueCount } from "./navigation/navigation-queue-count";
 import { NotificationMenu } from "./notification-menu";
+import {
+	useChangeReadingPreferences,
+	useDisplaySettingsSync,
+} from "./reader/reading-preferences";
 import { GlobalSearchDialog } from "./search/global-search-dialog";
 import UserMenu from "./user-menu";
 
@@ -66,6 +65,7 @@ export function AppShell({
 		select: (state) => state.location,
 	});
 	const staffSections = accessibleStaffSections(permissionKeys);
+	useDisplaySettingsSync();
 
 	useEffect(() => {
 		const handleKeyDown = (event: KeyboardEvent) => {
@@ -344,20 +344,17 @@ const desktopPrimaryNavigationItems = [
 
 function ApplicationToolbar({ onOpenSearch }: { onOpenSearch: () => void }) {
 	const [isDark, setIsDark] = useState(false);
+	const changeReadingPreferences = useChangeReadingPreferences();
 
 	useEffect(() => {
 		setIsDark(document.documentElement.classList.contains("dark"));
 	}, []);
 
 	const toggleAppearance = () => {
-		const settings = readDisplaySettings();
-		const theme: DisplaySettings["theme"] =
+		const pageColour: DisplaySettings["theme"] =
 			document.documentElement.classList.contains("dark") ? "light" : "dark";
-		const nextSettings = { ...settings, theme };
-
-		applyDisplaySettings(nextSettings);
-		saveDisplaySettings(nextSettings);
-		setIsDark(theme === "dark");
+		changeReadingPreferences({ pageColour });
+		setIsDark(pageColour === "dark");
 	};
 
 	return (

@@ -4,12 +4,11 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { useFormDraft } from "../../form-drafts";
+import { useChangeReadingPreferences } from "../../reader/reading-preferences";
 import { DisplayPreferences } from "./display-preferences";
 import {
-	applyDisplaySettings,
 	defaultDisplaySettings,
 	readDisplaySettings,
-	saveDisplaySettings,
 } from "./display-settings";
 import { PreferencesSidebar } from "./preferences-sidebar";
 import { ScripturePreferences } from "./scripture-preferences";
@@ -31,24 +30,14 @@ export function PreferencesPage() {
 	const [readingWidth, setReadingWidth] = useState<ReadingWidth>(
 		defaultDisplaySettings.readingWidth,
 	);
-	const [hasLoadedDisplaySettings, setHasLoadedDisplaySettings] =
-		useState(false);
+	const changeReadingPreferences = useChangeReadingPreferences();
 
 	useEffect(() => {
 		const settings = readDisplaySettings();
 		setTheme(settings.theme);
 		setTextSize(settings.textSize);
 		setReadingWidth(settings.readingWidth);
-		setHasLoadedDisplaySettings(true);
 	}, []);
-
-	useEffect(() => {
-		if (!hasLoadedDisplaySettings) return;
-
-		const settings = { theme, textSize, readingWidth };
-		applyDisplaySettings(settings);
-		saveDisplaySettings(settings);
-	}, [hasLoadedDisplaySettings, readingWidth, textSize, theme]);
 
 	return (
 		<div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_20rem]">
@@ -60,9 +49,18 @@ export function PreferencesPage() {
 					translation={translation}
 				/>
 				<DisplayPreferences
-					onReadingWidthChange={setReadingWidth}
-					onTextSizeChange={setTextSize}
-					onThemeChange={setTheme}
+					onReadingWidthChange={(lineLength) => {
+						setReadingWidth(lineLength);
+						changeReadingPreferences({ lineLength });
+					}}
+					onTextSizeChange={(size) => {
+						setTextSize(size);
+						changeReadingPreferences({ textSize: size });
+					}}
+					onThemeChange={(pageColour) => {
+						setTheme(pageColour);
+						changeReadingPreferences({ pageColour });
+					}}
 					readingWidth={readingWidth}
 					textSize={textSize}
 					theme={theme}

@@ -1,5 +1,6 @@
 import { db } from "@berean-study/db";
 import {
+	getPassageStart as getPassageStartFromDb,
 	getReaderChapter as getReaderChapterFromDb,
 	getReadingPlace as getReadingPlaceFromDb,
 	getReadingPreferences as getReadingPreferencesFromDb,
@@ -239,3 +240,12 @@ export const listRecentChapters = createServerFn({ method: "GET" })
 	.handler(({ context }) =>
 		listRecentChaptersFromDb(db, requireUserId(context.session)),
 	);
+
+/** Where an older stored-passage link should open the reading page. */
+export const getPassageStart = createServerFn({ method: "GET" })
+	.middleware([authMiddleware])
+	.validator(z.object({ passageId: z.number().int().positive() }))
+	.handler(({ context, data }) => {
+		requireUserId(context.session);
+		return getPassageStartFromDb(db, data.passageId);
+	});
