@@ -1,16 +1,13 @@
-import { and, desc, eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { db } from "./index";
+import { getReadingPlace, type ReadingPlace } from "./reader";
 import { books } from "./schema/books";
 import { passages } from "./schema/passages";
 import { readingHistory } from "./schema/reading_history";
-import { readingPositions } from "./schema/reading_positions";
 
 export type ReaderHomeOverview = {
-	continueReading: {
-		bookName: string;
-		passageId: number;
-		title: string | null;
-	} | null;
+	/** Where the member is in the Bible reader, if they've started. */
+	continueReading: ReadingPlace | null;
 	recentlyRead: Array<{
 		bookName: string;
 		passageId: number;
@@ -32,56 +29,23 @@ export async function getReaderHomeOverview(
 	userId: string,
 ): Promise<ReaderHomeOverview> {
 	const [continueReading, recentlyRead] = await Promise.all([
-		getReadingPosition(db, userId),
+		getReadingPlace(db, userId),
 		listRecentPassages(db, userId, 4),
 	]);
 
 	return { continueReading, recentlyRead };
 }
 
-/** Returns the reading position and its latest matching history entry for the Library overview. */
+/** Returns the member's place in the Bible and when they were last there, for the Library overview. */
 export async function getLibraryReadingState(
 	db: DbClient,
 	userId: string,
 ): Promise<LibraryReadingState> {
-	const continueReading = await getReadingPosition(db, userId);
-
-	if (!continueReading) {
-		return { continueReading: null, lastStudiedAt: null };
-	}
-
-	const [lastHistoryEntry] = await db
-		.select({ visitedAt: readingHistory.visitedAt })
-		.from(readingHistory)
-		.where(
-			and(
-				eq(readingHistory.userId, userId),
-				eq(readingHistory.passageId, continueReading.passageId),
-			),
-		)
-		.orderBy(desc(readingHistory.visitedAt))
-		.limit(1);
-
+	const continueReading = await getReadingPlace(db, userId);
 	return {
 		continueReading,
-		lastStudiedAt: lastHistoryEntry?.visitedAt ?? null,
+		lastStudiedAt: continueReading?.updatedAt ?? null,
 	};
-}
-
-async function getReadingPosition(db: DbClient, userId: string) {
-	const [position] = await db
-		.select({
-			bookName: books.name,
-			passageId: passages.id,
-			title: passages.title,
-		})
-		.from(readingPositions)
-		.innerJoin(passages, eq(passages.id, readingPositions.passageId))
-		.innerJoin(books, eq(books.id, passages.bookId))
-		.where(eq(readingPositions.userId, userId))
-		.limit(1);
-
-	return position ?? null;
 }
 
 /** Returns a small, newest-first subset of passages from the member's reading history. */

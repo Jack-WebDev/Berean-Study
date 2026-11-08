@@ -3,6 +3,7 @@ import { Skeleton } from "@berean-study/ui/components/skeleton";
 import { Link } from "@tanstack/react-router";
 import { ArrowRightIcon, BookOpenIcon } from "lucide-react";
 import type { ComponentProps } from "react";
+import { readingPlaceHref } from "@/lib/reader-links";
 import { calendarDaysAgo } from "@/utils/dates";
 import {
 	type LibraryDestinationCountsState,
@@ -87,7 +88,7 @@ function ContinueReading({ state }: { state: ContinueReadingState }) {
 		return <BeginReading />;
 	}
 
-	const { bookName, passageId, title } = state.continueReading;
+	const place = state.continueReading;
 
 	return (
 		<ReadingCard>
@@ -99,28 +100,25 @@ function ContinueReading({ state }: { state: ContinueReadingState }) {
 					Continue Reading
 				</h2>
 				<p className="mt-1 font-serif text-2xl tracking-[-0.02em]">
-					{bookName}
+					{place.label}
 				</p>
-				{title ? (
-					<p className="text-muted-foreground text-sm">{title}</p>
-				) : null}
+				<p className="text-muted-foreground text-sm">Verse {place.verse}</p>
 				<p className="mt-1 text-muted-foreground text-sm">
 					{state.lastStudiedAt
 						? formatLastStudied(state.lastStudiedAt)
 						: "Continue where you left off."}
 				</p>
 			</div>
-			<Link
+			<a
 				className="group inline-flex h-10 w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-5 font-serif text-primary-foreground text-sm shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:w-auto"
-				search={{ passage: passageId }}
-				to="/bible"
+				href={readingPlaceHref(place)}
 			>
 				Continue Reading
 				<ArrowRightIcon
 					aria-hidden="true"
 					className="size-4 transition-transform group-hover:translate-x-0.5"
 				/>
-			</Link>
+			</a>
 		</ReadingCard>
 	);
 }

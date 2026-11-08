@@ -17,6 +17,7 @@ import type { countNoteViews, listNotes } from "@/functions/notes";
 import type { getNotificationPage } from "@/functions/notifications";
 import type { getVerseRangeText } from "@/functions/passages";
 import type { listPeople } from "@/functions/people";
+import type { getChapterMarks, getReaderChapter } from "@/functions/reader";
 import type { listReflections } from "@/functions/reflections";
 import type { getBookStructure } from "@/functions/scripture-data";
 import type { getVerseHandling } from "@/functions/structure";
@@ -69,6 +70,8 @@ export type VerseRange = ServerFnData<typeof getVerseRangeText>;
 export type ReflectionFilters = ServerFnData<typeof listReflections>;
 export type NotificationPageParams = ServerFnData<typeof getNotificationPage>;
 export type CommunityFeedParams = ServerFnData<typeof getCommunityFeed>;
+export type ReaderChapterInput = ServerFnData<typeof getReaderChapter>;
+export type ChapterMarksInput = ServerFnData<typeof getChapterMarks>;
 
 export const noteKeys = {
 	all: ["notes"] as const,
@@ -302,4 +305,28 @@ export const libraryKeys = {
 	recentActivity: () => [...libraryKeys.all, "recent-activity"] as const,
 	recentlyStudied: () => [...libraryKeys.all, "recently-studied"] as const,
 	savedItems: () => [...libraryKeys.all, "saved-items"] as const,
+};
+
+/*
+ * The Bible reader. Text and book lists rarely change; the member's marks, place
+ * and settings change as they read, so they sit under their own keys.
+ */
+export const readerKeys = {
+	all: ["reader"] as const,
+	chapter: (input: ReaderChapterInput) =>
+		[...readerKeys.all, "chapter", input] as const,
+	availableChapters: (bookSlug: string, translationAbbreviation: string) =>
+		[
+			...readerKeys.all,
+			"available-chapters",
+			{ bookSlug, translationAbbreviation },
+		] as const,
+	books: () => [...readerKeys.all, "books"] as const,
+	translations: () => [...readerKeys.all, "translations"] as const,
+	marks: (input: ChapterMarksInput) =>
+		[...readerKeys.all, "marks", input] as const,
+	allMarks: () => [...readerKeys.all, "marks"] as const,
+	preferences: () => [...readerKeys.all, "preferences"] as const,
+	place: () => [...readerKeys.all, "place"] as const,
+	recentChapters: () => [...readerKeys.all, "recent-chapters"] as const,
 };

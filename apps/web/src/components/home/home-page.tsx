@@ -13,6 +13,7 @@ import {
 	Clock3Icon,
 	SparklesIcon,
 } from "lucide-react";
+import { readingPlaceHref } from "@/lib/reader-links";
 import { RecentlyStudied } from "./recently-studied";
 
 const startingPoints = [
@@ -91,7 +92,10 @@ function Hero({
 	const mostRecent = overview?.recentlyRead[0];
 
 	const currentTitle =
-		mostRecent?.title ?? mostRecent?.bookName ?? "Continue your study";
+		continueReading?.label ??
+		mostRecent?.title ??
+		mostRecent?.bookName ??
+		"Continue your study";
 
 	return (
 		<section className="relative isolate overflow-hidden border-border/60 border-b">
@@ -132,7 +136,7 @@ function Hero({
 											<a
 												href={
 													continueReading
-														? `/bible?passage=${continueReading.passageId}`
+														? readingPlaceHref(continueReading)
 														: "/bible"
 												}
 											/>

@@ -9,6 +9,7 @@ import {
 } from "@berean-study/ui/components/empty";
 import { Separator } from "@berean-study/ui/components/separator";
 import { ArrowRightIcon, BookOpenIcon } from "lucide-react";
+import { readingPlaceHref } from "@/lib/reader-links";
 
 export function ReturningUserHome({
 	overview,
@@ -46,19 +47,17 @@ function ContinueReading({
 			{current ? (
 				<a
 					className="mt-6 flex max-w-2xl items-center gap-4 border-border border-y py-5 transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-					href={`/bible?passage=${current.passageId}`}
+					href={readingPlaceHref(current)}
 				>
 					<BookOpenIcon
 						aria-hidden="true"
 						className="size-5 text-muted-foreground"
 					/>
 					<span className="min-w-0 flex-1">
-						<span className="block font-serif text-xl">{current.bookName}</span>
-						{current.title && (
-							<span className="mt-1 block text-muted-foreground text-sm">
-								{current.title}
-							</span>
-						)}
+						<span className="block font-serif text-xl">{current.label}</span>
+						<span className="mt-1 block text-muted-foreground text-sm">
+							Verse {current.verse}
+						</span>
 					</span>
 					<ArrowRightIcon
 						aria-hidden="true"

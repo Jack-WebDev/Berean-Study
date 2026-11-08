@@ -7,7 +7,9 @@ export async function seedReadingPositions(
 	await db.insert(readingPositions).values(
 		rows(count, (i) => ({
 			userId: textId(context, "users", i),
-			passageId: numberId(context, "passages", i),
+			bookId: numberId(context, "books", i),
+			chapter: 1,
+			verse: (i % 20) + 1,
 		})),
 	);
 	return;
