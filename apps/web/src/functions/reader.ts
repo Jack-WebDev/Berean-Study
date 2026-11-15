@@ -1,11 +1,8 @@
 import { db } from "@berean-study/db";
-import {
-	addPassageToCollection as addPassageToCollectionInDb,
-	listCollectionsForPassage as listCollectionsForPassageInDb,
-	removePassageFromCollection as removePassageFromCollectionInDb,
-} from "@berean-study/db/collections";
+import { removePassagesFromCollection as removePassagesFromCollectionInDb } from "@berean-study/db/collections";
 import { GovernanceError } from "@berean-study/db/governance-error";
 import {
+	addVersesToCollection as addVersesToCollectionInDb,
 	chooseReaderTranslation as chooseReaderTranslationInDb,
 	getPassageStart as getPassageStartFromDb,
 	getReaderChapter as getReaderChapterFromDb,
@@ -48,12 +45,11 @@ import {
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-import { authMiddleware, requirePermission } from "@/middleware/auth";
-
-function requireUserId(session: { user: { id: string } } | null) {
-	if (!session) throw new Error("Unauthorized");
-	return session.user.id;
-}
+import {
+	authMiddleware,
+	requirePermission,
+	requireUserId,
+} from "@/middleware/auth";
 
 const bookSlugSchema = z
 	.string()
@@ -319,32 +315,14 @@ export const addVersesToCollection = createServerFn({ method: "POST" })
 	.validator(
 		chosenVersesSchema.extend({ collectionId: z.number().int().positive() }),
 	)
-	.handler(async ({ context, data }) => {
-		const userId = requireUserId(context.session);
+	.handler(({ context, data }) => {
 		const { collectionId, ...verses } = data;
-		const { label, passages } = await passagesForVersesInDb(db, verses);
-		const addedPassageIds: number[] = [];
-		let collectionName = "";
-		for (const { passageId } of passages) {
-			const collections = await listCollectionsForPassageInDb(
-				db,
-				userId,
-				passageId,
-			);
-			const collection = collections.find((item) => item.id === collectionId);
-			if (!collection) throw new Error("This collection no longer exists.");
-			collectionName = collection.name;
-			if (collection.isSelected) continue;
-			await addPassageToCollectionInDb(
-				db,
-				userId,
-				collectionId,
-				passageId,
-				null,
-			);
-			addedPassageIds.push(passageId);
-		}
-		return { addedPassageIds, collectionName, label };
+		return addVersesToCollectionInDb(
+			db,
+			requireUserId(context.session),
+			collectionId,
+			verses,
+		);
 	});
 
 /** Undo for adding verses to a collection. */
@@ -357,15 +335,12 @@ export const removeVersesFromCollection = createServerFn({ method: "POST" })
 		}),
 	)
 	.handler(async ({ context, data }) => {
-		const userId = requireUserId(context.session);
-		for (const passageId of data.passageIds) {
-			await removePassageFromCollectionInDb(
-				db,
-				userId,
-				data.collectionId,
-				passageId,
-			);
-		}
+		await removePassagesFromCollectionInDb(
+			db,
+			requireUserId(context.session),
+			data.collectionId,
+			data.passageIds,
+		);
 	});
 
 /** The published words of chosen verses, for showing before they're shared. */

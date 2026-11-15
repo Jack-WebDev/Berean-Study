@@ -25,7 +25,7 @@ import {
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-import { authMiddleware } from "@/middleware/auth";
+import { authMiddleware, requireUserId } from "@/middleware/auth";
 
 const idSchema = z.number().int().positive();
 
@@ -42,11 +42,6 @@ const collectionInputSchema = z.object({
 });
 
 const sectionTitleSchema = z.string().trim().min(1).max(100);
-
-function requireUserId(session: { user: { id: string } } | null) {
-	if (!session) throw new Error("Unauthorized");
-	return session.user.id;
-}
 
 /** Every collection's card, plus the study project to continue. */
 export const getCollectionLibrary = createServerFn({ method: "GET" })

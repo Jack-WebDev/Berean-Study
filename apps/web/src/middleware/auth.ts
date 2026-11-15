@@ -15,6 +15,11 @@ export const authMiddleware = createMiddleware().server(
 	},
 );
 
+export function requireUserId(session: { user: { id: string } } | null) {
+	if (!session) throw new Error("Unauthorized");
+	return session.user.id;
+}
+
 /**
  * Stops a server function unless the signed-in person holds at least one of
  * these permissions.
@@ -28,9 +33,7 @@ export function requirePermission(
 	return createMiddleware()
 		.middleware([authMiddleware])
 		.server(async ({ context, next }) => {
-			if (!context.session) throw new Error("Unauthorized");
-
-			const userId = context.session.user.id;
+			const userId = requireUserId(context.session);
 			const permissionKeys = await getPermissionKeys(db, userId);
 			if (!anyOf.some((key) => permissionKeys.includes(key))) {
 				throw new Error("You don't have permission to do this.");

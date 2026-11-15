@@ -7,7 +7,8 @@ import { BottomSheet } from "@/components/reader-ui/bottom-sheet";
 import { ReaderButton } from "@/components/reader-ui/button";
 import { deleteNote, saveNote } from "@/functions/notes";
 import { passagesForVerses } from "@/functions/reader";
-import { noteKeys, readerKeys } from "@/queries/keys";
+import { invalidateNoteQueries } from "@/queries/notes";
+import { invalidateReaderMarks } from "@/queries/reader";
 
 /** Wait this long after typing stops before saving. */
 const saveDelayMs = 800;
@@ -110,8 +111,8 @@ export function NoteSheet({
 
 	const finish = async () => {
 		await persist();
-		void queryClient.invalidateQueries({ queryKey: noteKeys.all });
-		void queryClient.invalidateQueries({ queryKey: readerKeys.allMarks() });
+		void invalidateNoteQueries(queryClient);
+		void invalidateReaderMarks(queryClient);
 		onDone(noteId.current !== null);
 	};
 

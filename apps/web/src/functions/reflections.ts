@@ -9,8 +9,7 @@ import {
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-import { authMiddleware } from "@/middleware/auth";
-import { requireUserId } from "./prayer-journal";
+import { authMiddleware, requireUserId } from "@/middleware/auth";
 import { richTextDocumentSchema } from "./rich-text";
 
 const id = z.number().int().positive();

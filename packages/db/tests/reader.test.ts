@@ -2,9 +2,11 @@ import { and, eq } from "drizzle-orm";
 import { afterAll, describe, expect, it } from "vitest";
 
 import { type db, pool } from "../src";
+import { removePassagesFromCollection } from "../src/collections";
 import { listCommunityFeed, publishVersePost } from "../src/community";
 import type { DbExecutor } from "../src/db-executor";
 import {
+	addVersesToCollection,
 	getPassageStart,
 	getReaderChapter,
 	getReadingPlace,
@@ -28,6 +30,8 @@ import {
 import { bookmarks } from "../src/schema/bookmarks";
 import { books } from "../src/schema/books";
 import { chapters } from "../src/schema/chapters";
+import { collectionPassages } from "../src/schema/collection_passages";
+import { collections } from "../src/schema/collections";
 import { communityPostPassages } from "../src/schema/community_post_passages";
 import { communityPosts } from "../src/schema/community_posts";
 import { contentItems } from "../src/schema/content_items";
@@ -36,6 +40,7 @@ import { contentRevisions } from "../src/schema/content_revisions";
 import { highlights } from "../src/schema/highlights";
 import { notePassages } from "../src/schema/note_passages";
 import { notes } from "../src/schema/notes";
+import { passages } from "../src/schema/passages";
 import { postingRestrictions } from "../src/schema/posting_restrictions";
 import { readingHistory } from "../src/schema/reading_history";
 import { translations } from "../src/schema/translations";
@@ -529,6 +534,103 @@ describe("saving chosen verses", () => {
 				.from(bookmarks)
 				.where(eq(bookmarks.userId, userId));
 			expect(remaining).toEqual([{ passageId: earlier.addedPassageIds[0] }]);
+		});
+	});
+});
+
+describe("adding chosen verses to a collection", () => {
+	async function createCollectionFor(tx: DbExecutor, userId: string) {
+		const [collection] = await tx
+			.insert(collections)
+			.values({ name: "Assurance", normalizedName: "assurance", userId })
+			.returning({ id: collections.id });
+		if (!collection) throw new Error("No collection");
+		return collection.id;
+	}
+
+	function membersOf(tx: DbExecutor, collectionId: number) {
+		return tx
+			.select({
+				passageId: collectionPassages.passageId,
+				position: collectionPassages.position,
+			})
+			.from(collectionPassages)
+			.where(eq(collectionPassages.collectionId, collectionId))
+			.orderBy(collectionPassages.position);
+	}
+
+	it("adds each run of verses once, after what's there, and Undo removes only what it added", async () => {
+		await inReader(async (tx, userId) => {
+			await publish(tx, "romans", 8, romans8);
+			const collectionId = await createCollectionFor(tx, userId);
+			const add = (verseNumbers: number[]) =>
+				addVersesToCollection(tx, userId, collectionId, chosen(verseNumbers));
+			const {
+				addedPassageIds: [verse33],
+			} = await add([33]);
+
+			// Two runs, 28–30 and 33; 33 is already there.
+			const added = await add([28, 29, 30, 33]);
+			expect(added.collectionName).toBe("Assurance");
+			expect(added.addedPassageIds).toHaveLength(1);
+			const [run] = added.addedPassageIds;
+			expect(await membersOf(tx, collectionId)).toEqual([
+				{ passageId: verse33, position: 0 },
+				{ passageId: run, position: 1 },
+			]);
+			expect((await add([28, 29, 30, 33])).addedPassageIds).toEqual([]);
+
+			await removePassagesFromCollection(
+				tx,
+				userId,
+				collectionId,
+				added.addedPassageIds,
+			);
+			expect(await membersOf(tx, collectionId)).toEqual([
+				{ passageId: verse33, position: 0 },
+			]);
+		});
+	});
+
+	it("closes the gap removed passages leave", async () => {
+		await inReader(async (tx, userId) => {
+			await publish(tx, "romans", 8, romans8);
+			const collectionId = await createCollectionFor(tx, userId);
+			const {
+				addedPassageIds: [first, second, third],
+			} = await addVersesToCollection(
+				tx,
+				userId,
+				collectionId,
+				chosen([28, 30, 33]),
+			);
+
+			await removePassagesFromCollection(tx, userId, collectionId, [
+				first ?? 0,
+			]);
+			expect(await membersOf(tx, collectionId)).toEqual([
+				{ passageId: second, position: 0 },
+				{ passageId: third, position: 1 },
+			]);
+		});
+	});
+
+	it("leaves nothing behind when the collection isn't the member's", async () => {
+		await inReader(async (tx, userId) => {
+			await publish(tx, "romans", 8, romans8);
+			const someoneElse = await createAccount(tx);
+			const theirs = await createCollectionFor(tx, someoneElse.id);
+			const countPassages = async () =>
+				(await tx.select({ id: passages.id }).from(passages)).length;
+			const before = await countPassages();
+
+			await expect(
+				addVersesToCollection(tx, userId, theirs, chosen([28, 33])),
+			).rejects.toThrow("Collection not found.");
+			expect(await countPassages()).toBe(before);
+			await expect(
+				removePassagesFromCollection(tx, userId, theirs, [1]),
+			).rejects.toThrow("Collection not found.");
 		});
 	});
 });

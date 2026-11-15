@@ -7,36 +7,32 @@ import {
 import { listRecentLibraryActivity } from "@berean-study/db/recent-library-activity";
 import { createServerFn } from "@tanstack/react-start";
 
-import { authMiddleware } from "@/middleware/auth";
+import { authMiddleware, requireUserId } from "@/middleware/auth";
 
 export const getContinueReading = createServerFn({ method: "GET" })
 	.middleware([authMiddleware])
 	.handler(({ context }) => {
-		if (!context.session) throw new Error("Unauthorized");
-
-		return getLibraryReadingState(db, context.session.user.id);
+		const userId = requireUserId(context.session);
+		return getLibraryReadingState(db, userId);
 	});
 
 export const getLibraryDestinationCounts = createServerFn({ method: "GET" })
 	.middleware([authMiddleware])
 	.handler(({ context }) => {
-		if (!context.session) throw new Error("Unauthorized");
-
-		return getLibraryDestinationCountsFromDb(db, context.session.user.id);
+		const userId = requireUserId(context.session);
+		return getLibraryDestinationCountsFromDb(db, userId);
 	});
 
 export const getRecentLibraryActivity = createServerFn({ method: "GET" })
 	.middleware([authMiddleware])
 	.handler(({ context }) => {
-		if (!context.session) throw new Error("Unauthorized");
-
-		return listRecentLibraryActivity(db, context.session.user.id);
+		const userId = requireUserId(context.session);
+		return listRecentLibraryActivity(db, userId);
 	});
 
 export const getRecentlyStudied = createServerFn({ method: "GET" })
 	.middleware([authMiddleware])
 	.handler(({ context }) => {
-		if (!context.session) throw new Error("Unauthorized");
-
-		return listRecentPassages(db, context.session.user.id);
+		const userId = requireUserId(context.session);
+		return listRecentPassages(db, userId);
 	});

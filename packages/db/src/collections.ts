@@ -1,5 +1,6 @@
 import { and, asc, count, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 
+import type { DbExecutor } from "./db-executor";
 import type { db } from "./index";
 import {
 	getPassageExcerpts,
@@ -21,7 +22,6 @@ import { notes } from "./schema/notes";
 import { passages } from "./schema/passages";
 
 type DbClient = typeof db;
-type Transaction = Parameters<Parameters<DbClient["transaction"]>[0]>[0];
 
 export type { CollectionType, CollectionVisibility };
 
@@ -500,6 +500,68 @@ export async function addPassageToCollection(
 	});
 }
 
+/**
+ * Adds passages at the end of a collection's unsectioned passages, in the order
+ * given. Passages already in the collection stay where they are. Returns the
+ * collection's name and only the passages this added, so Undo can remove exactly
+ * those. All of it is saved together or not at all.
+ */
+export function addPassagesToCollection(
+	client: DbExecutor,
+	userId: string,
+	collectionId: number,
+	passageIds: readonly number[],
+) {
+	return client.transaction(async (tx) => {
+		const [collection] = await tx
+			.select({ name: collections.name })
+			.from(collections)
+			.where(
+				and(eq(collections.id, collectionId), eq(collections.userId, userId)),
+			)
+			.limit(1);
+		if (!collection) throw new Error("Collection not found.");
+
+		const wanted = [...new Set(passageIds)];
+		const present =
+			wanted.length === 0
+				? []
+				: await tx
+						.select({ passageId: collectionPassages.passageId })
+						.from(collectionPassages)
+						.where(
+							and(
+								eq(collectionPassages.collectionId, collectionId),
+								inArray(collectionPassages.passageId, wanted),
+							),
+						);
+		const presentIds = new Set(present.map((row) => row.passageId));
+		const missing = wanted.filter((passageId) => !presentIds.has(passageId));
+		if (missing.length === 0) {
+			return { addedPassageIds: [], collectionName: collection.name };
+		}
+
+		const start = await nextPassagePosition(tx, collectionId, null);
+		// Another tab may add the same passage at the same moment; skip it then.
+		const added = await tx
+			.insert(collectionPassages)
+			.values(
+				missing.map((passageId, index) => ({
+					collectionId,
+					passageId,
+					position: start + index,
+				})),
+			)
+			.onConflictDoNothing()
+			.returning({ passageId: collectionPassages.passageId });
+		await touchCollection(tx, collectionId);
+		return {
+			addedPassageIds: added.map((row) => row.passageId),
+			collectionName: collection.name,
+		};
+	});
+}
+
 /** Removes a passage from a collection, preserving the passage itself. */
 export async function removePassageFromCollection(
 	db: DbClient,
@@ -507,21 +569,44 @@ export async function removePassageFromCollection(
 	collectionId: number,
 	passageId: number,
 ) {
-	await assertCollectionOwned(db, userId, collectionId);
-	return db.transaction(async (tx) => {
-		const [removed] = await tx
+	const removed = await removePassagesFromCollection(db, userId, collectionId, [
+		passageId,
+	]);
+	return removed.length > 0;
+}
+
+/**
+ * Removes passages from a collection, preserving the passages themselves, and
+ * closes the gaps they leave. All of them go together or none do. Returns the
+ * passages that were removed.
+ */
+export function removePassagesFromCollection(
+	client: DbExecutor,
+	userId: string,
+	collectionId: number,
+	passageIds: readonly number[],
+) {
+	return client.transaction(async (tx) => {
+		await assertCollectionOwned(tx, userId, collectionId);
+		if (passageIds.length === 0) return [];
+		const removed = await tx
 			.delete(collectionPassages)
 			.where(
 				and(
 					eq(collectionPassages.collectionId, collectionId),
-					eq(collectionPassages.passageId, passageId),
+					inArray(collectionPassages.passageId, [...passageIds]),
 				),
 			)
-			.returning({ sectionId: collectionPassages.sectionId });
-		if (!removed) return false;
-		await renumberPassages(tx, collectionId, removed.sectionId);
+			.returning({
+				passageId: collectionPassages.passageId,
+				sectionId: collectionPassages.sectionId,
+			});
+		if (removed.length === 0) return [];
+		for (const sectionId of new Set(removed.map((row) => row.sectionId))) {
+			await renumberPassages(tx, collectionId, sectionId);
+		}
 		await touchCollection(tx, collectionId);
-		return true;
+		return removed.map((row) => row.passageId);
 	});
 }
 
@@ -1021,7 +1106,7 @@ function toCollectionSummary(
 }
 
 /** Content changes count as an update; reading and pinning don't. */
-async function touchCollection(tx: Transaction, collectionId: number) {
+async function touchCollection(tx: DbExecutor, collectionId: number) {
 	await tx
 		.update(collections)
 		.set({ updatedAt: new Date() })
@@ -1029,7 +1114,7 @@ async function touchCollection(tx: Transaction, collectionId: number) {
 }
 
 async function nextPassagePosition(
-	tx: Transaction,
+	tx: DbExecutor,
 	collectionId: number,
 	sectionId: number | null,
 ) {
@@ -1051,7 +1136,7 @@ async function nextPassagePosition(
 
 /** Closes the gap a removed passage leaves in its group. */
 async function renumberPassages(
-	tx: Transaction,
+	tx: DbExecutor,
 	collectionId: number,
 	sectionId: number | null,
 ) {
@@ -1130,7 +1215,7 @@ async function assertCollectionsOwned(
 }
 
 async function assertCollectionOwned(
-	db: DbClient,
+	db: DbExecutor,
 	userId: string,
 	collectionId: number,
 ) {

@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, gte, inArray, lte, max, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
+import { addPassagesToCollection } from "./collections";
 import type { DbExecutor } from "./db-executor";
 import { GovernanceError } from "./governance-error";
 import {
@@ -1054,6 +1055,28 @@ export async function saveVerses(
 		.onConflictDoNothing()
 		.returning({ passageId: bookmarks.passageId });
 	return { addedPassageIds: added.map((row) => row.passageId), label };
+}
+
+/**
+ * Adds chosen verses to one of the member's collections. Finding or making the
+ * stored passages and adding them happen together, so a failure part-way leaves
+ * nothing behind. Returns only what this added, so Undo removes exactly that.
+ */
+export function addVersesToCollection(
+	client: DbExecutor,
+	userId: string,
+	collectionId: number,
+	input: Parameters<typeof passagesForVerses>[1],
+) {
+	return client.transaction(async (tx) => {
+		const { passages: found } = await passagesForVerses(tx, input);
+		return addPassagesToCollection(
+			tx,
+			userId,
+			collectionId,
+			found.map((passage) => passage.passageId),
+		);
+	});
 }
 
 export async function unsaveVerses(

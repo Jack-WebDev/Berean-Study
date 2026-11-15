@@ -7,12 +7,7 @@ import {
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-import { authMiddleware } from "@/middleware/auth";
-
-export function requireUserId(session: { user: { id: string } } | null) {
-	if (!session) throw new Error("Unauthorized");
-	return session.user.id;
-}
+import { authMiddleware, requireUserId } from "@/middleware/auth";
 
 export const getPrayerJournalCounts = createServerFn({ method: "GET" })
 	.middleware([authMiddleware])

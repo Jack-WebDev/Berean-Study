@@ -7,14 +7,13 @@ import {
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-import { authMiddleware } from "@/middleware/auth";
+import { authMiddleware, requireUserId } from "@/middleware/auth";
 
 export const getSavedItems = createServerFn({ method: "GET" })
 	.middleware([authMiddleware])
 	.handler(({ context }) => {
-		if (!context.session) throw new Error("Unauthorized");
-
-		return listSavedItems(db, context.session.user.id);
+		const userId = requireUserId(context.session);
+		return listSavedItems(db, userId);
 	});
 
 const removeSavedItemInput = z.discriminatedUnion("kind", [
@@ -38,11 +37,6 @@ export const removeSavedItem = createServerFn({ method: "POST" })
 	.middleware([authMiddleware])
 	.validator(removeSavedItemInput)
 	.handler(async ({ context, data }) => {
-		if (!context.session) throw new Error("Unauthorized");
-
-		return removeSavedItemFromDb(
-			db,
-			context.session.user.id,
-			data satisfies SavedItemRemoval,
-		);
+		const userId = requireUserId(context.session);
+		return removeSavedItemFromDb(db, userId, data satisfies SavedItemRemoval);
 	});

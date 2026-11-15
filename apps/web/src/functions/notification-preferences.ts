@@ -6,7 +6,7 @@ import {
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-import { authMiddleware } from "@/middleware/auth";
+import { authMiddleware, requireUserId } from "@/middleware/auth";
 
 const notificationPreferencesSchema = z.object({
 	email: z.boolean(),
@@ -34,16 +34,14 @@ const notificationPreferencesSchema = z.object({
 export const getNotificationPreferences = createServerFn({ method: "GET" })
 	.middleware([authMiddleware])
 	.handler(async ({ context }) => {
-		if (!context.session) throw new Error("Unauthorized");
-
-		return getNotificationPreferencesFromDb(db, context.session.user.id);
+		const userId = requireUserId(context.session);
+		return getNotificationPreferencesFromDb(db, userId);
 	});
 
 export const updateNotificationPreferences = createServerFn({ method: "POST" })
 	.middleware([authMiddleware])
 	.validator(notificationPreferencesSchema)
 	.handler(async ({ context, data }) => {
-		if (!context.session) throw new Error("Unauthorized");
-
-		return saveNotificationPreferencesToDb(db, context.session.user.id, data);
+		const userId = requireUserId(context.session);
+		return saveNotificationPreferencesToDb(db, userId, data);
 	});

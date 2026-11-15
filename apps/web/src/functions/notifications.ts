@@ -9,7 +9,7 @@ import {
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-import { authMiddleware } from "@/middleware/auth";
+import { authMiddleware, requireUserId } from "@/middleware/auth";
 
 const notificationIdSchema = z.object({
 	id: z.number().int().positive(),
@@ -27,11 +27,6 @@ const notificationPageSchema = z.object({
 	query: z.string().trim().max(200).optional(),
 	unreadOnly: z.boolean().optional(),
 });
-
-function requireUserId(session: { user: { id: string } } | null) {
-	if (!session) throw new Error("Unauthorized");
-	return session.user.id;
-}
 
 export const getNotificationInbox = createServerFn({ method: "GET" })
 	.middleware([authMiddleware])

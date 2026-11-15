@@ -11,12 +11,12 @@ import { listRecentPassages as listRecentPassagesFromDb } from "@berean-study/db
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-import { authMiddleware } from "@/middleware/auth";
+import { authMiddleware, requireUserId } from "@/middleware/auth";
 
 export const getPassageOptions = createServerFn({ method: "GET" })
 	.middleware([authMiddleware])
 	.handler(({ context }) => {
-		if (!context.session) throw new Error("Unauthorized");
+		requireUserId(context.session);
 		return getPassageOptionsFromDb(db);
 	});
 
@@ -24,14 +24,14 @@ export const getPassageStudyContext = createServerFn({ method: "GET" })
 	.middleware([authMiddleware])
 	.validator(z.object({ passageId: z.number().int().positive() }))
 	.handler(({ context, data }) => {
-		if (!context.session) throw new Error("Unauthorized");
+		requireUserId(context.session);
 		return getPassageStudyContextFromDb(db, data.passageId);
 	});
 
 export const listTranslations = createServerFn({ method: "GET" })
 	.middleware([authMiddleware])
 	.handler(({ context }) => {
-		if (!context.session) throw new Error("Unauthorized");
+		requireUserId(context.session);
 		return listTranslationsFromDb(db);
 	});
 
@@ -45,10 +45,10 @@ export const getPassageText = createServerFn({ method: "GET" })
 		}),
 	)
 	.handler(async ({ context, data }) => {
-		if (!context.session) throw new Error("Unauthorized");
+		const userId = requireUserId(context.session);
 		const translationId =
 			data.translationId ??
-			(await getPreferredTranslationFromDb(db, context.session.user.id))?.id;
+			(await getPreferredTranslationFromDb(db, userId))?.id;
 		return translationId
 			? getPassageTextFromDb(db, data.passageId, translationId)
 			: null;
@@ -68,27 +68,23 @@ export const getVerseRangeText = createServerFn({ method: "GET" })
 			.refine((range) => range.verseEnd >= range.verseStart),
 	)
 	.handler(({ context, data }) => {
-		if (!context.session) throw new Error("Unauthorized");
+		requireUserId(context.session);
 		return getVerseRangeTextFromDb(db, data);
 	});
 
 export const getPreferredTranslation = createServerFn({ method: "GET" })
 	.middleware([authMiddleware])
 	.handler(({ context }) => {
-		if (!context.session) throw new Error("Unauthorized");
-		return getPreferredTranslationFromDb(db, context.session.user.id);
+		const userId = requireUserId(context.session);
+		return getPreferredTranslationFromDb(db, userId);
 	});
 
 /** The member's three most recently read passages, newest first. */
 export const listRecentPassages = createServerFn({ method: "GET" })
 	.middleware([authMiddleware])
 	.handler(async ({ context }) => {
-		if (!context.session) throw new Error("Unauthorized");
-		const recent = await listRecentPassagesFromDb(
-			db,
-			context.session.user.id,
-			10,
-		);
+		const userId = requireUserId(context.session);
+		const recent = await listRecentPassagesFromDb(db, userId, 10);
 		// Reading history records every visit, so keep each passage's latest.
 		const unique = recent.filter(
 			(passage, index) =>

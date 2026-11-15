@@ -249,11 +249,15 @@
 	--color-progress-published: var(--progress-published);
 	--color-progress-published-foreground: var(--progress-published-foreground);
 	--color-progress-proofreading: var(--progress-proofreading);
-	--color-progress-proofreading-foreground: var(--progress-proofreading-foreground);
+	--color-progress-proofreading-foreground: var(
+		--progress-proofreading-foreground
+	);
 	--color-progress-entering: var(--progress-entering);
 	--color-progress-entering-foreground: var(--progress-entering-foreground);
 	--color-progress-not-started: var(--progress-not-started);
-	--color-progress-not-started-foreground: var(--progress-not-started-foreground);
+	--color-progress-not-started-foreground: var(
+		--progress-not-started-foreground
+	);
 	--color-queue-count: var(--queue-count);
 	--color-queue-count-foreground: var(--queue-count-foreground);
 	--color-brand-foreground: var(--brand-foreground);

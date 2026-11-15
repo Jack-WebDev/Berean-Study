@@ -16,12 +16,11 @@ import { reportReasonKeys } from "@berean-study/db/community-moderation-catalogu
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-import { authMiddleware, requirePermission } from "@/middleware/auth";
-
-function requireUserId(session: { user: { id: string } } | null) {
-	if (!session) throw new Error("Unauthorized");
-	return session.user.id;
-}
+import {
+	authMiddleware,
+	requirePermission,
+	requireUserId,
+} from "@/middleware/auth";
 
 export const getCommunityFeed = createServerFn({ method: "GET" })
 	.middleware([authMiddleware])

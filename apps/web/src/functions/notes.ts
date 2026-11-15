@@ -19,7 +19,7 @@ import {
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-import { authMiddleware } from "@/middleware/auth";
+import { authMiddleware, requireUserId } from "@/middleware/auth";
 import { richTextDocumentSchema } from "./rich-text";
 
 const noteIdSchema = z.object({
@@ -73,11 +73,6 @@ const removeNoteTagSchema = noteIdSchema.extend({
 const setNoteTagsSchema = noteIdSchema.extend({
 	tags: z.array(z.string().trim().min(1).max(50)).max(20),
 });
-
-function requireUserId(session: { user: { id: string } } | null) {
-	if (!session) throw new Error("Unauthorized");
-	return session.user.id;
-}
 
 export const listNotes = createServerFn({ method: "GET" })
 	.middleware([authMiddleware])

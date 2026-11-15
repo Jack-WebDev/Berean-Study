@@ -11,6 +11,7 @@ import {
 	unsaveVerses,
 } from "@/functions/reader";
 import { collectionKeys, libraryKeys, readerKeys } from "@/queries/keys";
+import { invalidateReaderMarks } from "@/queries/reader";
 
 type ChapterMarks = Awaited<
 	ReturnType<typeof import("@/functions/reader").getChapterMarks>
@@ -28,6 +29,11 @@ export type ChosenVerses = {
 
 const tryAgain = "Check your connection, then try again.";
 
+/** Such as "Romans 8:28–30, 33". */
+function referenceOf(chosen: ChosenVerses) {
+	return selectionLabel(chosen.bookName, chosen.chapter, chosen.verses);
+}
+
 /** The chosen verses as text to paste elsewhere, ending with where they're from. */
 export function copiedText(chosen: ChosenVerses) {
 	const words = chosen.verses
@@ -39,12 +45,7 @@ export function copiedText(chosen: ChosenVerses) {
 			return chosen.verses.length > 1 ? `${verse} ${text}` : text;
 		})
 		.join(" ");
-	const reference = selectionLabel(
-		chosen.bookName,
-		chosen.chapter,
-		chosen.verses,
-	);
-	return `“${words}” ${reference} (${chosen.translationAbbreviation})`;
+	return `“${words}” ${referenceOf(chosen)} (${chosen.translationAbbreviation})`;
 }
 
 /**
@@ -56,15 +57,8 @@ export function useVerseActions() {
 	const queryClient = useQueryClient();
 	const toast = useReaderToast();
 
-	const refreshMarks = () =>
-		queryClient.invalidateQueries({ queryKey: readerKeys.allMarks() });
-
 	function highlight(chosen: ChosenVerses, highlighted: boolean) {
-		const reference = selectionLabel(
-			chosen.bookName,
-			chosen.chapter,
-			chosen.verses,
-		);
+		const reference = referenceOf(chosen);
 		const input = {
 			bookSlug: chosen.bookSlug,
 			chapter: chosen.chapter,
@@ -93,8 +87,7 @@ export function useVerseActions() {
 
 		setVersesHighlighted({ data: { ...input, highlighted } }).then(
 			({ undo }) => {
-				void refreshMarks();
-				void queryClient.invalidateQueries({ queryKey: libraryKeys.all });
+				void invalidateReaderMarks(queryClient);
 				toast.show(
 					highlighted
 						? `Highlighted ${reference}`
@@ -104,7 +97,7 @@ export function useVerseActions() {
 							if (before) queryClient.setQueryData(marksKey, before);
 							undoHighlightChange({ data: undo })
 								.catch(() => toast.show(`We couldn't undo that. ${tryAgain}`))
-								.finally(() => void refreshMarks());
+								.finally(() => void invalidateReaderMarks(queryClient));
 						},
 					},
 				);
@@ -119,11 +112,7 @@ export function useVerseActions() {
 	}
 
 	function save(chosen: ChosenVerses) {
-		const reference = selectionLabel(
-			chosen.bookName,
-			chosen.chapter,
-			chosen.verses,
-		);
+		const reference = referenceOf(chosen);
 		saveVerses({
 			data: {
 				bookSlug: chosen.bookSlug,
@@ -158,11 +147,7 @@ export function useVerseActions() {
 		chosen: ChosenVerses,
 		collection: { id: number; name: string },
 	) {
-		const reference = selectionLabel(
-			chosen.bookName,
-			chosen.chapter,
-			chosen.verses,
-		);
+		const reference = referenceOf(chosen);
 		const refreshCollections = () =>
 			Promise.all([
 				queryClient.invalidateQueries({ queryKey: collectionKeys.all }),
@@ -203,11 +188,7 @@ export function useVerseActions() {
 	}
 
 	function copy(chosen: ChosenVerses) {
-		const reference = selectionLabel(
-			chosen.bookName,
-			chosen.chapter,
-			chosen.verses,
-		);
+		const reference = referenceOf(chosen);
 		const done = () =>
 			toast.show(`Copied ${reference} (${chosen.translationAbbreviation})`);
 		const failed = () =>
