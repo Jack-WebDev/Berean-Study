@@ -13,15 +13,12 @@ import { alias } from "drizzle-orm/pg-core";
 
 import { recordAudit } from "./audit";
 import { highestChapterLimit } from "./canon-limits";
-import {
-	isCommentaryKind,
-	parseCommentaryScopeKey,
-	rangeContains,
-} from "./commentary-body";
+import { isCommentaryKind, parseCommentaryScopeKey } from "./commentary-body";
 import { contentAtPassage } from "./content-links";
 import type { DbExecutor } from "./db-executor";
 import { GovernanceError } from "./governance-error";
 import { createNotification } from "./notifications";
+import { rangeContains } from "./passage-key";
 import { bookAliases } from "./schema/book_aliases";
 import { books } from "./schema/books";
 import { canonBooks } from "./schema/canon_books";

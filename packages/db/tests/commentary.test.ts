@@ -21,7 +21,6 @@ import {
 	formatCoverageGaps,
 	parseCommentaryScopeKey,
 	parseSectionRange,
-	rangesOverlap,
 	startingCommentaryBody,
 } from "../src/commentary-body";
 import { getRevisionPage } from "../src/content-queues";
@@ -35,6 +34,7 @@ import {
 } from "../src/content-workflow";
 import type { DbExecutor } from "../src/db-executor";
 import { retireSource, saveEvidenceDraft } from "../src/evidence";
+import { rangesOverlap } from "../src/passage-key";
 import { changeProposals } from "../src/schema/change_proposals";
 import { citations } from "../src/schema/citations";
 import { contentItems } from "../src/schema/content_items";

@@ -1,12 +1,23 @@
 import { parseOutlineRange } from "./book-overview";
-import type { VerseRange } from "./commentary-body";
 
-/*
- * A way to name verses that doesn't depend on them having been entered yet, such
- * as "romans:8:18-8:30". This file has no database imports so the browser can use it.
- */
-
+export type VersePoint = { chapter: number; verse: number };
+export type VerseRange = { from: VersePoint; to: VersePoint };
 export type PassageRange = VerseRange & { bookSlug: string };
+
+/** Negative if `a` comes first, zero if they're the same verse. */
+export function comparePoints(a: VersePoint, b: VersePoint) {
+	return a.chapter - b.chapter || a.verse - b.verse;
+}
+
+export function rangesOverlap(a: VerseRange, b: VerseRange) {
+	return comparePoints(a.from, b.to) <= 0 && comparePoints(b.from, a.to) <= 0;
+}
+
+export function rangeContains(range: VerseRange, point: VersePoint) {
+	return (
+		comparePoints(range.from, point) <= 0 && comparePoints(point, range.to) <= 0
+	);
+}
 
 /** Stands in for a chapter's last verse, whatever that turns out to be. */
 export const THROUGH_CHAPTER_END = 999;

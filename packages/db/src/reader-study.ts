@@ -9,8 +9,6 @@ import {
 	commentaryBodySchema,
 	parseCommentaryScopeKey,
 	parseSectionRange,
-	rangesOverlap,
-	type VerseRange,
 } from "./commentary-body";
 import {
 	canonicalRelationshipBodySchema,
@@ -29,7 +27,12 @@ import {
 	textualNoteBodySchema,
 	textualVariantBodySchema,
 } from "./language-body";
-import { type PassageRange, parsePassageKey } from "./passage-key";
+import {
+	type PassageRange,
+	parsePassageKey,
+	rangesOverlap,
+	type VerseRange,
+} from "./passage-key";
 import {
 	limitWords,
 	maxReaderQuoteWords,

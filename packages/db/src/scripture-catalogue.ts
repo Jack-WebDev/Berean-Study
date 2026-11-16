@@ -55,6 +55,15 @@ function book(
 	};
 }
 
+/**
+ * How a typed book name is compared with the catalogue, everywhere a reference
+ * is typed: case, full stops and spaces don't count, so "1 Jn.", "1jn" and
+ * "1 JN" all mean 1 John.
+ */
+export function bookNameKey(name: string) {
+	return name.toLowerCase().replace(/[.\s]/g, "");
+}
+
 /** Protestant order first, then the books only other canons include. */
 export const bookCatalogue: readonly BookDefinition[] = [
 	book(

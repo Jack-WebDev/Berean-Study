@@ -8,13 +8,13 @@ import {
 	commentaryKinds,
 	commentaryScopeKey,
 	parseCommentaryScopeKey,
-	rangesOverlap,
 	startingCommentaryBody,
 } from "./commentary-body";
 import { commentaryScopeLabel } from "./commentary-kinds";
 import { getContentState, listContentRecords } from "./content-queues";
 import type { DbExecutor } from "./db-executor";
 import { GovernanceError } from "./governance-error";
+import { rangesOverlap } from "./passage-key";
 import { books } from "./schema/books";
 import { chapters } from "./schema/chapters";
 import { contentItems } from "./schema/content_items";

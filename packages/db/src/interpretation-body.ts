@@ -8,11 +8,7 @@ import { z } from "zod";
 
 import { type ChecklistItem, richTextBody } from "./commentary-body";
 import { splitScriptureReference } from "./passage-key";
-
-/*
- * What interpretive questions and themes say, and what makes each ready for review.
- * This file has no database imports so the browser can run the same checks.
- */
+import { bookNameFromOneChapter } from "./reader-catalogue";
 
 export const questionStances = ["no_position", "preferred_view"] as const;
 export type QuestionStance = (typeof questionStances)[number];
@@ -304,7 +300,7 @@ export function orderedThemePassages(
 		const split = splitScriptureReference(reference);
 		const name = split?.bookText ?? "";
 		return {
-			book: bookPositions[name === "Psalm" ? "Psalms" : name] ?? 9999,
+			book: bookPositions[bookNameFromOneChapter(name)] ?? 9999,
 			chapter: split?.range?.from.chapter ?? 0,
 			verse: split?.range?.from.verse ?? 0,
 		};

@@ -140,9 +140,19 @@ export function includedByLabel(traditions: readonly string[]) {
 	return `In ${names} Bibles`;
 }
 
-/** "Psalm 23", not "Psalms 23": one psalm is a psalm. */
+/** One psalm is a psalm: "Psalm 23", though the book is "Psalms". */
+export function oneChapterBookName(bookName: string) {
+	return bookName === "Psalms" ? "Psalm" : bookName;
+}
+
+/** The book's name as it was written in a one-chapter reference such as "Psalm 23". */
+export function bookNameFromOneChapter(name: string) {
+	return name === "Psalm" ? "Psalms" : name;
+}
+
+/** "Psalm 23", "Romans 8". */
 export function chapterLabel(bookName: string, chapter: number) {
-	return `${bookName === "Psalms" ? "Psalm" : bookName} ${chapter}`;
+	return `${oneChapterBookName(bookName)} ${chapter}`;
 }
 
 /** Groups verse numbers into runs: [28, 29, 30, 33] becomes [[28, 30], [33, 33]]. */

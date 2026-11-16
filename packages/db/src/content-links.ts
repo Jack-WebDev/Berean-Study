@@ -4,10 +4,9 @@ import {
 	type RichTextDocument,
 } from "@berean-study/rich-text-editor/document";
 import { and, eq, inArray, like, max, sql } from "drizzle-orm";
-
-import type { VersePoint } from "./commentary-body";
 import type { DbExecutor } from "./db-executor";
 import { GovernanceError } from "./governance-error";
+import type { VersePoint } from "./passage-key";
 import { contentItems } from "./schema/content_items";
 import { contentPassages } from "./schema/content_passages";
 import { contentRevisions } from "./schema/content_revisions";

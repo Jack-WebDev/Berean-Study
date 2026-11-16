@@ -1,12 +1,8 @@
 import { chapterLabel } from "@berean-study/db/reader-catalogue";
-import { bookCatalogue } from "@berean-study/db/scripture-catalogue";
-
-/*
- * The Browse search box (HANDOFF Screen 4). It works out what someone typed as
- * they type: a verse ("John 3:16", "jn3:16", "john 3 16"), a chapter
- * ("Romans 8"), or the start of a book's name ("rom"). Only books in the reader's
- * own book list are found, with their chapter counts from that list.
- */
+import {
+	bookCatalogue,
+	bookNameKey,
+} from "@berean-study/db/scripture-catalogue";
 
 export type SearchableBook = {
 	chapterCount: number | null;
@@ -29,16 +25,11 @@ export type FindResult =
 			label: string;
 	  };
 
-/** Lower case, no full stops, no spaces: "1 Jn." and "1jn" match. */
-function squash(text: string) {
-	return text.toLowerCase().replace(/[.\s]/g, "");
-}
-
 /** Every way of writing each book's name: "John", "Jn", "Jhn"… */
 const namesBySlug = new Map(
 	bookCatalogue.map((book) => [
 		book.slug,
-		[book.name, book.shortName, ...book.aliases].map(squash),
+		[book.name, book.shortName, ...book.aliases].map(bookNameKey),
 	]),
 );
 
@@ -55,11 +46,11 @@ export function findInBible(
 	const typed = query.trim().toLowerCase().replace(/\s+/g, " ");
 	if (!typed) return [];
 	const names = (book: SearchableBook) =>
-		namesBySlug.get(book.slug) ?? [squash(book.name)];
+		namesBySlug.get(book.slug) ?? [bookNameKey(book.name)];
 
 	const reference = referencePattern.exec(typed);
 	if (reference?.[1] && reference[2]) {
-		const bookText = squash(reference[1]);
+		const bookText = bookNameKey(reference[1]);
 		const book = books.find((candidate) => names(candidate).includes(bookText));
 		const chapter = Number(reference[2]);
 		const verse = reference[3] ? Number(reference[3]) : null;
@@ -83,7 +74,7 @@ export function findInBible(
 		return [];
 	}
 
-	const start = squash(typed);
+	const start = bookNameKey(typed);
 	return books
 		.filter((book) => names(book).some((name) => name.startsWith(start)))
 		.slice(0, maxBookResults)

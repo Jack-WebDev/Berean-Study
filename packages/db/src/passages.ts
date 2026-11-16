@@ -5,6 +5,7 @@ import { parseConnectionScopeKey } from "./connection-body";
 import { contentAtPassage } from "./content-links";
 import type { db } from "./index";
 import { parsePassageKey } from "./passage-key";
+import { oneChapterBookName } from "./reader-catalogue";
 import { books } from "./schema/books";
 import { chapters } from "./schema/chapters";
 import { passageRanges } from "./schema/passage_ranges";
@@ -387,7 +388,7 @@ export function formatPassageReference(
 	const [startChapter, startVerse] = start;
 	const [endChapter, endVerse] = end;
 	const sameChapter = startChapter === endChapter;
-	const book = bookName === "Psalms" && sameChapter ? "Psalm" : bookName;
+	const book = sameChapter ? oneChapterBookName(bookName) : bookName;
 	if (!sameChapter) {
 		return `${book} ${startChapter}:${startVerse}–${endChapter}:${endVerse}`;
 	}

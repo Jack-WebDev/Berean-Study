@@ -1,4 +1,4 @@
-import { eq, max, sql } from "drizzle-orm";
+import { type AnyColumn, eq, max, type SQL, sql } from "drizzle-orm";
 
 import type { DbExecutor } from "./db-executor";
 import { GovernanceError } from "./governance-error";
@@ -10,9 +10,11 @@ import {
 	THROUGH_CHAPTER_END,
 } from "./passage-key";
 import { formatPassageReference } from "./passages";
+import { chapterLabel } from "./reader-catalogue";
 import { bookAliases } from "./schema/book_aliases";
 import { books } from "./schema/books";
 import { canonBooks } from "./schema/canon_books";
+import { bookNameKey } from "./scripture-catalogue";
 
 export { splitScriptureReference };
 
@@ -32,7 +34,9 @@ export async function resolveScriptureReference(
 		);
 	}
 
-	const name = reference.bookText.toLowerCase();
+	const name = bookNameKey(reference.bookText);
+	const comparable = (column: SQL | AnyColumn) =>
+		sql`regexp_replace(lower(${column}), '[.[:space:]]', '', 'g')`;
 	const [book] = await client
 		.select({
 			id: books.id,
@@ -43,7 +47,7 @@ export async function resolveScriptureReference(
 		.from(books)
 		.leftJoin(bookAliases, eq(bookAliases.bookId, books.id))
 		.where(
-			sql`lower(${books.name}) = ${name} OR lower(${books.shortName}) = ${name} OR lower(${bookAliases.alias}) = ${name}`,
+			sql`${comparable(books.name)} = ${name} OR ${comparable(books.shortName)} = ${name} OR ${comparable(bookAliases.alias)} = ${name}`,
 		)
 		.limit(1);
 	if (!book) {
@@ -72,9 +76,11 @@ export async function resolveScriptureReference(
 	};
 }
 
-function chapterLabel(bookName: string, from: number, to: number) {
-	if (from !== to) return `${bookName} ${from}–${to}`;
-	return `${bookName === "Psalms" ? "Psalm" : bookName} ${from}`;
+/** "Psalm 23", or "Psalms 1–2" across several chapters. */
+function wholeChaptersLabel(bookName: string, from: number, to: number) {
+	return from === to
+		? chapterLabel(bookName, from)
+		: `${bookName} ${from}–${to}`;
 }
 
 /** A passage written the same way wherever it's shown: "Rom 8:31" becomes "Romans 8:31". */
@@ -83,7 +89,7 @@ export function passageLabel(
 	{ from, to }: Pick<PassageRange, "from" | "to">,
 ) {
 	if (to.verse === THROUGH_CHAPTER_END) {
-		return chapterLabel(bookName, from.chapter, to.chapter);
+		return wholeChaptersLabel(bookName, from.chapter, to.chapter);
 	}
 	return formatPassageReference(
 		bookName,

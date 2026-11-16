@@ -9,11 +9,12 @@ import {
 import { z } from "zod";
 
 import { parseOutlineRange } from "./book-overview";
-
-/*
- * What a commentary says, and the rules for its sections and verse coverage. This
- * file has no database imports so the browser can run the same checks as the server.
- */
+import {
+	comparePoints,
+	rangeContains,
+	type VersePoint,
+	type VerseRange,
+} from "./passage-key";
 
 export const commentaryKinds = [
 	"book_introduction",
@@ -31,9 +32,6 @@ export const commentaryKindLabels: Record<CommentaryKind, string> = {
 export function isCommentaryKind(kind: string): kind is CommentaryKind {
 	return (commentaryKinds as readonly string[]).includes(kind);
 }
-
-export type VersePoint = { chapter: number; verse: number };
-export type VerseRange = { from: VersePoint; to: VersePoint };
 
 /** What a commentary covers. It's part of the commentary's identity, so it never changes. */
 export type CommentaryScope =
@@ -73,20 +71,6 @@ export function parseCommentaryScopeKey(
 		return null;
 	}
 	return { bookSlug: match[1], from, kind, to };
-}
-
-function comparePoints(a: VersePoint, b: VersePoint) {
-	return a.chapter - b.chapter || a.verse - b.verse;
-}
-
-export function rangesOverlap(a: VerseRange, b: VerseRange) {
-	return comparePoints(a.from, b.to) <= 0 && comparePoints(b.from, a.to) <= 0;
-}
-
-export function rangeContains(range: VerseRange, point: VersePoint) {
-	return (
-		comparePoints(range.from, point) <= 0 && comparePoints(point, range.to) <= 0
-	);
 }
 
 export const richTextBody = z.custom<RichTextDocument>(isRichTextDocument, {
