@@ -21,14 +21,13 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { ArrowDownIcon, ArrowUpIcon, Trash2Icon } from "lucide-react";
 import { type CSSProperties, type DragEvent, useMemo, useState } from "react";
-
+import { useUnsavedWarning } from "@/lib/use-unsaved-warning";
 import { commentaryEditorQueryOptions } from "@/queries/commentary";
 
 import { DraftControls, RecordBanner } from "../evidence/draft-controls";
 import {
 	EvidenceField,
 	evidenceInputClassName,
-	useUnsavedWarning,
 } from "../evidence/evidence-display";
 import { StaffButton, staffLinkClassName } from "../staff-button";
 import { StaffCard } from "../staff-card";
@@ -523,22 +522,30 @@ function SaveStatus({
 	canEdit: boolean;
 }) {
 	if (!canEdit) return null;
-	if (autosave.error && !autosave.isSaving) {
+	if (autosave.state === "failed") {
 		return (
-			<StatusChip tone="danger">
-				Couldn't save: {autosave.error.message}
-			</StatusChip>
+			<span className="flex items-center gap-2">
+				<StatusChip tone="danger">
+					Couldn't save
+					{autosave.error ? `: ${autosave.error.message}` : ""}
+				</StatusChip>
+				<StaffButton onClick={autosave.retry} variant="outline">
+					Retry
+				</StaffButton>
+			</span>
 		);
 	}
-	if (autosave.isSaving) return <StatusChip tone="neutral">Saving…</StatusChip>;
+	if (autosave.state === "saving") {
+		return <StatusChip tone="neutral">Saving…</StatusChip>;
+	}
 	if (autosave.isDirty) {
 		return <StatusChip tone="neutral">Unsaved changes</StatusChip>;
 	}
-	if (autosave.savedAt) {
+	if (autosave.lastSavedAt) {
 		return (
 			<StatusChip tone="success">
 				Saved{" "}
-				{autosave.savedAt.toLocaleTimeString([], {
+				{autosave.lastSavedAt.toLocaleTimeString([], {
 					hour: "2-digit",
 					minute: "2-digit",
 				})}

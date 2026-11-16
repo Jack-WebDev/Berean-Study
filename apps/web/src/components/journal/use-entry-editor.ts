@@ -2,9 +2,9 @@ import type { RichTextDocument } from "@berean-study/rich-text-editor/document";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 
+import { useAutosave } from "@/lib/use-autosave";
+import { useUnsavedWarning } from "@/lib/use-unsaved-warning";
 import { invalidatePrayerJournal } from "@/queries/prayer-journal";
-
-import { useJournalAutosave } from "./use-journal-autosave";
 
 /**
  * Holds an entry's fields and autosaves them. A new entry is created by its
@@ -38,10 +38,11 @@ export function useEntryEditor<Values extends { content: RichTextDocument }>({
 		if (savedId === null) onDraftChangeRef.current?.(values);
 	}, [savedId, values]);
 
-	const autosave = useJournalAutosave({
+	const autosave = useAutosave({
 		canSave: canSave(values),
+		delayMs: 1200,
 		initialValues: initial,
-		onSave: async (next: Values) => {
+		save: async (next: Values) => {
 			const id = savedIdRef.current;
 			if (id === null) {
 				const createdId = await create(next);
@@ -60,12 +61,7 @@ export function useEntryEditor<Values extends { content: RichTextDocument }>({
 	// reloading the tab can't, so ask the browser to warn first.
 	const hasUnsavedWork =
 		(autosave.isDirty && canSave(values)) || autosave.state === "saving";
-	useEffect(() => {
-		if (!hasUnsavedWork) return;
-		const warn = (event: BeforeUnloadEvent) => event.preventDefault();
-		window.addEventListener("beforeunload", warn);
-		return () => window.removeEventListener("beforeunload", warn);
-	}, [hasUnsavedWork]);
+	useUnsavedWarning(hasUnsavedWork);
 
 	return {
 		autosave,

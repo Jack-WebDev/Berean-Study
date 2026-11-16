@@ -1,10 +1,12 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
 	act,
 	cleanup,
 	fireEvent,
-	render,
+	render as renderInDom,
 	screen,
 } from "@testing-library/react";
+import type { ReactElement, ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../src/functions/notes", () => ({ saveNote: vi.fn() }));
@@ -60,6 +62,16 @@ function Harness({
 			state={autosave.state}
 		/>
 	);
+}
+
+// Saves run through TanStack Query, which needs a client.
+function render(ui: ReactElement) {
+	const client = new QueryClient();
+	return renderInDom(ui, {
+		wrapper: ({ children }: { children: ReactNode }) => (
+			<QueryClientProvider client={client}>{children}</QueryClientProvider>
+		),
+	});
 }
 
 beforeEach(() => {

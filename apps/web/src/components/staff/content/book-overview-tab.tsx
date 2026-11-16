@@ -15,10 +15,11 @@ import { Textarea } from "@berean-study/ui/components/textarea";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { XIcon } from "lucide-react";
-import { useEffect, useId, useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { discardDraft, saveDraft, submitRevision } from "@/functions/content";
+import { useUnsavedWarning } from "@/lib/use-unsaved-warning";
 import { contentStateQueryOptions } from "@/queries/content";
 
 import { StaffButton, staffLinkClassName } from "../staff-button";
@@ -195,12 +196,7 @@ function OverviewEditor({
 		JSON.stringify(saved.success ? saved.data : current) !==
 		JSON.stringify(initial);
 
-	useEffect(() => {
-		if (!isDirty) return;
-		const warn = (event: BeforeUnloadEvent) => event.preventDefault();
-		window.addEventListener("beforeunload", warn);
-		return () => window.removeEventListener("beforeunload", warn);
-	}, [isDirty]);
+	useUnsavedWarning(isDirty);
 
 	const save = useContentMutation(
 		() => saveDraft({ data: { ...overviewScope(slug), body: current } }),

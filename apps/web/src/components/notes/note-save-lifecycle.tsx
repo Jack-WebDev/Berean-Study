@@ -7,6 +7,7 @@ import { CheckIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { saveNote } from "@/functions/notes";
+import { useAutosave, useOrderedSave } from "@/lib/use-autosave";
 import { invalidateNoteQueries } from "@/queries/notes";
 import { formatTime } from "@/utils/dates";
 
@@ -32,8 +33,6 @@ export type NoteSaveState =
 	| "saving"
 	| "untouched";
 
-const AUTOSAVE_DELAY_MS = 1000;
-
 /**
  * Keeps every save for one note in order and turns a newly created note into
  * subsequent updates. Pages only decide what to do after a save succeeds.
@@ -41,52 +40,53 @@ const AUTOSAVE_DELAY_MS = 1000;
 export function useNoteSaveLifecycle(initialNote?: StoredNote) {
 	const queryClient = useQueryClient();
 	const noteId = useRef<number | undefined>(initialNote?.id);
-	const saveQueue = useRef<Promise<void>>(Promise.resolve());
 	const [storedNote, setStoredNote] = useState<StoredNote | null>(
 		initialNote ?? null,
 	);
 
-	const save = useCallback(
-		(
-			values: NoteFormValues,
-			options: { status?: NoteStatus } = {},
-		): Promise<SavedNote> => {
-			const nextSave = saveQueue.current.then(async () => {
-				const savedNote = await saveNote({
-					data: {
-						content: values.content,
-						id: noteId.current,
-						passageIds: values.passageIds,
-						purpose: values.purpose,
-						status: options.status,
-						tags: values.tags,
-						title: values.title.trim(),
-					},
-				});
-				if (!savedNote) throw new Error("Note not found.");
-
-				noteId.current = savedNote.id;
-				setStoredNote(savedNote);
-				// The form is the source of truth while editing, so mark the cached
-				// copies stale for their next use rather than refetching every save.
-				void invalidateNoteQueries(queryClient, { refetchType: "none" });
-				return savedNote;
+	// Saves run in order, so a later save reads the id an earlier one created.
+	const ordered = useOrderedSave(
+		async ({
+			status,
+			values,
+		}: {
+			status?: NoteStatus;
+			values: NoteFormValues;
+		}): Promise<SavedNote> => {
+			const savedNote = await saveNote({
+				data: {
+					content: values.content,
+					id: noteId.current,
+					passageIds: values.passageIds,
+					purpose: values.purpose,
+					status,
+					tags: values.tags,
+					title: values.title.trim(),
+				},
 			});
+			if (!savedNote) throw new Error("Note not found.");
 
-			saveQueue.current = nextSave.then(
-				() => undefined,
-				() => undefined,
-			);
-			return nextSave;
+			noteId.current = savedNote.id;
+			setStoredNote(savedNote);
+			// The form is the source of truth while editing, so mark the cached
+			// copies stale for their next use rather than refetching every save.
+			void invalidateNoteQueries(queryClient, { refetchType: "none" });
+			return savedNote;
 		},
-		[queryClient],
+	);
+	const { save: runSave, whenIdle: whenSavesFinish } = ordered;
+
+	const save = useCallback(
+		(values: NoteFormValues, options: { status?: NoteStatus } = {}) =>
+			runSave({ status: options.status, values }),
+		[runSave],
 	);
 
 	/** Resolves with the note's id once every queued save has settled. */
 	const whenIdle = useCallback(async () => {
-		await saveQueue.current;
+		await whenSavesFinish();
 		return noteId.current;
-	}, []);
+	}, [whenSavesFinish]);
 
 	return { markStored: setStoredNote, save, storedNote, whenIdle };
 }
@@ -108,70 +108,29 @@ export function useNoteAutosave({
 	onSave: (values: NoteFormValues) => Promise<unknown>;
 	values: NoteFormValues;
 }) {
-	const [state, setState] = useState<NoteSaveState>(
-		noteStatus ? "saved" : "untouched",
-	);
-	const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
-	const lastSavedValues = useRef(initialValues);
-	const latestValues = useRef(values);
-	const requestId = useRef(0);
-	const hasSaved = noteStatus !== null;
-
-	latestValues.current = values;
-
-	const save = useCallback(
-		(valuesToSave: NoteFormValues) => {
-			const currentRequestId = ++requestId.current;
-			setState("saving");
-
-			void onSave(valuesToSave)
-				.then(() => {
-					lastSavedValues.current = valuesToSave;
-					if (currentRequestId !== requestId.current) return;
-					setLastSavedAt(new Date());
-					setState(
-						areValuesEqual(latestValues.current, valuesToSave)
-							? "saved"
-							: "pending",
-					);
-				})
-				.catch(() => {
-					if (currentRequestId === requestId.current) setState("failed");
-				});
-		},
-		[onSave],
-	);
-
-	/** Records a save made outside autosave, such as the Save note action. */
-	const markSaved = useCallback((savedValues: NoteFormValues) => {
-		requestId.current++;
-		lastSavedValues.current = savedValues;
-		setLastSavedAt(new Date());
-		setState("saved");
-	}, []);
-
 	const canAutosave = isValidForAutosave(values, noteStatus);
-
-	useEffect(() => {
-		if (isManualSaveInProgress) return;
-		if (areValuesEqual(values, lastSavedValues.current)) {
-			setState((current) =>
-				current === "pending" ? (hasSaved ? "saved" : "untouched") : current,
-			);
-			return;
-		}
-
-		setState((current) => (current === "failed" ? current : "pending"));
-		if (!canAutosave) return;
-		const timeoutId = window.setTimeout(() => save(values), AUTOSAVE_DELAY_MS);
-		return () => window.clearTimeout(timeoutId);
-	}, [canAutosave, hasSaved, isManualSaveInProgress, save, values]);
+	const autosave = useAutosave({
+		canSave: canAutosave,
+		delayMs: 1000,
+		initialValues,
+		isEqual: areValuesEqual,
+		paused: isManualSaveInProgress,
+		save: onSave,
+		values,
+	});
+	// A note saved before this visit counts as saved until something changes.
+	const state: NoteSaveState =
+		autosave.state === "idle"
+			? noteStatus
+				? "saved"
+				: "untouched"
+			: autosave.state;
 
 	return {
 		canAutosave,
-		lastSavedAt,
-		markSaved,
-		retry: () => save(latestValues.current),
+		lastSavedAt: autosave.lastSavedAt,
+		markSaved: autosave.markSaved,
+		retry: autosave.retry,
 		state,
 	};
 }

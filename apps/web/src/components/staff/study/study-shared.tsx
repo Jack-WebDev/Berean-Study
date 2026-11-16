@@ -25,12 +25,13 @@ import type { z } from "zod";
 
 import { saveStudyDraft } from "@/functions/study-content";
 
+import { useUnsavedWarning } from "@/lib/use-unsaved-warning";
+
 import type { useCommentaryInsertTools } from "../commentary/commentary-insert-tools";
 import {
 	EvidenceField,
 	evidenceInputClassName,
 	RecordStatusChips,
-	useUnsavedWarning,
 } from "../evidence/evidence-display";
 import { StaffButton } from "../staff-button";
 import { StaffCard } from "../staff-card";

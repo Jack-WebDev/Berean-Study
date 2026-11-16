@@ -15,6 +15,8 @@ import { useState } from "react";
 
 import { saveEvidenceDraft } from "@/functions/evidence";
 
+import { useUnsavedWarning } from "@/lib/use-unsaved-warning";
+
 import { StaffCard } from "../staff-card";
 import {
 	DraftControls,
@@ -26,7 +28,6 @@ import {
 	EvidenceField,
 	evidenceInputClassName,
 	OptionPills,
-	useUnsavedWarning,
 } from "./evidence-display";
 
 const formOptions = [...excerptForms].reverse().map((value) => ({

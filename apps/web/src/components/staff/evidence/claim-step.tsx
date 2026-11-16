@@ -20,6 +20,8 @@ import { useState } from "react";
 
 import { saveEvidenceDraft } from "@/functions/evidence";
 
+import { useUnsavedWarning } from "@/lib/use-unsaved-warning";
+
 import { StaffButton } from "../staff-button";
 import { StaffCard } from "../staff-card";
 import { StatusChip } from "../status-chip";
@@ -33,7 +35,6 @@ import {
 	EvidenceField,
 	evidenceInputClassName,
 	OptionPills,
-	useUnsavedWarning,
 } from "./evidence-display";
 
 const confidenceOptions = claimConfidences.map((value) => ({

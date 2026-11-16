@@ -8,13 +8,12 @@ import { useMutation } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeftIcon, CheckIcon } from "lucide-react";
 import type { ReactNode } from "react";
-
+import type { AutosaveState, useAutosave } from "@/lib/use-autosave";
 import {
 	buttonLinkClassName,
 	JournalState,
 	primaryButtonClassName,
 } from "./journal-ui";
-import type { AutosaveState, useJournalAutosave } from "./use-journal-autosave";
 
 /*
  * The full-screen editor's page, shared by prayers, testimonies and
@@ -33,7 +32,10 @@ const tabRoutes = {
 
 /** What the layout reads from an entry editor; it never changes the fields. */
 export type EntryEditorView = {
-	autosave: ReturnType<typeof useJournalAutosave>;
+	autosave: Pick<
+		ReturnType<typeof useAutosave>,
+		"flush" | "lastSavedAt" | "retry" | "state"
+	>;
 	canSave: boolean;
 	isNew: boolean;
 	savedId: number | null;

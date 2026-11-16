@@ -3,7 +3,7 @@ import { contentRevisionStatusLabels } from "@berean-study/db/content-kinds";
 import { Label } from "@berean-study/ui/components/label";
 import { cn } from "@berean-study/ui/lib/utils";
 import { Link } from "@tanstack/react-router";
-import { type ReactNode, useEffect, useId } from "react";
+import { type ReactNode, useId } from "react";
 
 import { StaffCard } from "../staff-card";
 import { StatusChip } from "../status-chip";
@@ -196,14 +196,4 @@ export function UsedInCard({ rows }: { rows: readonly UsedInRow[] }) {
 			</p>
 		</StaffCard>
 	);
-}
-
-/** Warns before leaving a form with unsaved changes. */
-export function useUnsavedWarning(isDirty: boolean) {
-	useEffect(() => {
-		if (!isDirty) return;
-		const warn = (event: BeforeUnloadEvent) => event.preventDefault();
-		window.addEventListener("beforeunload", warn);
-		return () => window.removeEventListener("beforeunload", warn);
-	}, [isDirty]);
 }

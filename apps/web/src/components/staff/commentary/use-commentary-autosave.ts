@@ -1,11 +1,9 @@
 import type { CommentaryBody } from "@berean-study/db/commentary-body";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { saveCommentaryDraft } from "@/functions/commentary";
+import { useAutosave } from "@/lib/use-autosave";
 import { contentKeys } from "@/queries/keys";
-
-const AUTOSAVE_DELAY_MS = 1500;
 
 type Scope = {
 	kind: Parameters<typeof saveCommentaryDraft>[0]["data"]["kind"];
@@ -13,9 +11,8 @@ type Scope = {
 };
 
 /**
- * Saves the draft shortly after typing stops. Saves share a scope, so TanStack runs
- * them one at a time and an older save can't land after a newer one. The first save
- * only happens once something has changed, so opening a commentary creates nothing.
+ * Saves the draft shortly after typing stops. The first save only happens once
+ * something has changed, so opening a commentary creates nothing.
  */
 export function useCommentaryAutosave({
 	body,
@@ -29,41 +26,17 @@ export function useCommentaryAutosave({
 	startingBody: CommentaryBody;
 }) {
 	const queryClient = useQueryClient();
-	const [savedAt, setSavedAt] = useState<Date | null>(null);
-	const lastSaved = useRef(JSON.stringify(startingBody));
-	const serialized = JSON.stringify(body);
-
-	const mutation = useMutation({
-		mutationFn: (next: CommentaryBody) =>
-			saveCommentaryDraft({ data: { ...scope, body: next } }),
-		onSuccess: (_result, next) => {
-			lastSaved.current = JSON.stringify(next);
-			setSavedAt(new Date());
-			return queryClient.invalidateQueries({ queryKey: contentKeys.all });
+	return useAutosave({
+		canSave: enabled,
+		delayMs: 1500,
+		initialValues: startingBody,
+		save: async (next: CommentaryBody) => {
+			const saved = await saveCommentaryDraft({
+				data: { ...scope, body: next },
+			});
+			await queryClient.invalidateQueries({ queryKey: contentKeys.all });
+			return saved;
 		},
-		scope: { id: `commentary-${scope.kind}-${scope.scopeKey}` },
+		values: body,
 	});
-	const { mutate, mutateAsync } = mutation;
-
-	const isDirty = serialized !== lastSaved.current;
-	useEffect(() => {
-		if (!enabled || !isDirty) return;
-		const timer = setTimeout(
-			() => mutate(JSON.parse(serialized)),
-			AUTOSAVE_DELAY_MS,
-		);
-		return () => clearTimeout(timer);
-	}, [enabled, isDirty, mutate, serialized]);
-
-	const saveNow = useCallback(
-		() => mutateAsync(JSON.parse(serialized) as CommentaryBody),
-		[mutateAsync, serialized],
-	);
-	return {
-		error: mutation.error,
-		isDirty,
-		isSaving: mutation.isPending,
-		savedAt,
-		saveNow,
-	};
 }

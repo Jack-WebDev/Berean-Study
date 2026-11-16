@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { saveVerseDrafts } from "@/functions/verse-entry";
+import { useUnsavedWarning } from "@/lib/use-unsaved-warning";
 import { invalidateVerseText } from "@/queries/verse-text";
 
 const AUTOSAVE_DELAY_MS = 1200;
@@ -130,12 +131,7 @@ export function useChapterDrafts(address: ChapterAddress, rows: DraftRow[]) {
 	useEffect(() => () => void save(), [save]);
 
 	const hasUnsavedWork = state === "pending" || state === "saving";
-	useEffect(() => {
-		if (!hasUnsavedWork) return;
-		const warn = (event: BeforeUnloadEvent) => event.preventDefault();
-		window.addEventListener("beforeunload", warn);
-		return () => window.removeEventListener("beforeunload", warn);
-	}, [hasUnsavedWork]);
+	useUnsavedWarning(hasUnsavedWork);
 
 	const setVerseText = useCallback((number: number, text: string) => {
 		setEdits((current) => ({ ...current, [number]: text }));

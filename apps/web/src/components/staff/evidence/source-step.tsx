@@ -13,6 +13,7 @@ import { Link } from "@tanstack/react-router";
 import { useDeferredValue, useState } from "react";
 
 import { saveEvidenceDraft } from "@/functions/evidence";
+import { useUnsavedWarning } from "@/lib/use-unsaved-warning";
 import { similarSourcesQueryOptions } from "@/queries/evidence";
 
 import { StaffCard } from "../staff-card";
@@ -26,7 +27,6 @@ import {
 	EvidenceField,
 	evidenceInputClassName,
 	OptionPills,
-	useUnsavedWarning,
 } from "./evidence-display";
 
 const typeOptions = sourceTypes.map((value) => ({
