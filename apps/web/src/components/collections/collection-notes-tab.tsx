@@ -35,7 +35,8 @@ import { useState } from "react";
 
 import { removeNoteFromCollection } from "@/functions/collections";
 import { deleteNote } from "@/functions/notes";
-import { collectionKeys, libraryKeys, noteKeys } from "@/queries/keys";
+import { invalidateCollections } from "@/queries/collections";
+import { noteKeys } from "@/queries/keys";
 
 import type { CollectionNote } from "./use-collection-actions";
 
@@ -49,12 +50,8 @@ export function CollectionNotes({
 }) {
 	const queryClient = useQueryClient();
 	const [deleteNoteId, setDeleteNoteId] = useState<number | null>(null);
-	const invalidate = (...queryKeys: QueryKey[]) =>
-		Promise.all(
-			[collectionKeys.all, libraryKeys.all, ...queryKeys].map((queryKey) =>
-				queryClient.invalidateQueries({ queryKey }),
-			),
-		);
+	const invalidate = (...alsoChanged: QueryKey[]) =>
+		invalidateCollections(queryClient, ...alsoChanged);
 	const removeMutation = useMutation({
 		mutationFn: async (noteId: number) => {
 			const removed = await removeNoteFromCollection({

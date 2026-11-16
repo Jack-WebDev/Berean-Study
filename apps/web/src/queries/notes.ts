@@ -12,6 +12,7 @@ import {
 
 import {
 	collectionKeys,
+	communityKeys,
 	libraryKeys,
 	type NoteCountFilters,
 	type NoteListFilters,
@@ -62,13 +63,21 @@ export const passageNoteCountQueryOptions = (passageId: number) =>
 		queryFn: () => countNotesForPassage({ data: { passageId } }),
 	});
 
-/** Everything a note's content, tags, passages or membership can change. */
+/**
+ * Everything a note's content, tags, passages or membership can change,
+ * including Community's list of things to share.
+ */
 export function invalidateNoteQueries(
 	queryClient: QueryClient,
 	{ refetchType }: { refetchType?: "active" | "none" } = {},
 ) {
 	return Promise.all(
-		[noteKeys.all, collectionKeys.all, libraryKeys.all].map((queryKey) =>
+		[
+			noteKeys.all,
+			collectionKeys.all,
+			libraryKeys.all,
+			communityKeys.publishingResources(),
+		].map((queryKey) =>
 			queryClient.invalidateQueries({
 				queryKey,
 				refetchType,

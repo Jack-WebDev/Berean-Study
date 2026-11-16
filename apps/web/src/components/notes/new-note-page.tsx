@@ -4,7 +4,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 
 import { setCollectionsForNote } from "@/functions/collections";
-import { collectionKeys, libraryKeys } from "@/queries/keys";
+import { invalidateCollections } from "@/queries/collections";
 
 import { NoteForm } from "./note-form";
 
@@ -64,10 +64,7 @@ export function NewNotePage({
 						await setCollectionsForNote({
 							data: { collectionIds: [collectionId], id: note.id },
 						});
-						await Promise.all([
-							queryClient.invalidateQueries({ queryKey: collectionKeys.all }),
-							queryClient.invalidateQueries({ queryKey: libraryKeys.all }),
-						]);
+						await invalidateCollections(queryClient);
 						toast.success("Note saved to this collection.");
 					} catch {
 						toast.error(

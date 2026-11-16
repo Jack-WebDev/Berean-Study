@@ -6,6 +6,7 @@ import {
 } from "@/functions/prayer-journal";
 
 import {
+	communityKeys,
 	libraryKeys,
 	prayerJournalKeys,
 	prayerKeys,
@@ -28,7 +29,8 @@ export const reflectionReminderQueryOptions = () =>
 /**
  * Refreshes everything a journal entry appears in. A saved reflection changes
  * its prayer's "ready to look back on" status and every tab count, so one
- * save refreshes all three tabs and the library summaries.
+ * save refreshes all three tabs, the library summaries and Community's list of
+ * things to share.
  */
 export function invalidatePrayerJournal(queryClient: QueryClient) {
 	return Promise.all(
@@ -38,6 +40,7 @@ export function invalidatePrayerJournal(queryClient: QueryClient) {
 			testimonyKeys.all,
 			prayerJournalKeys.all,
 			libraryKeys.all,
+			communityKeys.publishingResources(),
 		].map((queryKey) => queryClient.invalidateQueries({ queryKey })),
 	);
 }

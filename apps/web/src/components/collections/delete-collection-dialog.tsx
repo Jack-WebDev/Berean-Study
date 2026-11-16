@@ -14,7 +14,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 
 import { deleteCollection } from "@/functions/collections";
-import { collectionKeys, libraryKeys, noteKeys } from "@/queries/keys";
+import { invalidateCollections } from "@/queries/collections";
+import { collectionKeys, noteKeys } from "@/queries/keys";
 
 /** Confirms deleting a collection, then returns to the library. */
 export function DeleteCollectionDialog({
@@ -40,11 +41,7 @@ export function DeleteCollectionDialog({
 			queryClient.removeQueries({
 				queryKey: collectionKeys.detail(collectionId),
 			});
-			await Promise.all(
-				[collectionKeys.all, libraryKeys.all, noteKeys.lists()].map(
-					(queryKey) => queryClient.invalidateQueries({ queryKey }),
-				),
-			);
+			await invalidateCollections(queryClient, noteKeys.lists());
 		},
 	});
 

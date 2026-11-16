@@ -14,7 +14,8 @@ import {
 	setCollectionPassageRead,
 	setCollectionPinned,
 } from "@/functions/collections";
-import { collectionKeys, libraryKeys } from "@/queries/keys";
+import { invalidateCollections } from "@/queries/collections";
+import { collectionKeys } from "@/queries/keys";
 
 export type CollectionDetail = NonNullable<
 	Awaited<ReturnType<typeof getCollectionDetail>>
@@ -31,11 +32,7 @@ export type PassageGroup = { passageIds: number[]; sectionId: number | null };
 export function useCollectionActions(collectionId: number) {
 	const queryClient = useQueryClient();
 	const detailKey = collectionKeys.detail(collectionId);
-	const refresh = () =>
-		Promise.all([
-			queryClient.invalidateQueries({ queryKey: collectionKeys.all }),
-			queryClient.invalidateQueries({ queryKey: libraryKeys.all }),
-		]);
+	const refresh = () => invalidateCollections(queryClient);
 	const failed = (message: string) => () => toast.error(message);
 
 	const markOpened = useMutation({

@@ -48,7 +48,7 @@ import { type FormEvent, useId, useState } from "react";
 import { toast } from "sonner";
 
 import { createCollection, updateCollection } from "@/functions/collections";
-import { collectionKeys, communityKeys, libraryKeys } from "@/queries/keys";
+import { invalidateCollections } from "@/queries/collections";
 
 import {
 	coverPresets,
@@ -127,13 +127,7 @@ export function CollectionFormDialog({
 				? updateCollection({ data: { ...input, id: collection.id } })
 				: createCollection({ data: input }),
 		onSuccess: async (saved) => {
-			await Promise.all([
-				queryClient.invalidateQueries({ queryKey: collectionKeys.all }),
-				queryClient.invalidateQueries({ queryKey: libraryKeys.all }),
-				queryClient.invalidateQueries({
-					queryKey: communityKeys.publishingResources(),
-				}),
-			]);
+			await invalidateCollections(queryClient);
 			toast.success(isEditing ? "Collection updated." : "Collection created.");
 			onSaved(saved);
 		},

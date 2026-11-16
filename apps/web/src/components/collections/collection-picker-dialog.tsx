@@ -26,7 +26,7 @@ import { FolderPlusIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { collectionKeys, libraryKeys } from "@/queries/keys";
+import { invalidateCollections } from "@/queries/collections";
 
 type CollectionOption = { id: number; isSelected: number | null; name: string };
 
@@ -79,11 +79,7 @@ function CollectionPicker<TQueryKey extends QueryKey>({
 	const saveMutation = useMutation({
 		mutationFn: saveCollections,
 		onSuccess: async (_result, savedIds) => {
-			await Promise.all(
-				[collectionKeys.all, libraryKeys.all, ...invalidates].map((queryKey) =>
-					queryClient.invalidateQueries({ queryKey }),
-				),
-			);
+			await invalidateCollections(queryClient, ...invalidates);
 			const selectedNames = (collections ?? [])
 				.filter((collection) => savedIds.includes(collection.id))
 				.map((collection) => collection.name);

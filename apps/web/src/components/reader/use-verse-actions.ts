@@ -10,7 +10,8 @@ import {
 	undoHighlightChange,
 	unsaveVerses,
 } from "@/functions/reader";
-import { collectionKeys, libraryKeys, readerKeys } from "@/queries/keys";
+import { invalidateCollections } from "@/queries/collections";
+import { libraryKeys, readerKeys } from "@/queries/keys";
 import { invalidateReaderMarks } from "@/queries/reader";
 
 type ChapterMarks = Awaited<
@@ -148,11 +149,7 @@ export function useVerseActions() {
 		collection: { id: number; name: string },
 	) {
 		const reference = referenceOf(chosen);
-		const refreshCollections = () =>
-			Promise.all([
-				queryClient.invalidateQueries({ queryKey: collectionKeys.all }),
-				queryClient.invalidateQueries({ queryKey: libraryKeys.all }),
-			]);
+		const refreshCollections = () => invalidateCollections(queryClient);
 		addVersesToCollection({
 			data: {
 				bookSlug: chosen.bookSlug,

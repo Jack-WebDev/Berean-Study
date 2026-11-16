@@ -24,7 +24,7 @@ import {
 import { toast } from "sonner";
 
 import { setCollectionPinned } from "@/functions/collections";
-import { collectionKeys, libraryKeys } from "@/queries/keys";
+import { invalidateCollections } from "@/queries/collections";
 import { formatTimeAgo } from "@/utils/dates";
 
 import { coverStyle } from "./collection-colors";
@@ -258,11 +258,7 @@ function CollectionMenu({ collection }: { collection: CollectionSummary }) {
 		mutationFn: (pinned: boolean) =>
 			setCollectionPinned({ data: { id: collection.id, pinned } }),
 		onError: () => toast.error("We couldn't update this collection."),
-		onSuccess: () =>
-			Promise.all([
-				queryClient.invalidateQueries({ queryKey: collectionKeys.all }),
-				queryClient.invalidateQueries({ queryKey: libraryKeys.all }),
-			]),
+		onSuccess: () => invalidateCollections(queryClient),
 	});
 
 	return (
