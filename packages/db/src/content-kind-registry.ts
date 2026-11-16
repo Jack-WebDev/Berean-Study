@@ -1,7 +1,5 @@
 import { eq } from "drizzle-orm";
 import type { z } from "zod";
-
-import type { PermissionKey } from "./access-catalogue";
 import {
 	type BookOverview,
 	bookOverviewSchema,
@@ -13,6 +11,7 @@ import {
 	passageCommentaryKind,
 	verseCommentaryKind,
 } from "./commentary-kinds";
+import { standardWriters, type WritePermissions } from "./content-kinds";
 import type { DbExecutor } from "./db-executor";
 import { claimKind, excerptKind, sourceKind } from "./evidence-kinds";
 import { GovernanceError } from "./governance-error";
@@ -46,7 +45,7 @@ export type ContentKindDefinition<TBody> = {
 	/** When the name comes from the wording. Readers' copy keeps it until a new revision goes live. */
 	titleFollowsBody?: boolean;
 	/** Who can write this. Without this, it's whoever can write content. */
-	writePermissions?: { create: PermissionKey; revise: PermissionKey };
+	writePermissions?: WritePermissions;
 	/** Refuses a draft that can't be saved at all right now. */
 	assertCanDraft?(
 		client: DbExecutor,
@@ -81,11 +80,6 @@ export type ContentKindDefinition<TBody> = {
 	removeWhenEmpty?(client: DbExecutor, scopeKey: string): Promise<void>;
 };
 
-const defaultWritePermissions = {
-	create: "content.write",
-	revise: "content.revise",
-} as const satisfies { create: PermissionKey; revise: PermissionKey };
-
 /** Hides each kind's body type behind one checked parse, so kinds can share a registry. */
 function contentKind<TBody>(definition: ContentKindDefinition<TBody>) {
 	const parse = (raw: unknown) => definition.body.parse(raw);
@@ -109,7 +103,7 @@ function contentKind<TBody>(definition: ContentKindDefinition<TBody>) {
 				raw === undefined ? undefined : parse(raw),
 			),
 		titleFollowsBody: definition.titleFollowsBody ?? false,
-		writePermissions: definition.writePermissions ?? defaultWritePermissions,
+		writePermissions: definition.writePermissions ?? standardWriters,
 		assertCanDraft: async (
 			client: DbExecutor,
 			scopeKey: string,

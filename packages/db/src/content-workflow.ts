@@ -9,7 +9,9 @@ import {
 } from "./content-kind-registry";
 import {
 	type ContentIssueType,
+	type ContentRevisionStatus,
 	type EditorialCheckResult,
+	mayWrite,
 	openRevisionStatuses,
 } from "./content-kinds";
 import type { DbExecutor } from "./db-executor";
@@ -59,19 +61,257 @@ async function lockRevision(client: DbExecutor, revisionId: number) {
 	return { item, revision };
 }
 
-function assertNotAuthor(
-	revision: { createdByUserId: string },
-	actorUserId: string,
-) {
-	if (revision.createdByUserId === actorUserId) {
-		throw new GovernanceError(
-			"You wrote this revision, so someone else has to review it.",
-		);
+function revisionAddress(contentItemId: number, revisionId: number) {
+	return `/admin/editorial/${contentItemId}/revisions/${revisionId}`;
+}
+
+/*
+ * Each review and publishing step has one rule, below. The step itself refuses
+ * with it, and the review page uses it to decide which buttons to offer, so the
+ * page never offers something the step would then refuse.
+ */
+
+/**
+ * Whether one step is open to someone now. "closed" means it isn't theirs to
+ * take at this stage, so there's nothing to offer. "blocked" means it is theirs,
+ * but something has to happen first, and `reason` says what.
+ */
+export type StepAnswer =
+	| { state: "open" }
+	| { state: "blocked"; reason: string }
+	| { state: "closed"; reason: string };
+
+/** The person taking a step, and what they're allowed to do. */
+export type Actor = { keys: readonly PermissionKey[]; userId: string };
+
+type RevisionFacts = { createdByUserId: string; status: ContentRevisionStatus };
+
+const openStep: StepAnswer = { state: "open" };
+const noPermission = "You don't have permission to do this.";
+const reviewableStatuses = [
+	"submitted",
+	"in_review",
+] as const satisfies readonly ContentRevisionStatus[];
+
+export async function actorFor(client: DbExecutor, userId: string) {
+	return { keys: await getPermissionKeys(client, userId), userId };
+}
+
+function refuseUnlessOpen(answer: StepAnswer) {
+	if (answer.state !== "open") throw new GovernanceError(answer.reason);
+}
+
+/** Runs a rule that refuses by throwing, and gives back its reason instead. */
+async function refusalOf(rule: () => Promise<void>) {
+	try {
+		await rule();
+		return null;
+	} catch (error) {
+		if (error instanceof GovernanceError) return error.message;
+		throw error;
 	}
 }
 
-function revisionAddress(contentItemId: number, revisionId: number) {
-	return `/admin/editorial/${contentItemId}/revisions/${revisionId}`;
+/** Review steps belong to someone with the permission who didn't write the revision. */
+function reviewerStep(
+	actor: Actor,
+	revision: RevisionFacts,
+	permission: PermissionKey,
+	statuses: readonly ContentRevisionStatus[],
+	notNow: string,
+): StepAnswer {
+	if (!actor.keys.includes(permission)) {
+		return { reason: noPermission, state: "closed" };
+	}
+	if (revision.createdByUserId === actor.userId) {
+		return {
+			reason: "You wrote this revision, so someone else has to review it.",
+			state: "closed",
+		};
+	}
+	if (!statuses.includes(revision.status)) {
+		return { reason: notNow, state: "closed" };
+	}
+	return openStep;
+}
+
+export function startReviewStep(actor: Actor, revision: RevisionFacts) {
+	return reviewerStep(
+		actor,
+		revision,
+		"editorial.review",
+		["submitted"],
+		"This revision isn't waiting to be picked up.",
+	);
+}
+
+export function requestChangesStep(actor: Actor, revision: RevisionFacts) {
+	return reviewerStep(
+		actor,
+		revision,
+		"editorial.review",
+		[...reviewableStatuses, "approved"],
+		"This revision isn't being reviewed right now.",
+	);
+}
+
+/** Recording a check's result. Pass the check to ask about that one check too. */
+export function recordCheckStep(
+	actor: Actor,
+	revision: RevisionFacts,
+	check?: { originalLanguageOnly: boolean },
+): StepAnswer {
+	const answer = reviewerStep(
+		actor,
+		revision,
+		"editorial.check",
+		reviewableStatuses,
+		"This revision isn't being reviewed right now.",
+	);
+	if (answer.state !== "open") return answer;
+	if (
+		check?.originalLanguageOnly &&
+		!actor.keys.includes("editorial.check_original_language")
+	) {
+		return {
+			reason:
+				"This check needs someone who can check original-language content.",
+			state: "closed",
+		};
+	}
+	return openStep;
+}
+
+/** Approving needs every check passed, or marked as not applying. */
+export async function approveStep(
+	client: DbExecutor,
+	actor: Actor,
+	revision: RevisionFacts & { body: unknown; id: number; kind: string },
+): Promise<StepAnswer> {
+	const answer = reviewerStep(
+		actor,
+		revision,
+		"editorial.review",
+		reviewableStatuses,
+		"This revision isn't waiting for review.",
+	);
+	if (answer.state !== "open") return answer;
+
+	const applicable = await checksFor(client, revision.kind, revision.body);
+	if (applicable.length === 0) {
+		return {
+			reason:
+				"The editorial checks haven't been set up, so this can't be approved. Run db:access:sync.",
+			state: "blocked",
+		};
+	}
+	const results = await client
+		.select({
+			checklistId: editorialChecks.editorialChecklistId,
+			result: editorialChecks.result,
+		})
+		.from(editorialChecks)
+		.where(eq(editorialChecks.contentRevisionId, revision.id));
+	for (const { id, requirement } of applicable) {
+		const result = results.find((row) => row.checklistId === id)?.result;
+		if (!result) {
+			return {
+				reason: `"${requirement}" still needs checking.`,
+				state: "blocked",
+			};
+		}
+		if (result === "failed") {
+			return {
+				reason: `"${requirement}" failed, so this can't be approved. Request changes, or check it again.`,
+				state: "blocked",
+			};
+		}
+	}
+	return openStep;
+}
+
+/** Only an approved revision can be published, and the approval can't be the author's. */
+async function approvalStep(
+	client: DbExecutor,
+	revision: RevisionFacts & { id: number },
+): Promise<StepAnswer> {
+	if (revision.status !== "approved") {
+		return {
+			reason: "Only an approved revision can be published, and this one isn't.",
+			state: "closed",
+		};
+	}
+	const [approval] = await client
+		.select({ reviewer: editorialReviews.reviewerUserId })
+		.from(editorialReviews)
+		.where(
+			and(
+				eq(editorialReviews.contentRevisionId, revision.id),
+				eq(editorialReviews.decision, "approved"),
+				ne(editorialReviews.reviewerUserId, revision.createdByUserId),
+			),
+		);
+	if (!approval) {
+		return {
+			reason: "This needs an approval from someone other than its author.",
+			state: "blocked",
+		};
+	}
+	return openStep;
+}
+
+/**
+ * Publishing as normal. A foundational change goes to a second Superadmin
+ * instead, so this step is closed for it.
+ */
+export async function publishStep(
+	client: DbExecutor,
+	actor: Actor,
+	revision: RevisionFacts & { body: unknown; id: number },
+	item: { id: number; kind: string; scopeKey: string },
+): Promise<StepAnswer> {
+	if (!actor.keys.includes("publication.publish")) {
+		return { reason: noPermission, state: "closed" };
+	}
+	const approval = await approvalStep(client, revision);
+	if (approval.state !== "open") return approval;
+	const change = await publicationChange(client, {
+		body: revision.body,
+		contentItemId: item.id,
+		kind: item.kind,
+		revisionId: revision.id,
+	});
+	if (change) {
+		return {
+			reason: `${change} Two Superadmins have to agree before this goes live.`,
+			state: "closed",
+		};
+	}
+	const notReady = await refusalOf(() =>
+		contentKindNamed(item.kind).assertReadyToPublish(client, {
+			body: revision.body,
+			scopeKey: item.scopeKey,
+		}),
+	);
+	return notReady ? { reason: notReady, state: "blocked" } : openStep;
+}
+
+/** Taking live content down. Some content can't go while other live content uses it. */
+export async function withdrawStep(
+	client: DbExecutor,
+	actor: Actor,
+	item: { kind: string; liveRevisionId: number | null; scopeKey: string },
+): Promise<StepAnswer> {
+	if (!actor.keys.includes("publication.withdraw")) {
+		return { reason: noPermission, state: "closed" };
+	}
+	if (!item.liveRevisionId) {
+		return { reason: "Nothing is live here.", state: "closed" };
+	}
+	const inUse = await refusalOf(() =>
+		contentKindNamed(item.kind).assertCanWithdraw(client, item.scopeKey),
+	);
+	return inUse ? { reason: inUse, state: "blocked" } : openStep;
 }
 
 /**
@@ -108,13 +348,16 @@ export async function saveDraft(
 			)
 			.for("update");
 
-		await requirePermission(
-			tx,
-			input.actorUserId,
-			existing?.liveRevisionId
-				? kind.writePermissions.revise
-				: kind.writePermissions.create,
-		);
+		const actor = await actorFor(tx, input.actorUserId);
+		if (
+			!mayWrite(
+				actor.keys,
+				kind.writePermissions,
+				Boolean(existing?.liveRevisionId),
+			)
+		) {
+			throw new GovernanceError(noPermission);
+		}
 		await kind.assertCanDraft(tx, input.scopeKey, body);
 
 		const item =
@@ -289,11 +532,9 @@ export async function startReview(
 ) {
 	await client.transaction(async (tx) => {
 		const { revision } = await lockRevision(tx, input.revisionId);
-		await requirePermission(tx, input.actorUserId, "editorial.review");
-		assertNotAuthor(revision, input.actorUserId);
-		if (revision.status !== "submitted") {
-			throw new GovernanceError("This revision isn't waiting to be picked up.");
-		}
+		refuseUnlessOpen(
+			startReviewStep(await actorFor(tx, input.actorUserId), revision),
+		);
 		await tx
 			.update(contentRevisions)
 			.set({
@@ -336,30 +577,13 @@ export async function recordCheck(
 ) {
 	await client.transaction(async (tx) => {
 		const { item, revision } = await lockRevision(tx, input.revisionId);
-		const keys = await requirePermission(
-			tx,
-			input.actorUserId,
-			"editorial.check",
-		);
-		assertNotAuthor(revision, input.actorUserId);
-		if (revision.status !== "submitted" && revision.status !== "in_review") {
-			throw new GovernanceError(
-				"This revision isn't being reviewed right now.",
-			);
-		}
-
 		const applicable = await checksFor(tx, item.kind, revision.body);
 		const check = applicable.find(({ id }) => id === input.checklistId);
+		refuseUnlessOpen(
+			recordCheckStep(await actorFor(tx, input.actorUserId), revision, check),
+		);
 		if (!check) {
 			throw new GovernanceError("This check doesn't apply to this content.");
-		}
-		if (
-			check.originalLanguageOnly &&
-			!keys.includes("editorial.check_original_language")
-		) {
-			throw new GovernanceError(
-				"This check needs someone who can check original-language content.",
-			);
 		}
 
 		const values = {
@@ -422,36 +646,12 @@ export async function approveRevision(
 ) {
 	await client.transaction(async (tx) => {
 		const { item, revision } = await lockRevision(tx, input.revisionId);
-		await requirePermission(tx, input.actorUserId, "editorial.review");
-		assertNotAuthor(revision, input.actorUserId);
-		if (revision.status !== "submitted" && revision.status !== "in_review") {
-			throw new GovernanceError("This revision isn't waiting for review.");
-		}
-
-		const applicable = await checksFor(tx, item.kind, revision.body);
-		if (applicable.length === 0) {
-			throw new GovernanceError(
-				"The editorial checks haven't been set up, so this can't be approved. Run db:access:sync.",
-			);
-		}
-		const results = await tx
-			.select({
-				checklistId: editorialChecks.editorialChecklistId,
-				result: editorialChecks.result,
-			})
-			.from(editorialChecks)
-			.where(eq(editorialChecks.contentRevisionId, revision.id));
-		for (const { id, requirement } of applicable) {
-			const result = results.find((row) => row.checklistId === id)?.result;
-			if (!result) {
-				throw new GovernanceError(`"${requirement}" still needs checking.`);
-			}
-			if (result === "failed") {
-				throw new GovernanceError(
-					`"${requirement}" failed, so this can't be approved. Request changes, or check it again.`,
-				);
-			}
-		}
+		refuseUnlessOpen(
+			await approveStep(tx, await actorFor(tx, input.actorUserId), {
+				...revision,
+				kind: item.kind,
+			}),
+		);
 
 		await saveReview(tx, {
 			decision: "approved",
@@ -495,14 +695,10 @@ export async function requestChanges(
 
 	await client.transaction(async (tx) => {
 		const { item, revision } = await lockRevision(tx, input.revisionId);
-		await requirePermission(tx, input.actorUserId, "editorial.review");
-		assertNotAuthor(revision, input.actorUserId);
+		refuseUnlessOpen(
+			requestChangesStep(await actorFor(tx, input.actorUserId), revision),
+		);
 		if (!feedback) throw new GovernanceError("Say what needs to change.");
-		if (!["submitted", "in_review", "approved"].includes(revision.status)) {
-			throw new GovernanceError(
-				"This revision isn't being reviewed right now.",
-			);
-		}
 
 		await saveReview(tx, {
 			decision: "changes_requested",
@@ -569,43 +765,12 @@ export async function publicationChange(
 	);
 }
 
-async function assertApprovedByAnother(
-	tx: DbExecutor,
-	revision: { createdByUserId: string; id: number; status: string },
-) {
-	if (revision.status !== "approved") {
-		throw new GovernanceError(
-			"Only an approved revision can be published, and this one isn't.",
-		);
-	}
-	const [approval] = await tx
-		.select({ reviewer: editorialReviews.reviewerUserId })
-		.from(editorialReviews)
-		.where(
-			and(
-				eq(editorialReviews.contentRevisionId, revision.id),
-				eq(editorialReviews.decision, "approved"),
-				ne(editorialReviews.reviewerUserId, revision.createdByUserId),
-			),
-		);
-	if (!approval) {
-		throw new GovernanceError(
-			"This needs an approval from someone other than its author.",
-		);
-	}
-}
-
 async function publishLocked(
 	tx: DbExecutor,
 	{ item, revision }: Awaited<ReturnType<typeof lockRevision>>,
 	actorUserId: string,
 ) {
 	const kind = contentKindNamed(item.kind);
-	await kind.assertReadyToPublish(tx, {
-		body: revision.body,
-		scopeKey: item.scopeKey,
-	});
-
 	const now = new Date();
 	if (item.liveRevisionId) {
 		await tx
@@ -668,19 +833,14 @@ export async function publishRevision(
 ) {
 	await client.transaction(async (tx) => {
 		const locked = await lockRevision(tx, input.revisionId);
-		await requirePermission(tx, input.actorUserId, "publication.publish");
-		await assertApprovedByAnother(tx, locked.revision);
-		const change = await publicationChange(tx, {
-			body: locked.revision.body,
-			contentItemId: locked.item.id,
-			kind: locked.item.kind,
-			revisionId: locked.revision.id,
-		});
-		if (change) {
-			throw new GovernanceError(
-				`${change} Two Superadmins have to agree before this goes live.`,
-			);
-		}
+		refuseUnlessOpen(
+			await publishStep(
+				tx,
+				await actorFor(tx, input.actorUserId),
+				locked.revision,
+				locked.item,
+			),
+		);
 		await publishLocked(tx, locked, input.actorUserId);
 	});
 }
@@ -691,7 +851,7 @@ export async function assertPublicationConfirmable(
 	revisionId: number,
 ) {
 	const { item, revision } = await lockRevision(client, revisionId);
-	await assertApprovedByAnother(client, revision);
+	refuseUnlessOpen(await approvalStep(client, revision));
 	const change = await publicationChange(client, {
 		body: revision.body,
 		contentItemId: item.id,
@@ -713,6 +873,10 @@ export async function publishConfirmedRevision(
 ) {
 	await assertPublicationConfirmable(client, input.revisionId);
 	const locked = await lockRevision(client, input.revisionId);
+	await contentKindNamed(locked.item.kind).assertReadyToPublish(client, {
+		body: locked.revision.body,
+		scopeKey: locked.item.scopeKey,
+	});
 	await publishLocked(client, locked, input.actorUserId);
 }
 
@@ -724,29 +888,31 @@ export async function withdrawLive(
 	const reason = input.reason.trim();
 
 	await client.transaction(async (tx) => {
-		await requirePermission(tx, input.actorUserId, "publication.withdraw");
 		const [item] = await tx
 			.select()
 			.from(contentItems)
 			.where(eq(contentItems.id, input.contentItemId))
 			.for("update");
 		if (!item) throw new GovernanceError("This content no longer exists.");
-		if (!item.liveRevisionId)
-			throw new GovernanceError("Nothing is live here.");
+		refuseUnlessOpen(
+			await withdrawStep(tx, await actorFor(tx, input.actorUserId), item),
+		);
+		// The step above already refused this; checking again tells TypeScript it's set.
+		const { liveRevisionId } = item;
+		if (!liveRevisionId) throw new GovernanceError("Nothing is live here.");
 		if (!reason) throw new GovernanceError("Say why this is being withdrawn.");
-		await contentKindNamed(item.kind).assertCanWithdraw(tx, item.scopeKey);
 
 		await tx
 			.update(contentRevisions)
 			.set({ status: "withdrawn", updatedAt: new Date() })
-			.where(eq(contentRevisions.id, item.liveRevisionId));
+			.where(eq(contentRevisions.id, liveRevisionId));
 		await tx
 			.update(contentItems)
 			.set({ liveRevisionId: null })
 			.where(eq(contentItems.id, item.id));
 		await tx.insert(publicationHistory).values({
 			action: "withdrawn",
-			contentRevisionId: item.liveRevisionId,
+			contentRevisionId: liveRevisionId,
 			performedByUserId: input.actorUserId,
 			reason,
 		});
@@ -754,7 +920,7 @@ export async function withdrawLive(
 			actorUserId: input.actorUserId,
 			action: "revision.withdrawn",
 			targetType: "content_revision",
-			targetId: item.liveRevisionId,
+			targetId: liveRevisionId,
 			details: { name: item.title, reason },
 		});
 	});

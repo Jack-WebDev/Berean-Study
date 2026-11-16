@@ -104,10 +104,7 @@ function CommentaryEditor({
 	const [preview, setPreview] = useState(false);
 	const [session, setSession] = useState<EditorSession | null>(null);
 
-	const canWrite = state.live
-		? permissionKeys.includes("content.revise")
-		: permissionKeys.includes("content.write");
-	const canEdit = canWrite && state.canEdit;
+	const canEdit = state.canEdit;
 
 	const cleaned = useMemo(() => {
 		const parsed = commentaryBodySchema.safeParse(body);
@@ -249,7 +246,7 @@ function CommentaryEditor({
 
 			<div className="space-y-3">
 				<RecordBanner state={state} />
-				{canWrite ? null : (
+				{state.canWrite ? null : (
 					<p className="text-muted-foreground text-sm">
 						You don't have permission to change this.
 					</p>

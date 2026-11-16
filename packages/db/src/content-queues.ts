@@ -8,12 +8,20 @@ import {
 } from "./content-kind-registry";
 import {
 	type ContentRevisionStatus,
+	mayWrite,
 	openRevisionStatuses,
 } from "./content-kinds";
 import {
+	actorFor,
+	approveStep,
 	type ContentScope,
 	checksFor,
 	publicationChange,
+	publishStep,
+	recordCheckStep,
+	requestChangesStep,
+	startReviewStep,
+	withdrawStep,
 } from "./content-workflow";
 import type { DbExecutor } from "./db-executor";
 import { listRevisionCitations } from "./evidence-kinds";
@@ -152,11 +160,21 @@ export async function getContentState<TKind extends ContentKindName>(
 				.limit(1)
 		: [];
 
+	const canWrite = mayWrite(
+		(await actorFor(client, viewerUserId)).keys,
+		kind.writePermissions,
+		live !== undefined,
+	);
 	return {
 		body: parseBody(latest?.body ?? kind.empty),
-		canEdit: open
-			? open.status === "draft" && open.authorUserId === viewerUserId
-			: true,
+		// An open revision has to be finished first, unless it's this person's own draft.
+		canEdit:
+			canWrite &&
+			(open
+				? open.status === "draft" && open.authorUserId === viewerUserId
+				: true),
+		/** Whether this person's permissions let them write this content at all. */
+		canWrite,
 		contentItemId: item?.id ?? null,
 		feedback: review?.feedback ?? null,
 		kindLabel: kind.label,
@@ -293,12 +311,21 @@ export async function getRevisionPage(
 		.where(eq(contentRevisions.contentItemId, row.contentItemId))
 		.orderBy(desc(publicationHistory.createdAt));
 
+	const actor = await actorFor(client, viewerUserId);
+	const facts = {
+		body: current.body,
+		createdByUserId: row.authorUserId,
+		id: current.id,
+		kind: row.kind,
+		status: row.status,
+	};
 	const checks = (await checksFor(client, row.kind, current.body)).map(
 		(check) => {
 			const result = results.find(
 				({ checklistId }) => checklistId === check.id,
 			);
 			return {
+				canRecord: recordCheckStep(actor, facts, check).state === "open",
 				checkedAt: result?.checkedAt ?? null,
 				checkedBy: result?.checkedBy ?? null,
 				id: check.id,
@@ -327,6 +354,22 @@ export async function getRevisionPage(
 		: [];
 
 	return {
+		/** The steps this viewer may take, from the same rules that enforce them. */
+		actions: {
+			approve: await approveStep(client, actor, facts),
+			publish: await publishStep(client, actor, facts, {
+				id: row.contentItemId,
+				kind: row.kind,
+				scopeKey: row.scopeKey,
+			}),
+			requestChanges: requestChangesStep(actor, facts),
+			startReview: startReviewStep(actor, facts),
+			withdraw: await withdrawStep(client, actor, {
+				kind: row.kind,
+				liveRevisionId: item?.liveRevisionId ?? null,
+				scopeKey: row.scopeKey,
+			}),
+		},
 		approvedAt: current.approvedAt,
 		baselineNumber: baseline?.number ?? null,
 		body: kind.parse(current.body),

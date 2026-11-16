@@ -24,6 +24,7 @@ import {
 	raiseIssue,
 	recordCheck,
 	requestChanges,
+	type StepAnswer,
 	saveDraft,
 	startReview,
 	submitRevision,
@@ -754,6 +755,122 @@ describe("withdrawing", () => {
 					reason: "Reason",
 				}),
 			).rejects.toThrow("permission");
+		});
+	});
+});
+
+describe("what the review page offers", () => {
+	/** The reason a step that isn't open gives, which the step itself should refuse with. */
+	const reasonOf = (answer: StepAnswer | undefined) => {
+		if (!answer || answer.state === "open") {
+			throw new Error("Expected this step not to be open.");
+		}
+		return answer.reason;
+	};
+	const pageFor = (
+		tx: DbExecutor,
+		draft: { contentItemId: number; revisionId: number },
+		viewerUserId: string,
+	) => getRevisionPage(tx, draft, viewerUserId);
+
+	it("offers review steps only to someone the step would accept", async () => {
+		await inRolledBackTransaction(async (tx) => {
+			const { author, member, reviewer } = await setUp(tx);
+			const draft = await submitted(tx, author.id);
+
+			const authorView = await pageFor(tx, draft, author.id);
+			expect(authorView?.actions.startReview.state).toBe("closed");
+			expect(authorView?.checks.every(({ canRecord }) => !canRecord)).toBe(
+				true,
+			);
+			await expect(
+				startReview(tx, {
+					actorUserId: author.id,
+					revisionId: draft.revisionId,
+				}),
+			).rejects.toThrow(reasonOf(authorView?.actions.startReview));
+
+			const memberView = await pageFor(tx, draft, member.id);
+			expect(memberView?.actions).toMatchObject({
+				approve: { state: "closed" },
+				publish: { state: "closed" },
+				requestChanges: { state: "closed" },
+				startReview: { state: "closed" },
+				withdraw: { state: "closed" },
+			});
+
+			const reviewerView = await pageFor(tx, draft, reviewer.id);
+			expect(reviewerView?.actions.startReview.state).toBe("open");
+			expect(reviewerView?.actions.requestChanges.state).toBe("open");
+			expect(reviewerView?.checks.every(({ canRecord }) => canRecord)).toBe(
+				true,
+			);
+		});
+	});
+
+	it("shows Approve as waiting until every check is done, with the reason it would give", async () => {
+		await inRolledBackTransaction(async (tx) => {
+			const { author, reviewer } = await setUp(tx);
+			const draft = await submitted(tx, author.id);
+
+			const before = (await pageFor(tx, draft, reviewer.id))?.actions.approve;
+			expect(before?.state).toBe("blocked");
+			await expect(
+				approveRevision(tx, {
+					actorUserId: reviewer.id,
+					revisionId: draft.revisionId,
+				}),
+			).rejects.toThrow(reasonOf(before));
+
+			await passAllChecks(
+				tx,
+				reviewer.id,
+				draft.contentItemId,
+				draft.revisionId,
+			);
+			expect((await pageFor(tx, draft, reviewer.id))?.actions.approve).toEqual({
+				state: "open",
+			});
+		});
+	});
+
+	it("offers publishing, then withdrawing, to someone who may do them", async () => {
+		await inRolledBackTransaction(async (tx) => {
+			const people = await setUp(tx);
+			const draft = await approved(tx, people.author.id, people.reviewer.id);
+
+			expect(
+				(await pageFor(tx, draft, people.admin.id))?.actions,
+			).toMatchObject({
+				publish: { state: "open" },
+				withdraw: { reason: "Nothing is live here.", state: "closed" },
+			});
+			expect(
+				(await pageFor(tx, draft, people.reviewer.id))?.actions.publish.state,
+			).toBe("closed");
+
+			await publishRevision(tx, {
+				actorUserId: people.admin.id,
+				revisionId: draft.revisionId,
+			});
+			const after = await pageFor(tx, draft, people.admin.id);
+			expect(after?.actions.publish.state).toBe("closed");
+			expect(after?.actions.withdraw).toEqual({ state: "open" });
+		});
+	});
+
+	it("only lets someone edit when they have the permission", async () => {
+		await inRolledBackTransaction(async (tx) => {
+			const { author, member } = await setUp(tx);
+
+			expect(await getContentState(tx, romans, author.id)).toMatchObject({
+				canEdit: true,
+				canWrite: true,
+			});
+			expect(await getContentState(tx, romans, member.id)).toMatchObject({
+				canEdit: false,
+				canWrite: false,
+			});
 		});
 	});
 });

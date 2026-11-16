@@ -1,6 +1,8 @@
 import { db } from "@berean-study/db";
-import type { PermissionKey } from "@berean-study/db/access-catalogue";
-import { contentIssueTypes } from "@berean-study/db/content-kinds";
+import {
+	contentIssueTypes,
+	revisionReaders,
+} from "@berean-study/db/content-kinds";
 import {
 	getContentState as getContentStateFromDb,
 	getRevisionPage as getRevisionPageFromDb,
@@ -35,18 +37,6 @@ import { requirePermission } from "@/middleware/auth";
 
 // The engine also checks the exact permission each step needs. These only keep
 // everyone else out of the screens and the unpublished wording behind them.
-const contentReaders = [
-	"content.write",
-	"content.revise",
-	"sources.manage",
-	"editorial.check",
-	"editorial.review",
-	"editorial.assign",
-	"publication.publish",
-	"publication.withdraw",
-	"issues.manage",
-] as const satisfies readonly PermissionKey[];
-
 const scopeSchema = z.object({
 	kind: z.enum(["book_overview"]),
 	scopeKey: z.string().trim().min(1).max(100),
@@ -59,7 +49,11 @@ const assignmentSchema = revisionSchema.extend({
 
 export const getContentState = createServerFn({ method: "GET" })
 	.middleware([
-		requirePermission(...contentReaders, "scripture.manage", "scripture.enter"),
+		requirePermission(
+			...revisionReaders,
+			"scripture.manage",
+			"scripture.enter",
+		),
 	])
 	.validator(scopeSchema)
 	.handler(({ context, data }) =>
@@ -67,7 +61,7 @@ export const getContentState = createServerFn({ method: "GET" })
 	);
 
 export const getRevisionPage = createServerFn({ method: "GET" })
-	.middleware([requirePermission(...contentReaders)])
+	.middleware([requirePermission(...revisionReaders)])
 	.validator(z.object({ contentItemId: idSchema, revisionId: idSchema }))
 	.handler(({ context, data }) =>
 		getRevisionPageFromDb(db, data, context.userId),

@@ -1,5 +1,10 @@
 import type { PermissionKey } from "@berean-study/db/access-catalogue";
-import type { ContentRevisionStatus } from "@berean-study/db/content-kinds";
+import {
+	type ContentRevisionStatus,
+	mayWrite,
+	standardWriters,
+	type WritePermissions,
+} from "@berean-study/db/content-kinds";
 import {
 	type CommentaryTools,
 	RichTextEditor,
@@ -82,25 +87,17 @@ export function useStudyDraft<TBody>({
 	return { body, cleaned, isDirty, onSaved, save, setBody };
 }
 
-/** Whether this person can change a record that's in this state. */
+/**
+ * Whether this person can change a record. A saved record's state already says so.
+ * A new one has no state yet, so it's whether they may start this kind of content.
+ */
 export function canEditRecord(
 	permissionKeys: readonly PermissionKey[],
-	state: { canEdit: boolean; live: unknown } | null,
-	permissions: { create: PermissionKey; revise: PermissionKey } = {
-		create: "content.write",
-		revise: "content.revise",
-	},
+	state: { canEdit: boolean } | null,
+	writers: WritePermissions = standardWriters,
 ) {
-	const allowed = state?.live
-		? permissionKeys.includes(permissions.revise)
-		: permissionKeys.includes(permissions.create);
-	return allowed && (state?.canEdit ?? true);
+	return state ? state.canEdit : mayWrite(permissionKeys, writers, false);
 }
-
-export const originalLanguageWriters = {
-	create: "content.original_language",
-	revise: "content.original_language",
-} as const satisfies { create: PermissionKey; revise: PermissionKey };
 
 /** How many citations come before each document, so numbering runs straight through. */
 export function citationsBefore(

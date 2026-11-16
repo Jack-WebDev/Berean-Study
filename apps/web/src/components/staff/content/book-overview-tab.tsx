@@ -4,7 +4,10 @@ import {
 	bookOverviewSchema,
 	outlineCoverage,
 } from "@berean-study/db/book-overview";
-import { contentRevisionStatusLabels } from "@berean-study/db/content-kinds";
+import {
+	contentRevisionStatusLabels,
+	revisionReaders,
+} from "@berean-study/db/content-kinds";
 import { formatVerseList } from "@berean-study/db/verse-text-tools";
 import { Input } from "@berean-study/ui/components/input";
 import { Label } from "@berean-study/ui/components/label";
@@ -61,19 +64,9 @@ export function BookOverviewTab({
 	const { data } = useSuspenseQuery(
 		contentStateQueryOptions(overviewScope(slug)),
 	);
-	const canWrite = data.live
-		? permissionKeys.includes("content.revise")
-		: permissionKeys.includes("content.write");
 	const open = data.open;
-	const canOpenRevision = permissionKeys.some((key) =>
-		[
-			"content.write",
-			"content.revise",
-			"editorial.check",
-			"editorial.review",
-			"editorial.assign",
-			"publication.publish",
-		].includes(key),
+	const canOpenRevision = revisionReaders.some((key) =>
+		permissionKeys.includes(key),
 	);
 
 	return (
@@ -112,7 +105,7 @@ export function BookOverviewTab({
 				</div>
 			) : null}
 
-			{canWrite && data.canEdit ? (
+			{data.canEdit ? (
 				<OverviewEditor
 					bookName={bookName}
 					chapterLimit={chapterLimit}
@@ -123,7 +116,7 @@ export function BookOverviewTab({
 			) : (
 				<ReadOnlyOverview
 					bookName={bookName}
-					message={readOnlyMessage(data, canWrite)}
+					message={readOnlyMessage(data, data.canWrite)}
 					overview={data.live?.body ?? data.body}
 				/>
 			)}

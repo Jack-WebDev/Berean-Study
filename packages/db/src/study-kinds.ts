@@ -32,6 +32,7 @@ import {
 	parseConnectionScopeKey,
 } from "./connection-body";
 import type { ContentKindDefinition } from "./content-kind-registry";
+import { originalLanguageWriters } from "./content-kinds";
 import {
 	assertLinkedContentExists,
 	assertLinkedContentLive,
@@ -88,11 +89,6 @@ import {
  * Connections, questions, themes and language notes in the review engine. They
  * differ in what they say, but all rest on evidence and verses in the same way.
  */
-
-const originalLanguageWriters = {
-	create: "content.original_language",
-	revise: "content.original_language",
-} as const;
 
 /** Records with nothing else to identify them are named by a key made when first saved. */
 export function newRecordKey() {

@@ -413,6 +413,11 @@ describe.runIf(process.env.DATABASE_URL)("evidence", () => {
 				const source = await newSource(tx, people);
 				const excerpt = await newExcerpt(tx, people, source.id);
 				await submitAndApprove(tx, people, excerpt);
+				const page = await getRevisionPage(tx, excerpt, people.admin.id);
+				expect(page?.actions.publish).toEqual({
+					reason: expect.stringContaining("Publish the source first"),
+					state: "blocked",
+				});
 				await expect(
 					publishRevision(tx, {
 						actorUserId: people.admin.id,
@@ -505,6 +510,11 @@ describe.runIf(process.env.DATABASE_URL)("evidence", () => {
 				const claim = await newClaim(tx, people, [excerpt.id]);
 				await publish(tx, people, claim);
 
+				const page = await getRevisionPage(tx, excerpt, people.admin.id);
+				expect(page?.actions.withdraw).toEqual({
+					reason: expect.stringContaining("cites this excerpt"),
+					state: "blocked",
+				});
 				await expect(
 					withdrawLive(tx, {
 						actorUserId: people.admin.id,

@@ -1,7 +1,48 @@
 /*
  * The steps every piece of reviewed content moves through, and the editorial
- * checks it passes. This file has no imports so the browser can use it too.
+ * checks it passes. This file imports only types, so the browser can use it too.
  */
+
+import type { PermissionKey } from "./access-catalogue";
+
+/** Anyone holding one of these may open a revision's review page. */
+export const revisionReaders = [
+	"content.write",
+	"content.revise",
+	"sources.manage",
+	"editorial.check",
+	"editorial.review",
+	"editorial.assign",
+	"publication.publish",
+	"publication.withdraw",
+	"issues.manage",
+] as const satisfies readonly PermissionKey[];
+
+/**
+ * Who may write a kind of content: `create` starts it, and once a version is
+ * live, `revise` writes the next one.
+ */
+export type WritePermissions = { create: PermissionKey; revise: PermissionKey };
+
+export const standardWriters = {
+	create: "content.write",
+	revise: "content.revise",
+} as const satisfies WritePermissions;
+
+/** Language notes need a writer who works with the original languages. */
+export const originalLanguageWriters = {
+	create: "content.original_language",
+	revise: "content.original_language",
+} as const satisfies WritePermissions;
+
+/** Whether these permissions let someone write this content now. */
+export function mayWrite(
+	keys: readonly PermissionKey[],
+	writers: WritePermissions,
+	live: boolean,
+) {
+	return keys.includes(live ? writers.revise : writers.create);
+}
 
 export type ContentRevisionStatus =
 	| "draft"

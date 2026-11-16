@@ -232,14 +232,7 @@ export function RevisionPage({
 		);
 	}
 
-	const { revision } = data;
-	const isReviewable =
-		revision.status === "submitted" || revision.status === "in_review";
-	const canReview =
-		permissionKeys.includes("editorial.review") && !data.isAuthor;
-	const allChecksDone = data.checks.every(
-		({ result }) => result === "passed" || result === "not_applicable",
-	);
+	const { actions, revision } = data;
 	const searchFor = (value: RevisionTab) => ({ tab: value });
 	const studyPreview = studyPreviewInput(data.kind, data.body);
 	const hasReaderView =
@@ -276,18 +269,22 @@ export function RevisionPage({
 							View as reader
 						</Link>
 					) : null}
-					{isReviewable && canReview && revision.status === "submitted" ? (
+					{actions.startReview.state === "open" ? (
 						<StartReviewButton revisionId={revision.id} />
 					) : null}
-					{canReview && (isReviewable || revision.status === "approved") ? (
+					{actions.requestChanges.state === "open" ? (
 						<RequestChangesButton revisionId={revision.id} />
 					) : null}
-					{isReviewable && canReview ? (
+					{actions.approve.state === "closed" ? null : (
 						<ApproveButton
-							allChecksDone={allChecksDone}
+							blockedBy={
+								actions.approve.state === "blocked"
+									? actions.approve.reason
+									: null
+							}
 							revisionId={revision.id}
 						/>
-					) : null}
+					)}
 				</>
 			}
 			section={data.kindLabel}
@@ -394,7 +391,7 @@ export function RevisionPage({
 					{tab === "history" ? <HistoryTab data={data} /> : null}
 
 					{tab === "changes" || tab === "full" ? (
-						<ChecksCard data={data} permissionKeys={permissionKeys} />
+						<ChecksCard data={data} />
 					) : null}
 				</div>
 
@@ -462,10 +459,10 @@ function RequestChangesButton({ revisionId }: { revisionId: number }) {
 }
 
 function ApproveButton({
-	allChecksDone,
+	blockedBy,
 	revisionId,
 }: {
-	allChecksDone: boolean;
+	blockedBy: string | null;
 	revisionId: number;
 }) {
 	const approve = useContentMutation(
@@ -474,9 +471,9 @@ function ApproveButton({
 	);
 	return (
 		<StaffButton
-			disabled={!allChecksDone || approve.isPending}
+			disabled={blockedBy !== null || approve.isPending}
 			onClick={() => approve.mutate(undefined)}
-			title={allChecksDone ? undefined : "Finish every check first"}
+			title={blockedBy ?? undefined}
 		>
 			Approve
 		</StaffButton>
@@ -557,18 +554,8 @@ function FullTextTab({ data }: { data: RevisionData }) {
 	);
 }
 
-function ChecksCard({
-	data,
-	permissionKeys,
-}: {
-	data: RevisionData;
-	permissionKeys: readonly PermissionKey[];
-}) {
+function ChecksCard({ data }: { data: RevisionData }) {
 	const { status } = data.revision;
-	const canCheck =
-		permissionKeys.includes("editorial.check") &&
-		!data.isAuthor &&
-		(status === "submitted" || status === "in_review");
 	const done = data.checks.filter(
 		({ result }) => result === "passed" || result === "not_applicable",
 	).length;
@@ -586,7 +573,6 @@ function ChecksCard({
 			<ul className="divide-y divide-border-subtle">
 				{data.checks.map((check) => (
 					<CheckRow
-						canCheck={canCheck}
 						check={check}
 						key={check.id}
 						revisionId={data.revision.id}
@@ -612,14 +598,13 @@ function ChecksCard({
 }
 
 function CheckRow({
-	canCheck,
 	check,
 	revisionId,
 }: {
-	canCheck: boolean;
 	check: RevisionData["checks"][number];
 	revisionId: number;
 }) {
+	const { canRecord } = check;
 	const noteId = useId();
 	const [note, setNote] = useState(check.note ?? "");
 	const record = useContentMutation((result: EditorialCheckResult) =>
@@ -641,7 +626,7 @@ function CheckRow({
 					{check.checkedBy ? (
 						<p className="text-muted-foreground text-xs">
 							{check.checkedBy}
-							{check.note && !canCheck ? ` · ${check.note}` : ""}
+							{check.note && !canRecord ? ` · ${check.note}` : ""}
 						</p>
 					) : null}
 				</div>
@@ -653,7 +638,7 @@ function CheckRow({
 					<StatusChip tone="attention">Not checked</StatusChip>
 				)}
 			</div>
-			{canCheck ? (
+			{canRecord ? (
 				<div className="mt-2 flex flex-wrap items-center gap-2">
 					<Input
 						aria-label={`Note for ${check.requirement}`}
@@ -971,14 +956,9 @@ function PublicationCard({
 	data: RevisionData;
 	permissionKeys: readonly PermissionKey[];
 }) {
-	const { revision } = data;
+	const { actions, revision } = data;
 	const foundational = data.foundationalChange;
-	const canPublish =
-		permissionKeys.includes("publication.publish") &&
-		revision.status === "approved" &&
-		!foundational;
-	const canWithdraw =
-		permissionKeys.includes("publication.withdraw") && data.liveRevision;
+	const canPublish = actions.publish.state === "open";
 	const publish = useContentMutation(
 		() => publishRevision({ data: { revisionId: revision.id } }),
 		() => toast.success(`Revision #${revision.number} is live for readers.`),
@@ -1026,10 +1006,12 @@ function PublicationCard({
 					/>
 				) : canPublish ? null : (
 					<p className="text-sm" role="status">
-						{publicationStatusNotes[revision.status]}
+						{actions.publish.state === "blocked"
+							? actions.publish.reason
+							: publicationStatusNotes[revision.status]}
 					</p>
 				)}
-				{canWithdraw && data.liveRevision ? (
+				{actions.withdraw.state === "open" && data.liveRevision ? (
 					<StaffButton
 						className="w-full"
 						onClick={() => setWithdrawing(true)}
@@ -1037,6 +1019,11 @@ function PublicationCard({
 					>
 						Withdraw live Revision #{data.liveRevision.number}
 					</StaffButton>
+				) : null}
+				{actions.withdraw.state === "blocked" ? (
+					<p className="text-muted-foreground text-sm">
+						Can't be withdrawn yet: {actions.withdraw.reason}
+					</p>
 				) : null}
 			</div>
 			<p className="mt-3 text-muted-foreground text-xs">

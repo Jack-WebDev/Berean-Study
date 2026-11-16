@@ -1,3 +1,4 @@
+import { revisionReaders } from "@berean-study/db/content-kinds";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { z } from "zod";
 
@@ -14,18 +15,7 @@ export const Route = createFileRoute(
 )({
 	beforeLoad: ({ context, params }) => {
 		const keys = context.viewer.permissionKeys;
-		const canOpen = [
-			"content.write",
-			"content.revise",
-			"sources.manage",
-			"editorial.check",
-			"editorial.review",
-			"editorial.assign",
-			"publication.publish",
-			"publication.withdraw",
-			"issues.manage",
-		] as const;
-		if (!canOpen.some((key) => keys.includes(key))) {
+		if (!revisionReaders.some((key) => keys.includes(key))) {
 			throw redirect({ to: "/home" });
 		}
 		if (

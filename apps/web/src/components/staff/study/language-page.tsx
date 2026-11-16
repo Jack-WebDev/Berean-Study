@@ -1,4 +1,5 @@
 import type { PermissionKey } from "@berean-study/db/access-catalogue";
+import { originalLanguageWriters } from "@berean-study/db/content-kinds";
 import {
 	type NoteLanguage,
 	newVariantReading,
@@ -51,7 +52,6 @@ import { StudyPreview } from "./study-previews";
 import {
 	canEditRecord,
 	KjvText,
-	originalLanguageWriters,
 	SegmentedLinks,
 	StudyRichText,
 	useStudyDraft,
