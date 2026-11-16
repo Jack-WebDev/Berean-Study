@@ -24,8 +24,14 @@ export function requireUserId(session: { user: { id: string } } | null) {
  * Stops a server function unless the signed-in person holds at least one of
  * these permissions.
  *
- * This is the real security check. Route guards and hidden sidebar links only
- * tidy up the interface, because anyone can call a server function directly.
+ * This is the real security check for a plain "you need this permission" rule.
+ * Route guards and hidden sidebar links only tidy up the interface, because
+ * anyone can call a server function directly.
+ *
+ * When the permission needed depends on the input or the data, such as "passing
+ * a chapter is proofreading, but publishing it too needs publication.publish",
+ * check it in the db function that does the step instead, where it's tested.
+ * Don't add it here or in the handler.
  */
 export function requirePermission(
 	...anyOf: [PermissionKey, ...PermissionKey[]]

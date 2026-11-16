@@ -1,4 +1,5 @@
 import { db } from "@berean-study/db";
+import { scriptureDataReaders } from "@berean-study/db/access-catalogue";
 import { bookGroups } from "@berean-study/db/scripture-catalogue";
 import {
 	getBookStructure as getBookStructureFromDb,
@@ -12,10 +13,7 @@ import { z } from "zod";
 
 import { requirePermission } from "@/middleware/auth";
 
-// Everyone whose work depends on the Bible's structure can read it. Only those
-// with scripture.manage can change it.
-const canReadScriptureData = () =>
-	requirePermission("scripture.manage", "content.write", "scripture.enter");
+const canReadScriptureData = () => requirePermission(...scriptureDataReaders);
 
 const slugSchema = z.string().trim().min(1).max(100);
 

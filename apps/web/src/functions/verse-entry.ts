@@ -1,4 +1,5 @@
 import { db } from "@berean-study/db";
+import { verseTextReaders } from "@berean-study/db/access-catalogue";
 import {
 	addChapter as addChapterInDb,
 	addVerse as addVerseInDb,
@@ -15,7 +16,6 @@ import { HIGHEST_VERSE_NUMBER } from "@berean-study/db/verse-text-tools";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-import { verseTextReaderPermissions } from "@/components/staff/scripture/scripture-access";
 import { requirePermission } from "@/middleware/auth";
 
 const abbreviationSchema = z.string().trim().min(1).max(10);
@@ -122,7 +122,7 @@ export const proposeVerseCorrection = createServerFn({ method: "POST" })
 	);
 
 export const getVerseAcrossTranslations = createServerFn({ method: "GET" })
-	.middleware([requirePermission(...verseTextReaderPermissions)])
+	.middleware([requirePermission(...verseTextReaders)])
 	.validator(
 		z.object({
 			chapter: chapterSchema,

@@ -1,6 +1,7 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
+import { getPermissionKeys } from "./access";
 import { recordAudit } from "./audit";
 import { isBeyondProtestantCanon } from "./canon-limits";
 import type { DbExecutor } from "./db-executor";
@@ -344,6 +345,15 @@ export async function passChapter(
 	input: ChapterAddress & { actorUserId: string; publish: boolean },
 ) {
 	return client.transaction(async (tx) => {
+		// Proofreading is enough to pass a chapter, but publishing it too puts it in front of readers.
+		if (
+			input.publish &&
+			!(await getPermissionKeys(tx, input.actorUserId)).includes(
+				"publication.publish",
+			)
+		) {
+			throw new GovernanceError("You don't have permission to do this.");
+		}
 		const { book, chapter, translation } = await resolveChapter(tx, input);
 		await lockChapter(tx, chapter.id);
 

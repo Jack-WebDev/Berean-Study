@@ -320,3 +320,34 @@ export const roleCatalogue: readonly RoleDefinition[] = [
 		grants: permissionCatalogue.map(({ key }) => key),
 	},
 ];
+
+/*
+ * Who may read a part of administration. The page's route guard or link and the
+ * server function behind it use the same list, so they can't drift apart.
+ */
+
+/** Everyone whose work depends on the Bible's structure can read it. Only scripture.manage changes it. */
+export const scriptureDataReaders = [
+	"scripture.manage",
+	"content.write",
+	"scripture.enter",
+] as const satisfies readonly PermissionKey[];
+
+/** Unpublished wording is for the people working on it, not everyone who reads the structure. */
+export const verseTextReaders = [
+	"scripture.enter",
+	"scripture.proofread",
+	"scripture.manage",
+	"translations.manage",
+	"publication.publish",
+] as const satisfies readonly PermissionKey[];
+
+/** Administration > Overview. */
+export const adminOverviewReaders = [
+	"editorial.assign",
+	"publication.publish",
+	"publication.withdraw",
+	"issues.manage",
+	"community.moderate",
+	"contributors.manage",
+] as const satisfies readonly PermissionKey[];

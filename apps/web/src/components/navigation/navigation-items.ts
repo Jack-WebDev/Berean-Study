@@ -1,4 +1,7 @@
-import type { PermissionKey } from "@berean-study/db/access-catalogue";
+import {
+	adminOverviewReaders,
+	type PermissionKey,
+} from "@berean-study/db/access-catalogue";
 import type { StaffQueue } from "@berean-study/db/staff-queues";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -217,14 +220,7 @@ const administrationNavigationItems = [
 		href: "/admin",
 		icon: LayoutDashboardIcon,
 		label: "Overview",
-		requiredPermissions: [
-			"editorial.assign",
-			"publication.publish",
-			"publication.withdraw",
-			"issues.manage",
-			"community.moderate",
-			"contributors.manage",
-		],
+		requiredPermissions: adminOverviewReaders,
 	},
 	{
 		href: "/admin/editorial",

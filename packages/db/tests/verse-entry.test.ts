@@ -482,6 +482,25 @@ describe("proofreading", () => {
 		});
 	});
 
+	it("only lets someone who may publish pass a chapter and publish it at once", async () => {
+		await inRolledBackTransactionWithoutScripture(async (tx) => {
+			const { enterer, proofreader } = await setUp(tx);
+			await enterAndSubmit(tx, enterer.id, kjvRomans1, { 1: "Paul." });
+			await markAll(tx, proofreader.id, kjvRomans1, [1]);
+			const pass = (publish: boolean) =>
+				passChapter(tx, {
+					...kjvRomans1,
+					actorUserId: proofreader.id,
+					publish,
+				});
+
+			await expect(pass(true)).rejects.toThrow("permission");
+			await pass(false);
+			const [row] = await listChaptersReadyToPublish(tx);
+			expect(row?.passedVerses).toBe(1);
+		});
+	});
+
 	it("won't let the person who entered everything pass it on someone's checks", async () => {
 		await inRolledBackTransactionWithoutScripture(async (tx) => {
 			const { enterer, proofreader } = await setUp(tx);

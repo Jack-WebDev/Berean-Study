@@ -67,15 +67,9 @@ export const sendBackVerses = createServerFn({ method: "POST" })
 export const passChapter = createServerFn({ method: "POST" })
 	.middleware([requirePermission("scripture.proofread")])
 	.validator(chapterAddressSchema.extend({ publish: z.boolean() }))
-	.handler(({ context, data }) => {
-		if (
-			data.publish &&
-			!context.permissionKeys.includes("publication.publish")
-		) {
-			throw new Error("You don't have permission to do this.");
-		}
-		return passChapterInDb(db, { ...data, actorUserId: context.userId });
-	});
+	.handler(({ context, data }) =>
+		passChapterInDb(db, { ...data, actorUserId: context.userId }),
+	);
 
 export const reopenChapter = createServerFn({ method: "POST" })
 	.middleware([requirePermission("scripture.proofread", "publication.publish")])
