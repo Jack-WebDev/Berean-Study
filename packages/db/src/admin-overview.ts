@@ -225,12 +225,9 @@ async function countActiveContributors(client: DbExecutor, since: Date) {
 	).size;
 }
 
-function chipFor(
-	proposal: ProposalSummary,
-	viewerUserId: string,
-): OverviewFoundationItem["status"] {
+function chipFor(proposal: ProposalSummary): OverviewFoundationItem["status"] {
 	if (proposal.status === "applied") return "applied";
-	if (proposal.proposerUserId === viewerUserId) return "waiting";
+	if (proposal.proposedByMe) return "waiting";
 	return proposal.kind === "role_change" ? "decide" : "confirm";
 }
 
@@ -425,7 +422,7 @@ export async function getAdminOverview(
 	}
 
 	const pendingScripture = canSeeScriptureChanges
-		? await listProposals(client, {
+		? await listProposals(client, userId, {
 				kinds: foundationChangeKinds,
 				status: "proposed",
 			})
@@ -445,14 +442,17 @@ export async function getAdminOverview(
 			value: made + pendingScripture.length,
 		});
 		for (const proposal of pendingScripture
-			.filter(({ proposerUserId }) => proposerUserId !== userId)
+			.filter(
+				({ decidePermission, proposedByMe }) =>
+					!proposedByMe && holds(decidePermission),
+			)
 			.slice(0, LIST_LIMIT)) {
 			attention.push(attentionFor(proposal, "scripture"));
 		}
 	}
 
 	const pendingPeople = canSeeAuthorization
-		? await listProposals(client, {
+		? await listProposals(client, userId, {
 				kinds: peopleChangeKinds,
 				status: "proposed",
 			})
@@ -473,8 +473,8 @@ export async function getAdminOverview(
 		});
 		for (const proposal of pendingPeople
 			.filter(
-				({ decidePermission, proposerUserId }) =>
-					proposerUserId !== userId && holds(decidePermission),
+				({ decidePermission, proposedByMe }) =>
+					!proposedByMe && holds(decidePermission),
 			)
 			.slice(0, LIST_LIMIT)) {
 			attention.push(attentionFor(proposal, "authorization"));
@@ -597,15 +597,20 @@ async function foundationItems(
 		detail: proposal.description,
 		href: proposal.destination,
 		key: `proposal-${proposal.id}`,
-		status: chipFor(proposal, viewer.userId),
+		status: chipFor(proposal),
 		title: proposal.title,
 	});
 
-	const pending = (await listProposals(client, { status: "proposed" }))
+	const pending = (
+		await listProposals(client, viewer.userId, { status: "proposed" })
+	)
 		.filter(canDecide)
 		.map(toItem);
 	const applied = (
-		await listProposals(client, { limit: LIST_LIMIT, status: "applied" })
+		await listProposals(client, viewer.userId, {
+			limit: LIST_LIMIT,
+			status: "applied",
+		})
 	)
 		.filter(canDecide)
 		.map((proposal) => ({ at: proposal.decidedAt, item: toItem(proposal) }));

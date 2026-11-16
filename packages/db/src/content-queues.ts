@@ -319,17 +319,11 @@ export async function getRevisionPage(
 				})
 			: null;
 	const [confirmation] = foundationalChange
-		? await listProposals(client, {
+		? await listProposals(client, viewerUserId, {
 				kinds: ["guarded_publication"],
 				status: "proposed",
 				target: { id: String(current.id), type: "content_revision" },
 			})
-		: [];
-	const [confirmationProposer] = confirmation
-		? await client
-				.select({ name: user.name })
-				.from(user)
-				.where(eq(user.id, confirmation.proposerUserId))
 		: [];
 
 	return {
@@ -353,8 +347,8 @@ export async function getRevisionPage(
 					pending: confirmation
 						? {
 								id: confirmation.id,
-								proposedByMe: confirmation.proposerUserId === viewerUserId,
-								proposerName: confirmationProposer?.name ?? "Someone",
+								proposedByMe: confirmation.proposedByMe,
+								proposerName: confirmation.proposerName,
 								reason: confirmation.reason,
 							}
 						: null,

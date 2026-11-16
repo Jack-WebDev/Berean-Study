@@ -2,19 +2,20 @@ import { asc, eq, inArray, max } from "drizzle-orm";
 
 import {
 	canonBookOrder,
-	canonOrderPayload,
 	describeOrderChange,
 } from "./change-kinds/canon-order";
-import { chapterLimitsPayload } from "./change-kinds/chapter-limits";
 import type { DbExecutor } from "./db-executor";
 import { GovernanceError } from "./governance-error";
-import { user } from "./schema/auth";
 import { books } from "./schema/books";
 import { canonBooks } from "./schema/canon_books";
 import { canonTraditions } from "./schema/canon_traditions";
 import { chapters } from "./schema/chapters";
 import { bookCatalogue, canonCatalogue } from "./scripture-catalogue";
-import { listProposals, proposeChange } from "./two-person";
+import {
+	listProposals,
+	type ProposalSummary,
+	proposeChange,
+} from "./two-person";
 
 const catalogueSlugs = bookCatalogue.map(({ slug }) => slug);
 
@@ -109,13 +110,21 @@ export async function proposeCanonOrder(
 	});
 }
 
+type CanonChange = Extract<
+	ProposalSummary,
+	{ kind: "chapter_limits" | "canon_order" }
+>;
+
+function isCanonChange(proposal: ProposalSummary): proposal is CanonChange {
+	return proposal.kind === "chapter_limits" || proposal.kind === "canon_order";
+}
+
 function readPendingChange(
-	kind: string,
-	payload: unknown,
+	proposal: CanonChange,
 	bookName: (id: number) => string,
 ) {
-	if (kind === "chapter_limits") {
-		const { changes } = chapterLimitsPayload.parse(payload);
+	if (proposal.kind === "chapter_limits") {
+		const { changes } = proposal.payload;
 		return {
 			type: "limits" as const,
 			rows: changes.map(({ bookId, from, to }) => ({
@@ -125,7 +134,7 @@ function readPendingChange(
 			})),
 		};
 	}
-	const { after, before } = canonOrderPayload.parse(payload);
+	const { after, before } = proposal.payload;
 	const { added, moved, removed } = describeOrderChange(before, after);
 	return {
 		type: "order" as const,
@@ -159,10 +168,12 @@ export async function getCanonOverview(
 	const memberships = await client
 		.select({ canonId: canonBooks.canonId })
 		.from(canonBooks);
-	const proposals = await listProposals(client, { status: "proposed" });
-	const canonProposals = proposals.filter(
-		(proposal) => proposal.targetType === "canon",
-	);
+	const canonProposals = (
+		await listProposals(client, viewerUserId, {
+			kinds: ["chapter_limits", "canon_order"],
+			status: "proposed",
+		})
+	).filter(isCanonChange);
 
 	const allBooks = await client
 		.select({
@@ -211,17 +222,6 @@ export async function getCanonOverview(
 	const pendingHere = canonProposals.filter(
 		({ targetId }) => targetId === String(chosen.id),
 	);
-	const proposers = pendingHere.length
-		? await client
-				.select({ id: user.id, name: user.name })
-				.from(user)
-				.where(
-					inArray(
-						user.id,
-						pendingHere.map(({ proposerUserId }) => proposerUserId),
-					),
-				)
-		: [];
 
 	return {
 		list: ordered.map((canon) => ({
@@ -248,14 +248,12 @@ export async function getCanonOverview(
 				.map(({ name, slug: bookSlug }) => ({ name, slug: bookSlug })),
 		),
 		pending: pendingHere.map((proposal) => ({
-			change: readPendingChange(proposal.kind, proposal.payload, bookName),
+			change: readPendingChange(proposal, bookName),
 			createdAt: proposal.createdAt,
 			description: proposal.description,
 			id: proposal.id,
-			proposedByMe: proposal.proposerUserId === viewerUserId,
-			proposerName:
-				proposers.find(({ id }) => id === proposal.proposerUserId)?.name ??
-				"Someone",
+			proposedByMe: proposal.proposedByMe,
+			proposerName: proposal.proposerName,
 			reason: proposal.reason,
 			title: proposal.title,
 		})),

@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, ne, sql } from "drizzle-orm";
 import type { z } from "zod";
 
 import { getPermissionKeys } from "./access";
@@ -48,6 +48,7 @@ import {
 import type { DbExecutor } from "./db-executor";
 import { GovernanceError } from "./governance-error";
 import { createNotification } from "./notifications";
+import { user } from "./schema/auth";
 import { changeProposals } from "./schema/change_proposals";
 import { permissions } from "./schema/permissions";
 import { rolePermissions } from "./schema/role_permissions";
@@ -86,6 +87,7 @@ function changeKind<TPayload>(definition: ChangeKindDefinition<TPayload>) {
 	const parse = (raw: unknown) => definition.payload.parse(raw);
 
 	return {
+		parse,
 		decidePermission: definition.decidePermission,
 		title: definition.title,
 		proposedAction: definition.proposedAction,
@@ -327,23 +329,49 @@ export async function decideChange(
 	});
 }
 
-export type ProposalSummary = Awaited<ReturnType<typeof listProposals>>[number];
+type ProposalOf<TKind extends ChangeKindName> = Omit<
+	typeof changeProposals.$inferSelect,
+	"kind" | "payload"
+> & {
+	kind: TKind;
+	/** Checked against this kind's rules, so its shape follows from `kind`. */
+	payload: ChangePayloads[TKind];
+	decidePermission: PermissionKey;
+	title: string;
+	description: string;
+	destination: string;
+	proposerName: string;
+	/** Empty until someone decides it. */
+	deciderName: string | null;
+	proposedByMe: boolean;
+};
 
-/** Proposals with a readable description, newest first. */
+/** One proposal. Check `kind` first, and `payload` then has that kind's shape. */
+export type ProposalSummary = {
+	[TKind in ChangeKindName]: ProposalOf<TKind>;
+}[ChangeKindName];
+
+/**
+ * Proposals newest first, ready to show: a readable description, who proposed
+ * and decided them, and whether the viewer proposed them.
+ */
 export async function listProposals(
 	client: DbExecutor,
+	viewerUserId: string,
 	filter: {
+		id?: number;
 		kinds?: readonly ChangeKindName[];
 		limit?: number;
 		status?: "proposed" | "applied";
 		target?: { type: string; id: string };
 	} = {},
-) {
+): Promise<ProposalSummary[]> {
 	const query = client
 		.select()
 		.from(changeProposals)
 		.where(
 			and(
+				filter.id === undefined ? undefined : eq(changeProposals.id, filter.id),
 				filter.kinds
 					? inArray(changeProposals.kind, [...filter.kinds])
 					: undefined,
@@ -358,17 +386,67 @@ export async function listProposals(
 		)
 		.orderBy(desc(changeProposals.createdAt), desc(changeProposals.id));
 	const rows = await (filter.limit ? query.limit(filter.limit) : query);
+	const names = await namesOf(
+		client,
+		rows.flatMap(({ decidedByUserId, proposerUserId }) =>
+			decidedByUserId ? [proposerUserId, decidedByUserId] : [proposerUserId],
+		),
+	);
 
-	const summaries = [];
+	const summaries: ProposalSummary[] = [];
 	for (const row of rows) {
 		const kind = kindNamed(row.kind);
+		const payload = kind.parse(row.payload);
+		// Safe to cast: the row's own kind chose the schema that just parsed its payload.
 		summaries.push({
 			...row,
+			payload,
 			decidePermission: kind.decidePermission,
 			title: kind.title,
-			description: await kind.describe(client, row.payload),
-			destination: kind.destination(row.payload),
-		});
+			description: await kind.describe(client, payload),
+			destination: kind.destination(payload),
+			proposerName: names.get(row.proposerUserId) ?? "Someone",
+			deciderName: row.decidedByUserId
+				? (names.get(row.decidedByUserId) ?? "Someone")
+				: null,
+			proposedByMe: row.proposerUserId === viewerUserId,
+		} as ProposalSummary);
 	}
 	return summaries;
+}
+
+/**
+ * How many proposals of these kinds are waiting on this person: ones they hold
+ * the permission to decide, and didn't propose themselves.
+ */
+export async function countProposalsWaitingOn(
+	client: DbExecutor,
+	viewer: { permissionKeys: readonly PermissionKey[]; userId: string },
+	kinds: readonly ChangeKindName[],
+) {
+	const decidable = kinds.filter((name) =>
+		viewer.permissionKeys.includes(changeKinds[name].decidePermission),
+	);
+	if (decidable.length === 0) return 0;
+	const [result] = await client
+		.select({ value: count() })
+		.from(changeProposals)
+		.where(
+			and(
+				eq(changeProposals.status, "proposed"),
+				inArray(changeProposals.kind, decidable),
+				ne(changeProposals.proposerUserId, viewer.userId),
+			),
+		);
+	return result?.value ?? 0;
+}
+
+async function namesOf(client: DbExecutor, userIds: readonly string[]) {
+	const ids = [...new Set(userIds)];
+	if (ids.length === 0) return new Map<string, string>();
+	const rows = await client
+		.select({ id: user.id, name: user.name })
+		.from(user)
+		.where(inArray(user.id, ids));
+	return new Map(rows.map(({ id, name }) => [id, name]));
 }

@@ -1,4 +1,4 @@
-import { and, count, eq, inArray, ne } from "drizzle-orm";
+import { count, eq } from "drizzle-orm";
 
 import type { PermissionKey } from "./access-catalogue";
 import { countReportsWaitingOn } from "./community-moderation";
@@ -8,8 +8,8 @@ import {
 	listReviewQueue,
 } from "./content-queues";
 import type { DbExecutor } from "./db-executor";
-import { changeProposals } from "./schema/change_proposals";
 import { contentIssues } from "./schema/content_issues";
+import { type ChangeKindName, countProposalsWaitingOn } from "./two-person";
 import {
 	countChaptersReadyToPublish,
 	countChaptersWaitingOnPerson,
@@ -31,7 +31,7 @@ export const peopleChangeKinds = [
 	"role_change",
 	"access_case",
 	"role_permission",
-] as const;
+] as const satisfies readonly ChangeKindName[];
 
 /** Decided on the Canon & Versification page. */
 export const foundationChangeKinds = [
@@ -39,11 +39,13 @@ export const foundationChangeKinds = [
 	"canon_order",
 	"verse_addition",
 	"verse_handling",
-] as const;
+] as const satisfies readonly ChangeKindName[];
 
 /**
  * How many items are waiting in each staff queue, for the sidebar counts. Only
- * includes queues this person's permissions let them work on.
+ * includes queues this person's permissions let them work on. Changes waiting
+ * on a second Superadmin count only kinds this person may decide, and never
+ * their own proposals, because someone else must decide those.
  */
 export async function getStaffQueueCounts(
 	client: DbExecutor,
@@ -65,49 +67,28 @@ export async function getStaffQueueCounts(
 	}
 
 	if (permissionKeys.includes("admins.manage")) {
-		// Your own proposals aren't waiting on you, because someone else must decide them.
-		const [result] = await client
-			.select({ value: count() })
-			.from(changeProposals)
-			.where(
-				and(
-					eq(changeProposals.status, "proposed"),
-					inArray(changeProposals.kind, [...peopleChangeKinds]),
-					ne(changeProposals.proposerUserId, userId),
-				),
-			);
-		counts.pendingConfirmations = result?.value ?? 0;
+		counts.pendingConfirmations = await countProposalsWaitingOn(
+			client,
+			viewer,
+			peopleChangeKinds,
+		);
 	}
 
 	if (
 		permissionKeys.includes("canon.manage") ||
 		permissionKeys.includes("scripture.manage")
 	) {
-		const [result] = await client
-			.select({ value: count() })
-			.from(changeProposals)
-			.where(
-				and(
-					eq(changeProposals.status, "proposed"),
-					inArray(changeProposals.kind, [...foundationChangeKinds]),
-					ne(changeProposals.proposerUserId, userId),
-				),
-			);
-		counts.foundationChanges = result?.value ?? 0;
+		counts.foundationChanges = await countProposalsWaitingOn(
+			client,
+			viewer,
+			foundationChangeKinds,
+		);
 	}
 
 	if (permissionKeys.includes("sources.retire")) {
-		const [result] = await client
-			.select({ value: count() })
-			.from(changeProposals)
-			.where(
-				and(
-					eq(changeProposals.status, "proposed"),
-					eq(changeProposals.kind, "source_retirement"),
-					ne(changeProposals.proposerUserId, userId),
-				),
-			);
-		counts.sourceRetirements = result?.value ?? 0;
+		counts.sourceRetirements = await countProposalsWaitingOn(client, viewer, [
+			"source_retirement",
+		]);
 	}
 
 	const canProofread = permissionKeys.includes("scripture.proofread");
@@ -126,17 +107,9 @@ export async function getStaffQueueCounts(
 
 	if (permissionKeys.includes("content.confirm_foundational")) {
 		// An approved revision waiting on a second Superadmin is already counted above.
-		const [result] = await client
-			.select({ value: count() })
-			.from(changeProposals)
-			.where(
-				and(
-					eq(changeProposals.status, "proposed"),
-					eq(changeProposals.kind, "theme_merge"),
-					ne(changeProposals.proposerUserId, userId),
-				),
-			);
-		counts.readyToPublish = (counts.readyToPublish ?? 0) + (result?.value ?? 0);
+		counts.readyToPublish =
+			(counts.readyToPublish ?? 0) +
+			(await countProposalsWaitingOn(client, viewer, ["theme_merge"]));
 	}
 
 	if (

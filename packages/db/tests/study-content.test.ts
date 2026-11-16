@@ -882,7 +882,7 @@ describe.runIf(process.env.DATABASE_URL)("study content", () => {
 					reason: "The editors agreed",
 					revisionId: second.revisionId,
 				});
-				const [proposal] = await listProposals(tx, {
+				const [proposal] = await listProposals(tx, people.superadmin.id, {
 					kinds: ["guarded_publication"],
 					status: "proposed",
 				});
@@ -976,7 +976,7 @@ describe.runIf(process.env.DATABASE_URL)("study content", () => {
 					reason: "Please",
 					revisionId: second.revisionId,
 				});
-				const [proposal] = await listProposals(tx, {
+				const [proposal] = await listProposals(tx, people.superadmin.id, {
 					kinds: ["guarded_publication"],
 					status: "proposed",
 				});
@@ -1159,7 +1159,7 @@ describe.runIf(process.env.DATABASE_URL)("study content", () => {
 				reason: "These are the same theme",
 				themeId: Number(merged.scopeKey),
 			});
-			const [proposal] = await listProposals(tx, {
+			const [proposal] = await listProposals(tx, people.superadmin.id, {
 				kinds: ["theme_merge"],
 				status: "proposed",
 			});

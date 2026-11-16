@@ -72,13 +72,16 @@ describe.runIf(process.env.DATABASE_URL)("people", () => {
 	});
 
 	describe("profile", () => {
+		// Who is looking only matters for "did I propose this", which these don't check.
+		const viewerUserId = "staff-viewer";
+
 		it("never includes private content", async () => {
 			await inRolledBackTransaction(async (tx) => {
 				await withFreshCatalogue(tx);
 				const member = await createPerson(tx);
 				await addNote(tx, member.id, "SECRET-PRIVATE-THOUGHT");
 
-				const profile = await getPersonProfile(tx, member.id);
+				const profile = await getPersonProfile(tx, member.id, viewerUserId);
 
 				expect(profile?.person.id).toBe(member.id);
 				const serialized = JSON.stringify(profile);
@@ -99,7 +102,7 @@ describe.runIf(process.env.DATABASE_URL)("people", () => {
 					reason: "spam",
 				});
 
-				const profile = await getPersonProfile(tx, member.id);
+				const profile = await getPersonProfile(tx, member.id, viewerUserId);
 
 				expect(profile?.stats).toMatchObject({
 					posts: 1,
@@ -160,9 +163,9 @@ describe.runIf(process.env.DATABASE_URL)("people", () => {
 				expect(
 					await tx.select().from(session).where(eq(session.userId, member.id)),
 				).toEqual([]);
-				expect((await getPersonProfile(tx, member.id))?.person.status).toBe(
-					"suspended",
-				);
+				expect(
+					(await getPersonProfile(tx, member.id, superadmin.id))?.person.status,
+				).toBe("suspended");
 
 				await liftSuspension(tx, {
 					actorUserId: superadmin.id,
@@ -297,7 +300,7 @@ describe.runIf(process.env.DATABASE_URL)("people", () => {
 				);
 				expect(await grantsOfContributor()).not.toContain("research.manage");
 
-				const [proposal] = await listProposals(tx, {
+				const [proposal] = await listProposals(tx, proposer.id, {
 					status: "proposed",
 					target: { type: "role", id: String(roleId) },
 				});

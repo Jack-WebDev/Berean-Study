@@ -471,7 +471,7 @@ describe.runIf(process.env.DATABASE_URL)("two-person changes", () => {
 					note: "Order checked",
 				});
 
-				const profile = await getPersonProfile(tx, member.id);
+				const profile = await getPersonProfile(tx, member.id, opener.id);
 				expect(profile?.accessCases).toEqual([
 					expect.objectContaining({
 						status: "applied",

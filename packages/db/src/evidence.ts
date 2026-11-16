@@ -33,7 +33,6 @@ import {
 } from "./evidence-body";
 import { listRevisionCitations, refreshExcerptTitles } from "./evidence-kinds";
 import { GovernanceError } from "./governance-error";
-import { user } from "./schema/auth";
 import { citations } from "./schema/citations";
 import { claimUsages } from "./schema/claim_usages";
 import { claims } from "./schema/claims";
@@ -412,20 +411,16 @@ async function pendingRetirement(
 	sourceId: number,
 	viewerUserId: string,
 ) {
-	const [proposal] = await listProposals(client, {
+	const [proposal] = await listProposals(client, viewerUserId, {
 		kinds: ["source_retirement"],
 		status: "proposed",
 		target: { id: String(sourceId), type: "source" },
 	});
 	if (!proposal) return null;
-	const [proposer] = await client
-		.select({ name: user.name })
-		.from(user)
-		.where(eq(user.id, proposal.proposerUserId));
 	return {
 		id: proposal.id,
-		proposedByMe: proposal.proposerUserId === viewerUserId,
-		proposerName: proposer?.name ?? "Someone",
+		proposedByMe: proposal.proposedByMe,
+		proposerName: proposal.proposerName,
 		reason: proposal.reason,
 	};
 }

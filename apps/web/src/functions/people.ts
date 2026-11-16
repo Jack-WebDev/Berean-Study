@@ -35,7 +35,9 @@ export const listPeople = createServerFn({ method: "GET" })
 export const getPersonProfile = createServerFn({ method: "GET" })
 	.middleware([requirePermission("contributors.manage", "admins.manage")])
 	.validator(z.object({ userId: userIdSchema }))
-	.handler(({ data }) => getPersonProfileFromDb(db, data.userId));
+	.handler(({ context, data }) =>
+		getPersonProfileFromDb(db, data.userId, context.userId),
+	);
 
 export const listAssignableRoles = createServerFn({ method: "GET" })
 	.middleware([requirePermission("contributors.manage", "admins.manage")])
@@ -44,8 +46,8 @@ export const listAssignableRoles = createServerFn({ method: "GET" })
 /** Changes waiting for a second person, shown at the top of the Users page. */
 export const listPendingChanges = createServerFn({ method: "GET" })
 	.middleware([requirePermission("admins.manage", "roles.manage")])
-	.handler(async () => {
-		const proposals = await listProposals(db, {
+	.handler(async ({ context }) => {
+		const proposals = await listProposals(db, context.userId, {
 			kinds: peopleChangeKinds,
 			status: "proposed",
 		});

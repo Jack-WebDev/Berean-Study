@@ -28,7 +28,6 @@ import {
 	parsePassageKey,
 	THROUGH_CHAPTER_END,
 } from "./passage-key";
-import { user } from "./schema/auth";
 import { books } from "./schema/books";
 import { canonBooks } from "./schema/canon_books";
 import { canonTraditions } from "./schema/canon_traditions";
@@ -455,17 +454,11 @@ export async function getThemeEditor(
 	);
 	if (!record) return null;
 
-	const [proposal] = await listProposals(client, {
+	const [proposal] = await listProposals(client, viewerUserId, {
 		kinds: ["theme_merge"],
 		status: "proposed",
 		target: { id: String(input.themeId), type: "theme" },
 	});
-	const [proposer] = proposal
-		? await client
-				.select({ name: user.name })
-				.from(user)
-				.where(eq(user.id, proposal.proposerUserId))
-		: [];
 	return {
 		...context,
 		...record,
@@ -474,8 +467,8 @@ export async function getThemeEditor(
 			? {
 					description: proposal.description,
 					id: proposal.id,
-					proposedByMe: proposal.proposerUserId === viewerUserId,
-					proposerName: proposer?.name ?? "Someone",
+					proposedByMe: proposal.proposedByMe,
+					proposerName: proposal.proposerName,
 					reason: proposal.reason,
 				}
 			: null,
@@ -588,7 +581,7 @@ export async function listFoundationalConfirmations(
 	client: DbExecutor,
 	viewerUserId: string,
 ) {
-	const proposals = await listProposals(client, {
+	const proposals = await listProposals(client, viewerUserId, {
 		kinds: ["guarded_publication", "theme_merge"],
 		status: "proposed",
 	});
@@ -613,11 +606,11 @@ export async function listFoundationalConfirmations(
 			({ kind, targetId }) =>
 				kind !== "guarded_publication" || stillOpen.has(targetId),
 		)
-		.map(({ description, destination, id, proposerUserId, reason, title }) => ({
+		.map(({ description, destination, id, proposedByMe, reason, title }) => ({
 			description,
 			destination,
 			id,
-			proposedByMe: proposerUserId === viewerUserId,
+			proposedByMe,
 			reason,
 			title,
 		}));

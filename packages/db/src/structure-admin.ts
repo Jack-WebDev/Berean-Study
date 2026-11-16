@@ -5,20 +5,16 @@ import {
 	chapterVerseNumbers,
 	structureChapter,
 	verseAdditionKind,
-	verseAdditionPayload,
 	verseAdditionReference,
 } from "./change-kinds/verse-addition";
 import {
 	currentVerseHandling,
 	sameHandling,
 	verseHandlingKind,
-	verseHandlingPayload,
 } from "./change-kinds/verse-handling";
 import type { DbExecutor } from "./db-executor";
 import { GovernanceError } from "./governance-error";
-import { user } from "./schema/auth";
 import { books } from "./schema/books";
-import { changeProposals } from "./schema/change_proposals";
 import { verses } from "./schema/verses";
 import { linkedContentCounts } from "./scripture-data";
 import { listProposals, proposeChange } from "./two-person";
@@ -100,15 +96,15 @@ export async function listStructureChanges(
 	client: DbExecutor,
 	viewerUserId: string,
 ) {
-	const proposals = await listProposals(client, {
+	const proposals = await listProposals(client, viewerUserId, {
 		kinds: structureKinds,
 		status: "proposed",
 	});
-	return proposals.map(({ createdAt, description, id, proposerUserId }) => ({
+	return proposals.map(({ createdAt, description, id, proposedByMe }) => ({
 		createdAt,
 		description,
 		id,
-		proposedByMe: proposerUserId === viewerUserId,
+		proposedByMe,
 	}));
 }
 
@@ -195,44 +191,34 @@ export async function getStructureChange(
 	proposalId: number,
 	viewerUserId: string,
 ) {
-	const [proposal] = await client
-		.select()
-		.from(changeProposals)
-		.where(eq(changeProposals.id, proposalId));
+	const [proposal] = await listProposals(client, viewerUserId, {
+		id: proposalId,
+		kinds: structureKinds,
+	});
 	if (
-		!proposal ||
-		!(structureKinds as readonly string[]).includes(proposal.kind)
+		proposal?.kind !== "verse_addition" &&
+		proposal?.kind !== "verse_handling"
 	) {
 		return null;
 	}
 
-	const [proposer] = await client
-		.select({ name: user.name })
-		.from(user)
-		.where(eq(user.id, proposal.proposerUserId));
-	const [decider] = proposal.decidedByUserId
-		? await client
-				.select({ name: user.name })
-				.from(user)
-				.where(eq(user.id, proposal.decidedByUserId))
-		: [];
-	const proposedByMe = proposal.proposerUserId === viewerUserId;
+	const { proposedByMe } = proposal;
 	const isOpen = proposal.status === "proposed";
 
 	const shared = {
 		createdAt: proposal.createdAt,
 		decidedAt: proposal.decidedAt,
-		deciderName: decider?.name ?? null,
+		deciderName: proposal.deciderName,
 		decisionNote: proposal.decisionNote,
 		id: proposal.id,
 		proposedByMe,
-		proposerName: proposer?.name ?? "Someone",
+		proposerName: proposal.proposerName,
 		reason: proposal.reason,
 		status: proposal.status,
 	};
 
 	if (proposal.kind === "verse_addition") {
-		const payload = verseAdditionPayload.parse(proposal.payload);
+		const { payload } = proposal;
 		const [book] = await client
 			.select({ name: books.name, slug: books.slug })
 			.from(books)
@@ -282,7 +268,7 @@ export async function getStructureChange(
 		};
 	}
 
-	const payload = verseHandlingPayload.parse(proposal.payload);
+	const { payload } = proposal;
 	const [book] = await client
 		.select({ name: books.name })
 		.from(books)

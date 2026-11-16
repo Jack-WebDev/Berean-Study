@@ -1,7 +1,10 @@
+import { eq } from "drizzle-orm";
 import { afterAll, describe, expect, it } from "vitest";
 
 import { pool } from "../src";
+import type { PermissionKey } from "../src/access-catalogue";
 import type { DbExecutor } from "../src/db-executor";
+import { user } from "../src/schema/auth";
 import { applyScriptureCatalogue } from "../src/scripture-setup";
 import { getStaffQueueCounts } from "../src/staff-queues";
 import {
@@ -419,6 +422,34 @@ describe("reading a structure change", () => {
 		});
 	});
 
+	it("names who proposed a change and who decided it", async () => {
+		await inRolledBackTransactionWithoutScripture(async (tx) => {
+			const { first, second } = await setUp(tx);
+			await tx.update(user).set({ name: "Ruth" }).where(eq(user.id, first.id));
+			await tx
+				.update(user)
+				.set({ name: "Lydia" })
+				.where(eq(user.id, second.id));
+			const proposalId = await proposeGreeting(tx, first.id);
+			expect(await getStructureChange(tx, proposalId, first.id)).toMatchObject({
+				deciderName: null,
+				proposedByMe: true,
+				proposerName: "Ruth",
+			});
+
+			await confirm(tx, proposalId, second.id);
+
+			expect(await getStructureChange(tx, proposalId, second.id)).toMatchObject(
+				{
+					deciderName: "Lydia",
+					proposedByMe: false,
+					proposerName: "Ruth",
+					status: "applied",
+				},
+			);
+		});
+	});
+
 	it("lists waiting changes, and returns null for another kind of proposal", async () => {
 		await inRolledBackTransactionWithoutScripture(async (tx) => {
 			const { first, second } = await setUp(tx);
@@ -458,6 +489,25 @@ describe("sidebar counts", () => {
 			);
 			expect((await counts(first.id)).foundationChanges).toBe(
 				before.foundationChanges,
+			);
+		});
+	});
+
+	it("counts only the kinds of change this person may decide", async () => {
+		await inRolledBackTransactionWithoutScripture(async (tx) => {
+			const { first, second } = await setUp(tx);
+			const foundationCount = async (permissionKeys: PermissionKey[]) =>
+				(await getStaffQueueCounts(tx, { permissionKeys, userId: second.id }))
+					.foundationChanges ?? 0;
+			const canonBefore = await foundationCount(["canon.manage"]);
+			const scriptureBefore = await foundationCount(["scripture.manage"]);
+
+			// Adding a verse is decided with scripture.manage, not canon.manage.
+			await proposeGreeting(tx, first.id);
+
+			expect(await foundationCount(["canon.manage"])).toBe(canonBefore);
+			expect(await foundationCount(["scripture.manage"])).toBe(
+				scriptureBefore + 1,
 			);
 		});
 	});

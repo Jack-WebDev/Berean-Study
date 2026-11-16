@@ -158,7 +158,11 @@ async function countOf(query: PromiseLike<{ value: number }[]>) {
  * This deliberately reads no notes, prayers, testimonies, collections or saved
  * items, and it must stay that way: private content is never shown here.
  */
-export async function getPersonProfile(client: DbExecutor, userId: string) {
+export async function getPersonProfile(
+	client: DbExecutor,
+	userId: string,
+	viewerUserId: string,
+) {
 	const [person] = await client
 		.select({
 			id: user.id,
@@ -261,63 +265,49 @@ export async function getPersonProfile(client: DbExecutor, userId: string) {
 		),
 	];
 
-	const proposals = await listProposals(client, {
+	const proposals = await listProposals(client, viewerUserId, {
 		target: { type: "user", id: userId },
 	});
-	const proposerNames = await namesOf(
-		client,
-		proposals.flatMap((proposal) =>
-			proposal.decidedByUserId
-				? [proposal.proposerUserId, proposal.decidedByUserId]
-				: [proposal.proposerUserId],
-		),
-	);
 
 	const pendingRoleChanges = [];
 	for (const proposal of proposals) {
 		if (proposal.kind !== "role_change" || proposal.status !== "proposed") {
 			continue;
 		}
-		const role = await getRoleWithGrants(
-			client,
-			Number(proposal.payload.roleId),
-		);
+		const role = await getRoleWithGrants(client, proposal.payload.roleId);
 		pendingRoleChanges.push({
 			id: proposal.id,
 			description: proposal.description,
 			reason: proposal.reason,
-			change: proposal.payload.change === "revoke" ? "revoke" : "grant",
+			change: proposal.payload.change,
 			proposerUserId: proposal.proposerUserId,
-			proposerName: proposerNames.get(proposal.proposerUserId) ?? "Someone",
+			proposerName: proposal.proposerName,
 			createdAt: proposal.createdAt,
 			wouldGain: (role?.grants ?? []).filter((key) => !heldKeys.includes(key)),
 		});
 	}
 
-	const accessCases = proposals
-		.filter(({ kind }) => kind === "access_case")
-		.map((proposal) => {
-			const days = Number(proposal.payload.expiresInDays);
-			const expiresAt =
-				proposal.status === "applied" && proposal.decidedAt
-					? new Date(proposal.decidedAt.getTime() + days * 86_400_000)
-					: null;
-			return {
-				id: proposal.id,
-				ground: String(proposal.payload.ground),
-				scope: Array.isArray(proposal.payload.scope)
-					? proposal.payload.scope.map(String)
-					: [],
-				reason: proposal.reason,
-				status: proposal.status,
-				decisionNote: proposal.decisionNote,
-				expiresAt,
-				expiresInDays: days,
-				proposerUserId: proposal.proposerUserId,
-				proposerName: proposerNames.get(proposal.proposerUserId) ?? "Someone",
-				createdAt: proposal.createdAt,
-			};
-		});
+	const accessCases = proposals.flatMap((proposal) => {
+		if (proposal.kind !== "access_case") return [];
+		const days = proposal.payload.expiresInDays;
+		const expiresAt =
+			proposal.status === "applied" && proposal.decidedAt
+				? new Date(proposal.decidedAt.getTime() + days * 86_400_000)
+				: null;
+		return {
+			id: proposal.id,
+			ground: proposal.payload.ground,
+			scope: proposal.payload.scope,
+			reason: proposal.reason,
+			status: proposal.status,
+			decisionNote: proposal.decisionNote,
+			expiresAt,
+			expiresInDays: days,
+			proposerUserId: proposal.proposerUserId,
+			proposerName: proposal.proposerName,
+			createdAt: proposal.createdAt,
+		};
+	});
 
 	const roleHistory = await client
 		.select({
@@ -366,16 +356,6 @@ export async function getPersonProfile(client: DbExecutor, userId: string) {
 			details: readAuditDetails(entry.details),
 		})),
 	};
-}
-
-async function namesOf(client: DbExecutor, userIds: string[]) {
-	const ids = [...new Set(userIds)];
-	if (ids.length === 0) return new Map<string, string>();
-	const rows = await client
-		.select({ id: user.id, name: user.name })
-		.from(user)
-		.where(inArray(user.id, ids));
-	return new Map(rows.map(({ id, name }) => [id, name]));
 }
 
 /** The roles someone could be given or lose, and how each would be handled. */
