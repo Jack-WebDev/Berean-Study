@@ -1,6 +1,10 @@
 import { splitScriptureReference } from "@berean-study/db/passage-key";
 import type { StudyWriting as Writing } from "@berean-study/db/reader-study";
-import type { RichTextNode } from "@berean-study/rich-text-editor/document";
+import {
+	getDocumentCommentaryNodes,
+	isValidCitation,
+	type RichTextNode,
+} from "@berean-study/rich-text-editor/document";
 import { cn } from "@berean-study/ui/lib/utils";
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
@@ -84,6 +88,9 @@ function inline(node: RichTextNode, context: Context, key: number): ReactNode {
 		case "hardBreak":
 			return <br key={key} />;
 		case "citation": {
+			// Numbered like the sources list: a citation that doesn't point at an
+			// excerpt has no source, so it gets no number and isn't shown.
+			if (!isValidCitation(a)) return null;
 			const number = context.next;
 			context.next += 1;
 			const open = context.openSource === number;
@@ -242,13 +249,10 @@ export function StudyWriting({
 	);
 }
 
-/** How many citations a piece of writing has, to know which sources it shows. */
-export function countCitations(node: RichTextNode): number {
-	return (
-		(node.type === "citation" ? 1 : 0) +
-		(node.content ?? []).reduce(
-			(total, child) => total + countCitations(child),
-			0,
-		)
-	);
+/**
+ * How many citations a piece of writing has, to know which sources it shows.
+ * Counted the way the server numbers them, so the numbers line up.
+ */
+export function countCitations(document: RichTextNode): number {
+	return getDocumentCommentaryNodes(document).citations.length;
 }

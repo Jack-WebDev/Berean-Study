@@ -172,6 +172,31 @@ async function resolveLeniently(
 	}
 }
 
+type VersesInBook = { bookId: number; from: VersePoint; to: VersePoint };
+
+/** A content passage that overlaps these verses. */
+function passageOnVerses({ bookId, from, to }: VersesInBook) {
+	return and(
+		eq(contentPassages.bookId, bookId),
+		sql`(${contentPassages.fromChapter}, ${contentPassages.fromVerse}) <= (${to.chapter}, ${to.verse})`,
+		sql`(${contentPassages.toChapter}, ${contentPassages.toVerse}) >= (${from.chapter}, ${from.verse})`,
+	);
+}
+
+/**
+ * What readers can see on these verses: a passage that overlaps them, on the
+ * live revision, and shown to readers. The dots beside verses and the study
+ * panel both use this, so a dot always means the panel has something. Join
+ * content_passages, content_revisions and content_items to use it.
+ */
+export function liveOnVerses(verses: VersesInBook) {
+	return and(
+		passageOnVerses(verses),
+		eq(contentRevisions.id, contentItems.liveRevisionId),
+		eq(contentPassages.showsToReaders, true),
+	);
+}
+
 /**
  * What's attached to some verses. `latest` is each item's newest revision, whatever
  * its status, for staff. `live` is only what readers can see right now.
@@ -190,7 +215,6 @@ export async function contentAtPassage(
 		.from(contentRevisions)
 		.groupBy(contentRevisions.contentItemId)
 		.as("newest");
-	const { from, to } = input;
 	const rows = await client
 		.select({
 			body: contentRevisions.body,
@@ -216,16 +240,13 @@ export async function contentAtPassage(
 		.innerJoin(newest, eq(newest.contentItemId, contentItems.id))
 		.where(
 			and(
-				eq(contentPassages.bookId, input.bookId),
-				sql`(${contentPassages.fromChapter}, ${contentPassages.fromVerse}) <= (${to.chapter}, ${to.verse})`,
-				sql`(${contentPassages.toChapter}, ${contentPassages.toVerse}) >= (${from.chapter}, ${from.verse})`,
 				inArray(contentItems.kind, [...options.kinds]),
 				options.revision === "live"
-					? and(
-							eq(contentRevisions.id, contentItems.liveRevisionId),
-							eq(contentPassages.showsToReaders, true),
-						)
-					: eq(contentRevisions.number, newest.number),
+					? liveOnVerses(input)
+					: and(
+							passageOnVerses(input),
+							eq(contentRevisions.number, newest.number),
+						),
 			),
 		)
 		.orderBy(contentItems.title);

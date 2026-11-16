@@ -411,7 +411,13 @@ function ReaderView({
 			(sheet === "study" || desktopPanelOpen) && (studyGroupCount ?? 1) > 0,
 	});
 	const studyState: StudyState =
-		studyGroupCount === 0 ? { kind: "none" } : { kind: "query", query: study };
+		studyGroupCount === 0
+			? { kind: "none" }
+			: study.isPending
+				? { kind: "loading" }
+				: study.isError
+					? { kind: "failed", retry: () => void study.refetch() }
+					: { kind: "ready", study: study.data };
 
 	// Moving between phone and computer widths keeps the chosen verses, and shows
 	// them the way that width does.

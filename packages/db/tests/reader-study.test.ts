@@ -3,6 +3,7 @@ import { afterAll, describe, expect, it } from "vitest";
 
 import { pool } from "../src";
 import { applyAccessCatalogue } from "../src/access-setup";
+import { listStudyMarkers } from "../src/reader";
 import {
 	dailyStudyReportLimit,
 	getVerseStudy,
@@ -384,6 +385,88 @@ describe("study notes for chosen verses", () => {
 				name: "About the text",
 				items: [{ heading: "God's elect", kind: "text_note" }],
 			});
+		});
+	});
+});
+
+describe("the dots beside verses and the study panel", () => {
+	it("agree on every verse about which notes readers can see", async () => {
+		await inStudy(async (setup) => {
+			const romans = await publish(setup.tx, "romans", 8, {
+				28: "And we know…",
+				29: "For whom…",
+				30: "Moreover whom…",
+				31: "What shall we then say…",
+			});
+			const on = (
+				from: [number, number],
+				to: [number, number],
+				showsToReaders = true,
+			) => ({ bookId: romans, from, showsToReaders, to });
+			const wordNote = {
+				gloss: "work together",
+				language: "greek",
+				lemma: "συνεργέω",
+				lexiconKey: "G4903",
+				note: paragraph(text("People working side by side.")),
+				parsing: "verb, present tense",
+				passage: "Romans 8:28",
+				word: "συνεργεῖ",
+			};
+			// Starts in the chapter before, and runs into this one.
+			await addContent(setup, {
+				body: wordNote,
+				kind: "original_language_note",
+				passages: [on([7, 25], [8, 29])],
+				scopeKey: "word-1",
+			});
+			await addContent(setup, {
+				body: {
+					sections: [
+						{
+							body: paragraph(text("Called, justified, glorified.")),
+							key: "s1",
+							range: "",
+							title: "Note",
+						},
+					],
+					title: "The golden chain",
+				},
+				kind: "verse_commentary",
+				passages: [on([8, 30], [8, 30])],
+				scopeKey: "romans:8:30",
+			});
+			// Hidden from readers here, and a draft: neither counts.
+			await addContent(setup, {
+				body: {
+					heading: "Hidden",
+					note: paragraph(text("Not for readers here.")),
+					passage: "Romans 8:31",
+					relatedVariant: null,
+				},
+				kind: "textual_note",
+				passages: [on([8, 31], [8, 31], false)],
+				scopeKey: "tn-hidden",
+			});
+			await addContent(setup, {
+				body: { ...wordNote, word: "Draft" },
+				kind: "original_language_note",
+				live: false,
+				passages: [on([8, 31], [8, 31])],
+				scopeKey: "word-draft",
+			});
+
+			const markers = await listStudyMarkers(setup.tx, {
+				bookSlug: "romans",
+				chapter: 8,
+			});
+			for (const verse of [28, 29, 30, 31]) {
+				const study = await getVerseStudy(setup.tx, studied([verse]));
+				expect(
+					markers.find((marker) => marker.verse === verse)?.groups ?? [],
+				).toEqual(study?.groups.map((group) => group.key));
+			}
+			expect(markers.map(({ verse }) => verse)).toEqual([28, 29, 30]);
 		});
 	});
 });

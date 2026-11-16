@@ -7,7 +7,6 @@ import type {
 	VerseStudy,
 } from "@berean-study/db/reader-study";
 import { cn } from "@berean-study/ui/lib/utils";
-import type { UseQueryResult } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { ChevronLeftIcon, XIcon } from "lucide-react";
 import { type ReactNode, useId, useState } from "react";
@@ -37,7 +36,9 @@ const languageNames = { greek: "Greek", hebrew: "Hebrew" } as const;
 /** What the panel shows: notes, or why there are none yet. */
 export type StudyState =
 	| { kind: "none" }
-	| { kind: "query"; query: UseQueryResult<VerseStudy | null> };
+	| { kind: "loading" }
+	| { kind: "failed"; retry: () => void }
+	| { kind: "ready"; study: VerseStudy | null };
 
 type VerseText = { number: number; text: string };
 
@@ -629,8 +630,7 @@ function StudyNotes({
 	);
 	if (state.kind === "none") return empty;
 
-	const { query } = state;
-	if (query.isPending) {
+	if (state.kind === "loading") {
 		return (
 			<ReaderSkeleton
 				className="mt-4"
@@ -639,13 +639,13 @@ function StudyNotes({
 			/>
 		);
 	}
-	if (query.isError) {
+	if (state.kind === "failed") {
 		return (
 			<ErrorCard
 				className="mt-4"
 				description="Check that you're connected to the internet, then try again."
 				primaryAction={
-					<ReaderButton onClick={() => void query.refetch()} variant="primary">
+					<ReaderButton onClick={state.retry} variant="primary">
 						Try again
 					</ReaderButton>
 				}
@@ -653,14 +653,15 @@ function StudyNotes({
 			/>
 		);
 	}
-	if (!query.data || query.data.groups.length === 0) return empty;
+	const { study } = state;
+	if (!study || study.groups.length === 0) return empty;
 
 	return (
 		<>
 			<TrustLine className="mt-4" />
 			{/* A fresh set of open groups for each choice of verses. */}
 			<StudyGroups
-				groups={query.data.groups}
+				groups={study.groups}
 				key={reference}
 				onReport={setReporting}
 			/>

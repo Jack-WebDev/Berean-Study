@@ -2,8 +2,10 @@ import { and, asc, desc, eq, gte, inArray, lte, max, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import { addPassagesToCollection } from "./collections";
+import { liveOnVerses } from "./content-links";
 import type { DbExecutor } from "./db-executor";
 import { GovernanceError } from "./governance-error";
+import { THROUGH_CHAPTER_END } from "./passage-key";
 import {
 	type BrowseTestament,
 	chapterLabel,
@@ -704,17 +706,15 @@ export async function listStudyMarkers(
 		)
 		.innerJoin(
 			contentItems,
-			and(
-				eq(contentItems.id, contentRevisions.contentItemId),
-				eq(contentItems.liveRevisionId, contentRevisions.id),
-			),
+			eq(contentItems.id, contentRevisions.contentItemId),
 		)
 		.where(
 			and(
-				eq(contentPassages.bookId, book.id),
-				eq(contentPassages.showsToReaders, true),
-				lte(contentPassages.fromChapter, input.chapter),
-				gte(contentPassages.toChapter, input.chapter),
+				liveOnVerses({
+					bookId: book.id,
+					from: { chapter: input.chapter, verse: 1 },
+					to: { chapter: input.chapter, verse: THROUGH_CHAPTER_END },
+				}),
 				inArray(contentItems.kind, [...studyContentKinds]),
 			),
 		);
