@@ -6,7 +6,6 @@ import {
 	getPassageText,
 	getPreferredTranslation,
 	getVerseRangeText,
-	listRecentPassages,
 	listTranslations,
 } from "@/functions/passages";
 
@@ -59,10 +58,4 @@ export const preferredTranslationQueryOptions = () =>
 	queryOptions({
 		queryKey: passageKeys.preferredTranslation(),
 		queryFn: () => getPreferredTranslation(),
-	});
-
-export const recentPassagesQueryOptions = () =>
-	queryOptions({
-		queryKey: passageKeys.recent(),
-		queryFn: () => listRecentPassages(),
 	});

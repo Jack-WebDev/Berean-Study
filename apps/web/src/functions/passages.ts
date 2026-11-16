@@ -7,7 +7,6 @@ import {
 	getVerseRangeText as getVerseRangeTextFromDb,
 	listTranslations as listTranslationsFromDb,
 } from "@berean-study/db/passages";
-import { listRecentPassages as listRecentPassagesFromDb } from "@berean-study/db/reader-home";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
@@ -77,22 +76,4 @@ export const getPreferredTranslation = createServerFn({ method: "GET" })
 	.handler(({ context }) => {
 		const userId = requireUserId(context.session);
 		return getPreferredTranslationFromDb(db, userId);
-	});
-
-/** The member's three most recently read passages, newest first. */
-export const listRecentPassages = createServerFn({ method: "GET" })
-	.middleware([authMiddleware])
-	.handler(async ({ context }) => {
-		const userId = requireUserId(context.session);
-		const recent = await listRecentPassagesFromDb(db, userId, 10);
-		// Reading history records every visit, so keep each passage's latest.
-		const unique = recent.filter(
-			(passage, index) =>
-				recent.findIndex((other) => other.passageId === passage.passageId) ===
-				index,
-		);
-		return unique.slice(0, 3).map((passage) => ({
-			id: passage.passageId,
-			label: passage.title ?? passage.bookName,
-		}));
 	});

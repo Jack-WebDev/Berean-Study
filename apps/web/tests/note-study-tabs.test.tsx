@@ -15,8 +15,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const passageMocks = vi.hoisted(() => ({
 	getPassageStudyContext: vi.fn(),
 	getPassageText: vi.fn(),
-	listRecentPassages: vi.fn(),
 	listTranslations: vi.fn(),
+}));
+const readerMocks = vi.hoisted(() => ({
+	listRecentChapters: vi.fn(),
+	passageForChapter: vi.fn(),
 }));
 
 vi.mock("../src/functions/passages", () => ({
@@ -24,6 +27,7 @@ vi.mock("../src/functions/passages", () => ({
 	getPassageOptions: vi.fn(),
 	getPreferredTranslation: vi.fn(),
 }));
+vi.mock("../src/functions/reader", () => readerMocks);
 vi.mock("../src/functions/notes", () => ({
 	listNotes: vi.fn(),
 	listNoteTags: vi.fn(),
@@ -154,12 +158,18 @@ describe("Passage tab", () => {
 			relatedPassages: [{ id: 9, label: "John 5:39" }],
 			themes: [],
 		});
-		passageMocks.listRecentPassages.mockResolvedValue([
-			{ id: 3, label: "Psalm 119:105" },
+		readerMocks.listRecentChapters.mockResolvedValue([
+			{
+				book: { name: "Psalms", slug: "psalms" },
+				chapter: 119,
+				label: "Psalm 119",
+				visitedAt: new Date("2026-11-01"),
+			},
 		]);
+		readerMocks.passageForChapter.mockResolvedValue(3);
 	});
 
-	it("searches and lists recent passages before one is linked", async () => {
+	it("lists recently read chapters and searches passages before one is linked", async () => {
 		const onLinkPassage = vi.fn();
 		renderWithQueryClient(
 			<NotePassageTab
@@ -181,9 +191,12 @@ describe("Passage tab", () => {
 		);
 
 		fireEvent.click(
-			await screen.findByRole("button", { name: "Link Psalm 119:105" }),
+			await screen.findByRole("button", { name: "Link Psalm 119" }),
 		);
-		expect(onLinkPassage).toHaveBeenCalledWith(3);
+		await vi.waitFor(() => expect(onLinkPassage).toHaveBeenCalledWith(3));
+		expect(readerMocks.passageForChapter).toHaveBeenCalledWith({
+			data: { bookSlug: "psalms", chapter: 119 },
+		});
 
 		fireEvent.change(screen.getByLabelText("Find a passage"), {
 			target: { value: "romans" },

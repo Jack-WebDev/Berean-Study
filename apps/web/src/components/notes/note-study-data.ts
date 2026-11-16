@@ -13,10 +13,10 @@ import {
 	passageStudyContextQueryOptions,
 	passageTextQueryOptions,
 	preferredTranslationQueryOptions,
-	recentPassagesQueryOptions,
 	translationsQueryOptions,
 	verseRangeTextQueryOptions,
 } from "@/queries/passages";
+import { recentChaptersQueryOptions } from "@/queries/reader";
 
 export type PassageOption = Awaited<
 	ReturnType<typeof getPassageOptions>
@@ -56,8 +56,9 @@ export function usePreferredTranslation() {
 	return useQuery(preferredTranslationQueryOptions());
 }
 
-export function useRecentPassages() {
-	return useQuery(recentPassagesQueryOptions());
+/** What the member has read recently in the Bible, newest first. */
+export function useRecentChapters() {
+	return useQuery(recentChaptersQueryOptions());
 }
 
 export function useNoteTagSuggestions() {

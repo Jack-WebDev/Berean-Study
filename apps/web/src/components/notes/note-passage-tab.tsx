@@ -3,9 +3,13 @@ import type {
 	VerseBlockAttributes,
 } from "@berean-study/rich-text-editor";
 import { Button } from "@berean-study/ui/components/button";
+import { useMutation } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { ArrowRightIcon, PlusIcon } from "lucide-react";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
+
+import { passageForChapter } from "@/functions/reader";
 
 import {
 	extendSelection,
@@ -20,7 +24,7 @@ import {
 import {
 	type PassageOption,
 	usePassageText,
-	useRecentPassages,
+	useRecentChapters,
 	useRelatedPassages,
 } from "./note-study-data";
 
@@ -91,7 +95,15 @@ function UnlinkedPassagePanel({
 	passages: readonly PassageOption[] | null;
 	translation: string | null;
 }) {
-	const recent = useRecentPassages();
+	const recent = useRecentChapters();
+	// A note links to a stored passage, so a chapter becomes one when it's picked.
+	const linkChapter = useMutation({
+		mutationFn: (chapter: { bookSlug: string; chapter: number }) =>
+			passageForChapter({ data: chapter }),
+		onSuccess: (passageId) => onLinkPassage(passageId),
+		onError: () =>
+			toast.error("Unable to link that chapter. Please try again."),
+	});
 
 	return (
 		<div className="flex flex-col gap-4">
@@ -117,11 +129,16 @@ function UnlinkedPassagePanel({
 					>
 						Recent
 					</h3>
-					{recent.data.map((passage) => (
+					{recent.data.map((recentChapter) => (
 						<PassageRow
-							key={passage.id}
-							label={`Link ${passage.label}`}
-							onClick={() => onLinkPassage(passage.id)}
+							key={`${recentChapter.book.slug}-${recentChapter.chapter}`}
+							label={`Link ${recentChapter.label}`}
+							onClick={() =>
+								linkChapter.mutate({
+									bookSlug: recentChapter.book.slug,
+									chapter: recentChapter.chapter,
+								})
+							}
 							trailing={
 								translation ? (
 									<span className="text-muted-foreground text-xs">
@@ -130,7 +147,7 @@ function UnlinkedPassagePanel({
 								) : null
 							}
 						>
-							{passage.label}
+							{recentChapter.label}
 						</PassageRow>
 					))}
 				</section>

@@ -15,6 +15,7 @@ import {
 	listReaderTranslations as listReaderTranslationsFromDb,
 	listRecentChapters as listRecentChaptersFromDb,
 	listStudyMarkers,
+	passageForChapter as passageForChapterInDb,
 	passagesForVerses as passagesForVersesInDb,
 	recordChapterVisit as recordChapterVisitInDb,
 	saveReadingPlace as saveReadingPlaceInDb,
@@ -324,6 +325,17 @@ export const addVersesToCollection = createServerFn({ method: "POST" })
 			verses,
 		);
 	});
+
+/**
+ * The stored passage for a whole chapter, so a note can link to a chapter the
+ * member has read. Made the first time it's asked for.
+ */
+export const passageForChapter = createServerFn({ method: "POST" })
+	.middleware([authMiddleware])
+	.validator(chapterSchema)
+	.handler(({ context, data }) =>
+		passageForChapterInDb(db, requireUserId(context.session), data),
+	);
 
 /** Undo for adding verses to a collection. */
 export const removeVersesFromCollection = createServerFn({ method: "POST" })

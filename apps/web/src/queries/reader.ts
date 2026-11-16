@@ -135,12 +135,22 @@ export function invalidateReaderMarks(queryClient: QueryClient) {
 	]);
 }
 
-/** Moving through the Bible changes Continue reading on Home and Library. */
-export function invalidateReadingPlace(queryClient: QueryClient) {
-	return Promise.all([
-		queryClient.invalidateQueries({ queryKey: readerKeys.place() }),
-		queryClient.invalidateQueries({ queryKey: readerKeys.allBooks() }),
-		queryClient.invalidateQueries({ queryKey: readerKeys.recentChapters() }),
-		queryClient.invalidateQueries({ queryKey: libraryKeys.all }),
-	]);
+/**
+ * Moving through the Bible changes Continue reading and recently read chapters
+ * on Browse, the book pages, Home, Library and Notes.
+ */
+export function invalidateReadingPlace(
+	queryClient: QueryClient,
+	{ refetchType }: { refetchType?: "active" | "none" } = {},
+) {
+	return Promise.all(
+		[
+			readerKeys.place(),
+			readerKeys.allBooks(),
+			readerKeys.recentChapters(),
+			libraryKeys.all,
+		].map((queryKey) =>
+			queryClient.invalidateQueries({ queryKey, refetchType }),
+		),
+	);
 }

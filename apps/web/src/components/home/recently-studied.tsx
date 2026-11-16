@@ -1,5 +1,7 @@
+import type { RecentChapter } from "@berean-study/db/reader";
 import type { ReaderHomeOverview } from "@berean-study/db/reader-home";
 import { cn } from "@berean-study/ui/lib/utils";
+import { Link } from "@tanstack/react-router";
 import {
 	ArrowRightIcon,
 	BookOpenIcon,
@@ -52,7 +54,7 @@ export function RecentlyStudied({
 					{rest.map((passage, index) => (
 						<RecentStudyMiniCard
 							index={index}
-							key={`${passage.bookName}-${passage.visitedAt.toString()}`}
+							key={`${passage.book.slug}-${passage.chapter}`}
 							passage={passage}
 						/>
 					))}
@@ -70,15 +72,12 @@ export function RecentlyStudied({
 	);
 }
 
-function FeaturedRecentStudyCard({
-	passage,
-}: {
-	passage: ReaderHomeOverview["recentlyRead"][number];
-}) {
+function FeaturedRecentStudyCard({ passage }: { passage: RecentChapter }) {
 	return (
-		<a
+		<Link
 			className="group relative block overflow-hidden rounded-[28px] border border-border/70 bg-[linear-gradient(135deg,color-mix(in_oklch,var(--secondary)_88%,var(--background)),color-mix(in_oklch,var(--accent)_22%,var(--secondary)))] p-7 shadow-[0_10px_30px_color-mix(in_oklch,var(--foreground)_8%,transparent)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_42px_color-mix(in_oklch,var(--foreground)_12%,transparent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:p-8"
-			href="/history"
+			params={{ book: passage.book.slug, chapter: passage.chapter }}
+			to="/bible/$book/$chapter"
 		>
 			<div className="relative flex min-h-72.5 flex-col">
 				<div className="flex items-start justify-between gap-4">
@@ -104,11 +103,11 @@ function FeaturedRecentStudyCard({
 
 				<div className="mt-8">
 					<h3 className="max-w-xl text-balance font-serif text-4xl tracking-[-0.04em] sm:text-[2.65rem] sm:leading-[1.02]">
-						{passage.title ?? passage.bookName}
+						{passage.label}
 					</h3>
 
 					<p className="mt-3 max-w-lg text-muted-foreground text-sm leading-6 sm:text-[15px]">
-						Return to this passage and continue where your study left off.
+						Return to this chapter and continue where your study left off.
 					</p>
 				</div>
 
@@ -119,7 +118,7 @@ function FeaturedRecentStudyCard({
 					</span>
 				</div>
 			</div>
-		</a>
+		</Link>
 	);
 }
 
@@ -128,12 +127,12 @@ function RecentStudyMiniCard({
 	passage,
 }: {
 	index: number;
-	passage: ReaderHomeOverview["recentlyRead"][number];
+	passage: RecentChapter;
 }) {
 	const variant = index % 3;
 
 	return (
-		<a
+		<Link
 			className={cn(
 				"group relative overflow-hidden rounded-2xl border px-4 py-4 transition-all duration-200 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
 				variant === 0 &&
@@ -143,7 +142,8 @@ function RecentStudyMiniCard({
 				variant === 2 &&
 					"border-secondary bg-[linear-gradient(135deg,var(--secondary),var(--card))]",
 			)}
-			href="/history"
+			params={{ book: passage.book.slug, chapter: passage.chapter }}
+			to="/bible/$book/$chapter"
 		>
 			<div
 				className={cn(
@@ -172,7 +172,7 @@ function RecentStudyMiniCard({
 
 				<div className="min-w-0 flex-1">
 					<p className="truncate font-serif text-lg tracking-[-0.02em]">
-						{passage.title ?? passage.bookName}
+						{passage.label}
 					</p>
 
 					<p className="mt-1 text-muted-foreground text-xs">
@@ -185,6 +185,6 @@ function RecentStudyMiniCard({
 					className="size-4 shrink-0 text-muted-foreground transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-foreground"
 				/>
 			</div>
-		</a>
+		</Link>
 	);
 }

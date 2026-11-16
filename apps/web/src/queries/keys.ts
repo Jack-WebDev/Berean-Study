@@ -222,7 +222,6 @@ export const passageKeys = {
 	translations: () => [...passageKeys.all, "translations"] as const,
 	preferredTranslation: () =>
 		[...passageKeys.all, "preferred-translation"] as const,
-	recent: () => [...passageKeys.all, "recent"] as const,
 };
 
 export const collectionKeys = {
@@ -307,7 +306,7 @@ export const moderationKeys = {
 export const libraryKeys = {
 	all: ["library"] as const,
 	home: () => [...libraryKeys.all, "home"] as const,
-	continueReading: () => [...libraryKeys.all, "continue-reading"] as const,
+	readingState: () => [...libraryKeys.all, "reading-state"] as const,
 	destinationCounts: () => [...libraryKeys.all, "destination-counts"] as const,
 	recentActivity: () => [...libraryKeys.all, "recent-activity"] as const,
 	recentlyStudied: () => [...libraryKeys.all, "recently-studied"] as const,

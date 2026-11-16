@@ -1,8 +1,8 @@
 import { queryOptions } from "@tanstack/react-query";
 
 import {
-	getContinueReading,
 	getLibraryDestinationCounts,
+	getLibraryReadingState,
 	getRecentLibraryActivity,
 	getRecentlyStudied,
 } from "@/functions/get-library-overview";
@@ -17,10 +17,10 @@ export const readerHomeQueryOptions = () =>
 		queryFn: () => getReaderHomeOverview(),
 	});
 
-export const continueReadingQueryOptions = () =>
+export const libraryReadingStateQueryOptions = () =>
 	queryOptions({
-		queryKey: libraryKeys.continueReading(),
-		queryFn: () => getContinueReading(),
+		queryKey: libraryKeys.readingState(),
+		queryFn: () => getLibraryReadingState(),
 	});
 
 export const libraryDestinationCountsQueryOptions = () =>

@@ -999,35 +999,10 @@ export async function passagesForVerses(
 			input.chapter,
 			Array.from({ length: last - first + 1 }, (_, index) => first + index),
 		);
-		// Ranges are stored per numbering system, and a passage has one range in each.
-		const [existing] = await client
-			.select({ passageId: passageRanges.passageId })
-			.from(passageRanges)
-			.where(
-				and(
-					eq(passageRanges.versificationSystemId, start.versificationSystemId),
-					eq(passageRanges.startVerseId, start.verseId),
-					eq(passageRanges.endVerseId, end.verseId),
-				),
-			)
-			.orderBy(asc(passageRanges.passageId))
-			.limit(1);
-		if (existing) {
-			result.push({ label, passageId: existing.passageId });
-			continue;
-		}
-		const [created] = await client
-			.insert(passages)
-			.values({ bookId: book.id, title: label })
-			.returning({ id: passages.id });
-		if (!created) throw new Error("Could not save these verses.");
-		await client.insert(passageRanges).values({
-			endVerseId: end.verseId,
-			passageId: created.id,
-			startVerseId: start.verseId,
-			versificationSystemId: start.versificationSystemId,
+		result.push({
+			label,
+			passageId: await storedPassageFor(client, book.id, start, end, label),
 		});
-		result.push({ label, passageId: created.id });
 	}
 	return {
 		label: selectionLabel(
@@ -1037,6 +1012,77 @@ export async function passagesForVerses(
 		),
 		passages: result,
 	};
+}
+
+type VerseRow = { verseId: number; versificationSystemId: number };
+
+/** The stored passage running from `start` to `end`, made if there isn't one yet. */
+async function storedPassageFor(
+	client: DbExecutor,
+	bookId: number,
+	start: VerseRow,
+	end: VerseRow,
+	title: string,
+) {
+	// Ranges are stored per numbering system, and a passage has one range in each.
+	const [existing] = await client
+		.select({ passageId: passageRanges.passageId })
+		.from(passageRanges)
+		.where(
+			and(
+				eq(passageRanges.versificationSystemId, start.versificationSystemId),
+				eq(passageRanges.startVerseId, start.verseId),
+				eq(passageRanges.endVerseId, end.verseId),
+			),
+		)
+		.orderBy(asc(passageRanges.passageId))
+		.limit(1);
+	if (existing) return existing.passageId;
+	const [created] = await client
+		.insert(passages)
+		.values({ bookId, title })
+		.returning({ id: passages.id });
+	if (!created) throw new Error("Could not save these verses.");
+	await client.insert(passageRanges).values({
+		endVerseId: end.verseId,
+		passageId: created.id,
+		startVerseId: start.verseId,
+		versificationSystemId: start.versificationSystemId,
+	});
+	return created.id;
+}
+
+/**
+ * The stored passage for a whole chapter, made if needed, so a note can link to
+ * a chapter the member has read. It runs from the first to the last verse with
+ * text in their reading translation.
+ */
+export async function passageForChapter(
+	client: DbExecutor,
+	userId: string,
+	input: { bookSlug: string; chapter: number },
+) {
+	const preferences = await getReadingPreferences(client, userId);
+	const translation = await chooseReaderTranslation(client, [
+		preferences.translationAbbreviation,
+	]);
+	if (!translation) throw new GovernanceError("This chapter isn't available.");
+	const { book, rows } = await chapterVerseRows(client, {
+		...input,
+		translationAbbreviation: translation.abbreviation,
+	});
+	const ordered = [...rows].sort((a, b) => a.number - b.number);
+	const first = ordered[0];
+	const last = ordered.at(-1);
+	if (!first || !last)
+		throw new GovernanceError("This chapter isn't available.");
+	return storedPassageFor(
+		client,
+		book.id,
+		first,
+		last,
+		chapterLabel(book.name, input.chapter),
+	);
 }
 
 /**
@@ -1201,32 +1247,42 @@ export async function recordChapterVisit(
 		.values({ bookId: book.id, chapter: input.chapter, userId });
 }
 
-/** The member's most recently read chapters, newest first, each listed once. */
+export type RecentChapter = Awaited<
+	ReturnType<typeof listRecentChapters>
+>[number];
+
+/**
+ * The member's most recently read chapters, newest first, each listed once. The
+ * one answer to "what did they read recently", wherever the app shows it.
+ */
 export async function listRecentChapters(
 	client: DbExecutor,
 	userId: string,
 	limit = 3,
 ) {
+	const lastVisit = max(readingHistory.visitedAt);
 	const rows = await client
 		.select({
 			bookName: books.name,
 			bookSlug: books.slug,
 			chapter: readingHistory.chapter,
+			visitedAt: lastVisit,
 		})
 		.from(readingHistory)
 		.innerJoin(books, eq(books.id, readingHistory.bookId))
 		.where(eq(readingHistory.userId, userId))
 		.groupBy(books.id, readingHistory.chapter)
-		.orderBy(desc(sql`max(${readingHistory.visitedAt})`))
+		.orderBy(desc(lastVisit))
 		.limit(limit);
 	return rows.flatMap((row) =>
-		row.chapter === null
+		row.chapter === null || row.visitedAt === null
 			? []
 			: [
 					{
 						book: { name: row.bookName, slug: row.bookSlug },
 						chapter: row.chapter,
 						label: chapterLabel(row.bookName, row.chapter),
+						visitedAt: row.visitedAt,
 					},
 				],
 	);

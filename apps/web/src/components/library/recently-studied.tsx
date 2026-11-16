@@ -1,4 +1,4 @@
-import type { RecentPassage } from "@berean-study/db/reader-home";
+import type { RecentChapter } from "@berean-study/db/reader";
 import { Separator } from "@berean-study/ui/components/separator";
 import { Skeleton } from "@berean-study/ui/components/skeleton";
 import { Link } from "@tanstack/react-router";
@@ -7,7 +7,7 @@ import { formatRelativeDay } from "@/utils/dates";
 export type RecentlyStudiedState =
 	| { status: "error" }
 	| { status: "loading" }
-	| { items: RecentPassage[]; status: "ready" };
+	| { items: RecentChapter[]; status: "ready" };
 
 export function RecentlyStudiedSection({
 	state,
@@ -35,27 +35,27 @@ export function RecentlyStudiedSection({
 	);
 }
 
-function RecentlyStudiedList({ items }: { items: RecentPassage[] }) {
+function RecentlyStudiedList({ items }: { items: RecentChapter[] }) {
 	return (
 		<div className="mt-4">
-			{items.map((passage, index) => (
-				<div key={`${passage.passageId}-${passage.visitedAt.toISOString()}`}>
+			{items.map((recent, index) => (
+				<div key={`${recent.book.slug}-${recent.chapter}`}>
 					{index > 0 ? <Separator /> : null}
 					<Link
 						className="flex items-center gap-4 py-4 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-						search={{ passage: passage.passageId }}
-						to="/bible"
+						params={{ book: recent.book.slug, chapter: recent.chapter }}
+						to="/bible/$book/$chapter"
 					>
 						<span className="min-w-0 flex-1">
 							<span className="block truncate font-medium text-sm">
-								{passage.title ?? passage.bookName}
+								{recent.label}
 							</span>
 						</span>
 						<time
 							className="shrink-0 text-muted-foreground text-sm"
-							dateTime={passage.visitedAt.toISOString()}
+							dateTime={recent.visitedAt.toISOString()}
 						>
-							{formatRelativeDay(passage.visitedAt)}
+							{formatRelativeDay(recent.visitedAt)}
 						</time>
 					</Link>
 				</div>
@@ -79,7 +79,7 @@ function RecentlyStudiedLoading() {
 function RecentlyStudiedEmpty() {
 	return (
 		<p className="mt-4 max-w-md text-muted-foreground text-sm leading-6">
-			Passages you study will appear here.
+			Chapters you read in the Bible will appear here.
 		</p>
 	);
 }

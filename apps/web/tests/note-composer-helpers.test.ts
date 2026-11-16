@@ -7,6 +7,7 @@ vi.mock("../src/functions/notes", () => ({
 	saveNote: vi.fn(),
 }));
 vi.mock("../src/functions/passages", () => ({}));
+vi.mock("../src/functions/reader", () => ({}));
 
 import {
 	noteToPlainText,

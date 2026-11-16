@@ -2,8 +2,8 @@ import { type UseQueryResult, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { LibraryPage } from "@/components/library/library-page";
 import {
-	continueReadingQueryOptions,
 	libraryDestinationCountsQueryOptions,
+	libraryReadingStateQueryOptions,
 	recentLibraryActivityQueryOptions,
 	recentlyStudiedQueryOptions,
 } from "@/queries/library";
@@ -14,7 +14,7 @@ export const Route = createFileRoute("/_auth/library/")({
 	// still opens and that section shows its own error message.
 	loader: ({ context: { queryClient } }) =>
 		Promise.all([
-			queryClient.query(continueReadingQueryOptions()).catch(ignoreError),
+			queryClient.query(libraryReadingStateQueryOptions()).catch(ignoreError),
 			queryClient
 				.query(libraryDestinationCountsQueryOptions())
 				.catch(ignoreError),
@@ -25,7 +25,7 @@ export const Route = createFileRoute("/_auth/library/")({
 });
 
 function LibraryRoute() {
-	const continueReading = useQuery(continueReadingQueryOptions());
+	const continueReading = useQuery(libraryReadingStateQueryOptions());
 	const destinationCounts = useQuery(libraryDestinationCountsQueryOptions());
 	const recentActivity = useQuery(recentLibraryActivityQueryOptions());
 	const recentlyStudied = useQuery(recentlyStudiedQueryOptions());

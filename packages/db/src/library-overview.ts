@@ -3,7 +3,8 @@ import {
 	getLibraryDestinationCounts,
 	type LibraryDestinationCounts,
 } from "./library-destination-counts";
-import { getLibraryReadingState, listRecentPassages } from "./reader-home";
+import { listRecentChapters } from "./reader";
+import { getLibraryReadingState } from "./reader-home";
 import {
 	listRecentLibraryActivity,
 	type RecentLibraryActivity,
@@ -15,7 +16,7 @@ export type LibraryOverview = {
 	continueReading: Awaited<ReturnType<typeof getLibraryReadingState>>;
 	destinationCounts: LibraryDestinationCounts;
 	recentActivity: RecentLibraryActivity[];
-	recentlyStudied: Awaited<ReturnType<typeof listRecentPassages>>;
+	recentlyStudied: Awaited<ReturnType<typeof listRecentChapters>>;
 };
 
 /** Returns only the compact summaries needed by the Library landing page. */
@@ -28,7 +29,7 @@ export async function getLibraryOverview(
 			getLibraryReadingState(db, userId),
 			getLibraryDestinationCounts(db, userId),
 			listRecentLibraryActivity(db, userId),
-			listRecentPassages(db, userId),
+			listRecentChapters(db, userId, 5),
 		]);
 
 	return {

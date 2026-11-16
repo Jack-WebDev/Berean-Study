@@ -92,10 +92,7 @@ function Hero({
 	const mostRecent = overview?.recentlyRead[0];
 
 	const currentTitle =
-		continueReading?.label ??
-		mostRecent?.title ??
-		mostRecent?.bookName ??
-		"Continue your study";
+		continueReading?.label ?? mostRecent?.label ?? "Continue your study";
 
 	return (
 		<section className="relative isolate overflow-hidden border-border/60 border-b">

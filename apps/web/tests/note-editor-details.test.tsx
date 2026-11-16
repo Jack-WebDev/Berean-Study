@@ -15,6 +15,7 @@ vi.mock("../src/functions/notes", () => noteMocks);
 vi.mock("../src/functions/community", () => communityMocks);
 vi.mock("../src/functions/collections", () => ({}));
 vi.mock("../src/functions/passages", () => ({}));
+vi.mock("../src/functions/reader", () => ({}));
 vi.mock("@tanstack/react-router", () => ({
 	Link: ({ children }: { children: ReactNode }) => (
 		<a href="/library/notes">{children}</a>

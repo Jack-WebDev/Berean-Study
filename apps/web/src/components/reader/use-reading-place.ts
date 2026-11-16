@@ -1,11 +1,10 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { type RefObject, useEffect, useRef } from "react";
+import { type RefObject, useEffect } from "react";
 
 import { recordChapterVisit, saveReadingPlace } from "@/functions/reader";
-import { libraryKeys, readerKeys } from "@/queries/keys";
+import { invalidateReadingPlace } from "@/queries/reader";
 
-/** Wait this long after scrolling stops before saving, so a quick flick isn't saved. */
-const saveDelayMs = 1500;
+import { createPlaceSaver } from "./place-saver";
 
 /**
  * The verse at the top of the reading area: the first one whose bottom edge is
@@ -48,77 +47,61 @@ export function useReadingPlace({
 			saveReadingPlace({
 				data: { bookSlug, chapter, translationAbbreviation, verse },
 			}),
-		onSuccess: () => {
-			// Mark them out of date without refetching now; they refresh when next shown.
-			void queryClient.invalidateQueries({
-				queryKey: readerKeys.place(),
-				refetchType: "none",
-			});
-			void queryClient.invalidateQueries({ queryKey: libraryKeys.all });
-		},
+		// Marked out of date without refetching now; they refresh when next shown.
+		onSuccess: () =>
+			invalidateReadingPlace(queryClient, { refetchType: "none" }),
 	});
 	const { mutate: recordVisit } = useMutation({
 		mutationFn: () => recordChapterVisit({ data: { bookSlug, chapter } }),
 		onSuccess: () =>
-			queryClient.invalidateQueries({ queryKey: readerKeys.recentChapters() }),
+			invalidateReadingPlace(queryClient, { refetchType: "none" }),
 	});
-
-	const lastSaved = useRef<number | null>(null);
 
 	useEffect(() => {
 		if (!enabled) return;
 		recordVisit();
 
+		const saver = createPlaceSaver({
+			measure: () => {
+				const list = listRef.current;
+				if (!list) return null;
+				// On short screens the header scrolls away, so never measure above the screen.
+				const headerBottom = Math.max(
+					0,
+					headerRef.current?.getBoundingClientRect().bottom ?? 0,
+				);
+				return verseAtTop(list, headerBottom);
+			},
+			save: savePlace,
+		});
+
 		// Noted while scrolling, at most once a frame, because by the time the
 		// reader leaves the chapter its verses are already off the page.
-		let verseInView: number | null = null;
 		let frame: number | undefined;
-		let timer: number | undefined;
-		const noteVerseInView = () => {
-			const list = listRef.current;
-			if (!list) return;
-			// On short screens the header scrolls away, so never measure above the screen.
-			const headerBottom = Math.max(
-				0,
-				headerRef.current?.getBoundingClientRect().bottom ?? 0,
-			);
-			verseInView = verseAtTop(list, headerBottom) ?? verseInView;
-		};
-		const saveNow = () => {
-			window.clearTimeout(timer);
-			timer = undefined;
-			if (verseInView === null || verseInView === lastSaved.current) return;
-			lastSaved.current = verseInView;
-			savePlace(verseInView);
-		};
 		const onScroll = () => {
 			if (frame === undefined) {
 				frame = window.requestAnimationFrame(() => {
 					frame = undefined;
-					noteVerseInView();
+					saver.noteVerse();
 				});
 			}
-			window.clearTimeout(timer);
-			timer = window.setTimeout(saveNow, saveDelayMs);
+			saver.saveSoon();
 		};
 		const saveIfLeaving = () => {
-			if (document.visibilityState === "hidden") saveNow();
+			if (document.visibilityState === "hidden") saver.saveNow();
 		};
 
 		// Opening a chapter counts as being there, once the page has settled.
-		timer = window.setTimeout(() => {
-			noteVerseInView();
-			saveNow();
-		}, saveDelayMs);
+		saver.saveSoon();
 		window.addEventListener("scroll", onScroll, { passive: true });
-		window.addEventListener("pagehide", saveNow);
+		window.addEventListener("pagehide", saver.saveNow);
 		document.addEventListener("visibilitychange", saveIfLeaving);
 		return () => {
 			window.removeEventListener("scroll", onScroll);
-			window.removeEventListener("pagehide", saveNow);
+			window.removeEventListener("pagehide", saver.saveNow);
 			document.removeEventListener("visibilitychange", saveIfLeaving);
 			if (frame !== undefined) window.cancelAnimationFrame(frame);
-			saveNow();
+			saver.saveNow();
 		};
 	}, [enabled, headerRef, listRef, recordVisit, savePlace]);
 }

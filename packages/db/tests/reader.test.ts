@@ -18,6 +18,7 @@ import {
 	listReaderTranslations,
 	listRecentChapters,
 	listStudyMarkers,
+	passageForChapter,
 	passagesForVerses,
 	recordChapterVisit,
 	saveReadingPlace,
@@ -27,6 +28,7 @@ import {
 	undoHighlightChange,
 	unsaveVerses,
 } from "../src/reader";
+import { getReaderHomeOverview } from "../src/reader-home";
 import { bookmarks } from "../src/schema/bookmarks";
 import { books } from "../src/schema/books";
 import { chapters } from "../src/schema/chapters";
@@ -771,6 +773,42 @@ describe("place and history", () => {
 			expect(
 				(await listRecentChapters(tx, userId)).map((recent) => recent.label),
 			).toEqual(["Romans 8", "John 3", "Psalm 23"]);
+		});
+	});
+
+	it("shows chapters read in the Bible as recently read on Home", async () => {
+		await inReader(async (tx, userId) => {
+			await recordChapterVisit(tx, userId, { bookSlug: "romans", chapter: 8 });
+
+			const overview = await getReaderHomeOverview(tx, userId);
+			expect(overview.recentlyRead).toEqual([
+				{
+					book: { name: "Romans", slug: "romans" },
+					chapter: 8,
+					label: "Romans 8",
+					visitedAt: expect.any(Date),
+				},
+			]);
+		});
+	});
+
+	it("gives a read chapter one stored passage, so a note can link to it", async () => {
+		await inReader(async (tx, userId) => {
+			await publish(tx, "romans", 8, romans8);
+			const input = { bookSlug: "romans", chapter: 8 };
+
+			const passageId = await passageForChapter(tx, userId, input);
+			expect(await passageForChapter(tx, userId, input)).toBe(passageId);
+			expect(await getPassageStart(tx, passageId)).toEqual({
+				bookSlug: "romans",
+				chapter: 8,
+				verse: 28,
+			});
+			const [stored] = await tx
+				.select({ title: passages.title })
+				.from(passages)
+				.where(eq(passages.id, passageId));
+			expect(stored?.title).toBe("Romans 8");
 		});
 	});
 });

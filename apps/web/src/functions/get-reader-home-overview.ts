@@ -1,3 +1,4 @@
+import { db } from "@berean-study/db";
 import { getReaderHomeOverview as getReaderHomeOverviewFromDb } from "@berean-study/db/reader-home";
 import { createServerFn } from "@tanstack/react-start";
 
@@ -10,5 +11,5 @@ export const getReaderHomeOverview = createServerFn({ method: "GET" })
 			return null;
 		}
 
-		return getReaderHomeOverviewFromDb(context.session.user.id);
+		return getReaderHomeOverviewFromDb(db, context.session.user.id);
 	});
